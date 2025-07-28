@@ -1,0 +1,114 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <OutputType>WinExe</OutputType>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>DC_Font_Generator</RootNamespace>
+    <AssemblyName>DC Font Generator</AssemblyName>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <FileAlignment>512</FileAlignment>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ForceDesignerDpiUnaware>true</ForceDesignerDpiUnaware>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+	<ItemGroup>
+		<!-- 显式添加平台支持属性 -->
+		<SupportedPlatform Include="windows" />
+	</ItemGroup>
+  <ItemGroup>
+    <Compile Include="2DArray.cs" />
+    <Compile Include="DrawFont.cs" />
+    <Compile Include="Encoding.cs" />
+    <Compile Include="FL_FONT.cs" />
+    <Compile Include="Fnt_char.cs" />
+    <Compile Include="Fnt_Header.cs" />
+    <Compile Include="FontListSelect.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FontListSelect.Designer.cs">
+      <DependentUpon>FontListSelect.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ini.cs" />
+    <Compile Include="Main.cs" />
+    <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="OtherClass.cs" />
+    <Compile Include="PictureBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <PackageReference Include="Microsoft.VisualBasic" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="System.Text.Encoding.CodePages" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="FontListSelect.resx">
+      <DependentUpon>FontListSelect.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="PictureBox.resx">
+      <DependentUpon>PictureBox.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="app.config" />
+    <None Include="icon\arrow_left_blue_round.png" />
+    <None Include="icon\arrow_right_blue_round.png" />
+    <None Include="icon\plus.png" />
+    <None Include="icon\cancel.png" />
+    <None Include="icon\arrow_2_left_round.png" />
+    <None Include="icon\arrow_2_right_round.png" />
+    <None Include="icon\accept.png" />
+    <None Include="icon\minus.png" />
+  </ItemGroup>
+</Project>
