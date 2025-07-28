@@ -190,7 +190,7 @@ namespace DC_Font_Generator
             }
 
             //修正同寬字
-            if (fixedFont)
+            if (fixedFont && ImportFont1name == "" && ImportFont2name == "")
             {
                 FixedFont(fixedFont, this.FontMaxWidth);
 				float lineHeight1 = this.font1.Height;
