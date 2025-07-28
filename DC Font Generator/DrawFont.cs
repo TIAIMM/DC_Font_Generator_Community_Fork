@@ -182,7 +182,7 @@ namespace DC_Font_Generator
 			if (DrawMode == 1)
             {
                 CDZ_g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Default;
+                CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 				CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
 				CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
                 CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
@@ -190,11 +190,11 @@ namespace DC_Font_Generator
 			}
             else
             {
-                CDZ_g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
-                CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
-                CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-                CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+				CDZ_g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+				CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+				CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+				CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+				CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 			}
             CDZ_g.Clear(BackColor);
 
