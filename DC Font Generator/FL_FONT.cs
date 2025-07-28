@@ -42,42 +42,42 @@
             char c = fnt.c;
             int index = 0;
             //if (ht.Contains(c)) fnt.Empty = true; //重複char視為無字
-            if (fnt.Empty)
-            {
-                if (fnt.IsDC)
-                {
-                    if (EmptyDC == -1)
-                    {
-                        iCharList.Add(fnt);
-                        index = iCharList.Count - 1;
-                        EmptyDC = index;
-                    }
-                    else
-                    {
-                        Fnt_char fc = iCharList[EmptyDC];
-                        iCharList.Add(fc);
-                        index = iCharList.Count - 1;
-                    }
-                }
-                else
-                {
-                    if (EmptySC == -1)
-                    {
-                        iCharList.Add(fnt);
-                        index = iCharList.Count - 1;
-                        EmptySC = index;
-                    }
-                    else
-                    {
-                        Fnt_char fc = iCharList[EmptySC];
-                        iCharList.Add(fc);
-                        index = iCharList.Count - 1;
-                    }
-                }
-                ht[c] = index;
-                CharCode[hex] = iCharList[index];
-                return;
-            }
+            //if (fnt.Empty)
+            //{
+            //    if (fnt.IsDC)
+            //    {
+            //        if (EmptyDC == -1)
+            //        {
+            //            iCharList.Add(fnt);
+            //            index = iCharList.Count - 1;
+            //            EmptyDC = index;
+            //        }
+            //        else
+            //        {
+            //            Fnt_char fc = iCharList[EmptyDC];
+            //            iCharList.Add(fc);
+            //            index = iCharList.Count - 1;
+            //        }
+            //    }
+            //    else
+            //    {
+            //        if (EmptySC == -1)
+            //        {
+            //            iCharList.Add(fnt);
+            //            index = iCharList.Count - 1;
+            //            EmptySC = index;
+            //        }
+            //        else
+            //        {
+            //            Fnt_char fc = iCharList[EmptySC];
+            //            iCharList.Add(fc);
+            //            index = iCharList.Count - 1;
+            //        }
+            //    }
+            //    ht[c] = index;
+            //    CharCode[hex] = iCharList[index];
+            //    return;
+            //}
 
 
             iCharList.Add(fnt);

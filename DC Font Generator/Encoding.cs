@@ -252,6 +252,14 @@ namespace DC_Font_Generator
                 }
             }
 
+            // 映射控制字符
+			for (byte b = 0; b < 0x20; b++)
+			{
+				char c = Convert.ToChar(b);
+				Temp[b] = "0x" + b.ToString("X4") + " " + c;
+				count++;
+			}
+
 			//輸出ASCII
 			for (byte b = 0x20; b < 0x7F; b++)
             {
