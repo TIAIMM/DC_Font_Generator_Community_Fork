@@ -15,3 +15,4 @@ This is a fork of DC Font Generator (https://sourceforge.net/projects/dcfontgene
 
 # Known Issues:
 - Character's horizontal spacing look bad when genreate font with glow or outline effect(Original DCFG issue), need to adjust manually.
+- Font size value in font choosing window is unused,only font pixel size is applyed(intentional, can't find a way to hide size option in FontDialog).
