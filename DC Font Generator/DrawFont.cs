@@ -41,7 +41,7 @@ namespace DC_Font_Generator
         public int DrawMode = 1; //0=無特效 1=反鋸齒
 
 		private GraphicsPath _reusablePath = new GraphicsPath();
-		private Point _reusablePoint = new Point();
+		private PointF _reusablePoint = new PointF(0.5f, 0.5f); // 使用0.5像素偏移
 
 		public DrawFont()
         {
@@ -171,11 +171,15 @@ namespace DC_Font_Generator
 			if (CDZ_image != null) CDZ_image.Dispose();
 
 			int shift = (OutlineWidth * 2) + (glow * 2);
-            CDZ_image = new Bitmap((int)(lineSpacingPixel + (shift*2)), (int)(lineSpacingPixel + (shift*2)));
+			CDZ_image = new Bitmap(
+				(int)(lineSpacingPixel + shift * 2 + 1),
+				(int)(lineSpacingPixel + shift * 2 + 1)
+			);
 
-            CDZ_g = Graphics.FromImage(CDZ_image);
+			CDZ_g = Graphics.FromImage(CDZ_image);
+			CDZ_g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-            if (DrawMode == 1)
+			if (DrawMode == 1)
             {
                 CDZ_g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
                 CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Default;
@@ -194,19 +198,20 @@ namespace DC_Font_Generator
 			}
             CDZ_g.Clear(BackColor);
 
-            //建立底部對齊點
-            CDZ_BottomAlign = (shift/2) + ascentPixel;
-        }
+			//建立底部對齊點
+			CDZ_BottomAlign = (shift / 2) + ascentPixel + 0.5f; // 增加0.5像素偏移补偿
+		}
 
-        /// <summary>
-        /// 建立Space的寬度
-        /// </summary>
-        private void CreateSpaceWidth()
-        {
-            SizeF ms = CDZ_g.MeasureString(" ", _Font); //用系統繪字測量
-            SpaceWidth = ms.Width;
+		/// <summary>
+		/// 建立Space的寬度
+		/// </summary>
+		private void CreateSpaceWidth()
+		{
+			SizeF ms = CDZ_g.MeasureString(" ", _Font); //用系統繪字測量
+			SpaceWidth = ms.Width;
 
-        }
+		}
+
 		/// <summary>
 		/// 繪製文字
 		/// </summary>
@@ -224,8 +229,8 @@ namespace DC_Font_Generator
 
 				// 重用可复用路径
 				_reusablePath.Reset();
-				_reusablePoint.X = shift;
-				_reusablePoint.Y = shift;
+				_reusablePoint.X = shift + 0.5f; // 添加0.5像素水平偏移
+				_reusablePoint.Y = shift + 0.5f; // 添加0.5像素垂直偏移
 
 				_reusablePath.AddString(
 					c.ToString(),
