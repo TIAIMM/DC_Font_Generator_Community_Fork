@@ -193,7 +193,10 @@ namespace DC_Font_Generator
             if (fixedFont)
             {
                 FixedFont(fixedFont, this.FontMaxWidth);
-            }
+				float lineHeight1 = this.font1.Height;
+				float lineHeight2 = this.font2.Height;
+				this.iFntFile.Header.LineHeight = Math.Max(lineHeight1, lineHeight2);
+			}
             else if (ImportFont1name == "" && ImportFont2name == "")
             {
 

@@ -440,7 +440,7 @@ namespace DC_Font_Generator
             {
                 radioButton_LeftSpacing.Enabled = false;
                 radioButton_RightSpacing.Enabled = false;
-                radioButtonLineSpacing.Enabled = false;
+                //radioButtonLineSpacing.Enabled = false;
             }
             else
             {
@@ -779,7 +779,7 @@ namespace DC_Font_Generator
 
             if (checkBox_fixed.Checked)
             {
-                if (ready) this.MainList[MainSelect].DrawMode = 0;
+                if (ready) this.MainList[MainSelect].DrawMode = 1;
             }
             else
             {
