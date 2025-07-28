@@ -207,9 +207,49 @@ namespace DC_Font_Generator
 		/// </summary>
 		private void CreateSpaceWidth()
 		{
-			SizeF ms = CDZ_g.MeasureString(" ", _Font); //用系統繪字測量
-			SpaceWidth = ms.Width;
+			// 方法1：使用常规MeasureString（较快但不够精确）
+			SizeF ms = CDZ_g.MeasureString(" ", _Font);
+			float measureWidth = ms.Width;
 
+			// 方法2：使用图形路径获取精确宽度（考虑亚像素偏移）
+			float pathWidth = 0;
+			using (GraphicsPath path = new GraphicsPath())
+			{
+				try
+				{
+					// 添加带亚像素偏移的空格测量
+					path.AddString(" ",
+						fontFamily,
+						(int)_Font.Style,
+						_Font.Size,
+						new PointF(0.5f, 0.5f), // 0.5像素偏移
+						strformat);
+
+					RectangleF bounds = path.GetBounds();
+					pathWidth = bounds.Width;
+				}
+				catch
+				{
+					// 回退到常规测量方法
+					pathWidth = measureWidth;
+				}
+			}
+
+			// 选择最合适的值（优先使用路径测量）
+			SpaceWidth = pathWidth > 0 ? pathWidth : measureWidth;
+
+			// 确保最小值（通常空格至少为字号的1/4）
+			if (SpaceWidth < _Font.Size / 4)
+			{
+				SpaceWidth = _Font.Size / 4;
+			}
+
+			// 添加上限约束（不超过行间距的1/3）
+			float maxSpace = lineSpacingPixel / 3;
+			if (SpaceWidth > maxSpace)
+			{
+				SpaceWidth = maxSpace;
+			}
 		}
 
 		/// <summary>
