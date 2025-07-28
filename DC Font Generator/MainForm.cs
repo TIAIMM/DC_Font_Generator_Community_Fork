@@ -440,8 +440,9 @@ namespace DC_Font_Generator
             {
                 radioButton_LeftSpacing.Enabled = false;
                 radioButton_RightSpacing.Enabled = false;
-                //radioButtonLineSpacing.Enabled = false;
-            }
+				//radioButtonLineSpacing.Enabled = false;
+				radioButtonLineSpacing.Enabled = true;
+			}
             else
             {
                 radioButton_LeftSpacing.Enabled = true;
@@ -2179,8 +2180,9 @@ namespace DC_Font_Generator
             int adj_traget = 0;
             if (radioButton_LeftSpacing.Checked && !checkBox_fixed.Checked) adj_traget = 1;
             if (radioButton_RightSpacing.Checked && !checkBox_fixed.Checked) adj_traget = 2;
-            if (radioButtonLineSpacing.Checked && !checkBox_fixed.Checked)
-            {
+            //if (radioButtonLineSpacing.Checked && !checkBox_fixed.Checked)
+			if (radioButtonLineSpacing.Checked)
+				{
 
                 MainList[MainSelect].FntFile.Header.LineHeight += av;
                 MainList[MainSelect].FntFile.Header.LineHeightFixed += av;
