@@ -23,8 +23,6 @@ namespace DC_Font_Generator
         public int OutlineWidth = 0;
         private Brush brush = new Pen(Color.FromArgb(200, Color.FromArgb(80, 80, 80)), 2f).Brush;
         private Brush brush2;
-        private Bitmap image;
-        private Graphics g;
         private int BackGround ;
         private SolidBrush sfbrush = new SolidBrush(Color.FromArgb(255, 255, 255));
         private GraphicsPath path = new GraphicsPath();
