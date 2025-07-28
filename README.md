@@ -14,4 +14,4 @@ This is a fork of DC Font Generator (https://sourceforge.net/projects/dcfontgene
 - Use font's original height for line spacing.
 
 # Known Issues:
-- Character's horizontal spacing look bad when genreate font with glow or outline effect.(Original DCFG issue).
+- Character's horizontal spacing look bad when genreate font with glow or outline effect(Original DCFG issue), need to adjust manually.
