@@ -11,7 +11,7 @@ namespace DC_Font_Generator
     public class FontEncoding
     {
         public List<string> Temp;
-        public Encoding enc = Encoding.GetEncoding(1252);
+        public Encoding enc = Encoding.Default;
         public Hashtable TempWith = new Hashtable();
         public bool ASCII_Only = false;
         public int count = 0;
@@ -107,10 +107,10 @@ namespace DC_Font_Generator
             else
             {
                 buffer = new byte[] { (byte)intFontCode };
-                c = Encoding.GetEncoding(1252).GetChars(buffer)[0];
+                c = enc.GetChars(buffer)[0];
 
                 //檢查是否為錯誤字
-                byte[] check = Encoding.GetEncoding(1252).GetBytes(new char[] { c });
+                byte[] check = enc.GetBytes(new char[] { c });
                 if (check[0] != buffer[0])
                 {
                     IsError = true;
@@ -129,7 +129,7 @@ namespace DC_Font_Generator
                 case (0): //ANSI
                     ASCII_Only = true;
                     count = this.ANSI();
-                    enc = Encoding.GetEncoding(1252);
+                    enc = Encoding.Default;
                     break;
                 case (1): //日文
                     count = this.SJIS();
@@ -150,9 +150,12 @@ namespace DC_Font_Generator
                 case (5): //GBK                   
                     count = this.GB2312(true);
                     enc = Encoding.GetEncoding(936);
-
-
                     break;
+                case (6): //WIndows-1252
+					ASCII_Only = true;
+					count = this.Windows1252();
+					enc = Encoding.GetEncoding(1252);
+					break;
             }
             return count;
         }
@@ -301,12 +304,20 @@ namespace DC_Font_Generator
 
         public int ANSI()
         {
-            enc = Encoding.GetEncoding(1252);
+            enc = Encoding.Default;
             int count = MakeTemp();
             return count;
 
         }
-        public int Big5()
+		public int Windows1252()
+		{
+			enc = Encoding.GetEncoding(1252);
+			int count = MakeTemp();
+			return count;
+
+		}
+
+		public int Big5()
         {
             enc = Encoding.GetEncoding(950);
             int count = MakeTemp();

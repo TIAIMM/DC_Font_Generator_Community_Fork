@@ -486,7 +486,7 @@
 			// 
 			Encoding_comboBox.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			Encoding_comboBox.FormattingEnabled = true;
-			Encoding_comboBox.Items.AddRange(new object[] { "Windows-1252", "932 日本語", "936 简体中文", "949 Korea", "950 繁体中文", "936 GBK" });
+			Encoding_comboBox.Items.AddRange(new object[] { "ANSI", "932 日本語", "936 简体中文", "949 Korea", "950 繁体中文", "936 GBK", "Windows-1252" });
 			Encoding_comboBox.Location = new System.Drawing.Point(496, 4);
 			Encoding_comboBox.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			Encoding_comboBox.Name = "Encoding_comboBox";

@@ -68,9 +68,9 @@ namespace DC_Font_Generator
             tabControl1.TabPages.Remove(tabControl1.TabPages[4]); //測試用移除
 
 
-            fenc = new FontEncoding(Encoding.GetEncoding(1252), true);
+            fenc = new FontEncoding(Encoding.Default, true);
 
-            this.lang = new LanguageData(Encoding.GetEncoding(1252));
+            this.lang = new LanguageData(Encoding.Default);
 
             LangSetup();
             this.Text = string.Format("{0} {1} [Version: {2}]", base.ProductName,GetString("by aabby & Artaud"), base.ProductVersion);
@@ -91,7 +91,7 @@ namespace DC_Font_Generator
 
             button5.BackColor = Color.FromArgb(0, Color.Black); //預設背景色為透明
 
-            toolStripStatusLabel1.Text = GetString("Please select Encoding.") + " [CodePage:"+ Encoding.GetEncoding(1252).WebName+"]";
+            toolStripStatusLabel1.Text = GetString("Please select Encoding.") + " [CodePage:"+ Encoding.Default.WebName+"]";
             toolStripProgressBar1.Visible = false;
             dt = DateTime.Now;
             GamePath = GetGamePath(); //取得遊戲資安裝料夾
@@ -1253,7 +1253,7 @@ namespace DC_Font_Generator
             int count = fenc.SwitchEnc(index);
             if (index >= 0)
             {
-                if (index == 0)//dc選取字型
+                if (index == 0 || index == 6)//dc選取字型
                 {
                     label4.Enabled = false;
 
