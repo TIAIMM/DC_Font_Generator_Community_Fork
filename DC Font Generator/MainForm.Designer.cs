@@ -434,7 +434,7 @@
 			tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
 			tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
 			tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 53F));
-			tableLayoutPanel5.Size = new System.Drawing.Size(670, 457);
+			tableLayoutPanel5.Size = new System.Drawing.Size(670, 435);
 			tableLayoutPanel5.TabIndex = 46;
 			// 
 			// tableLayoutPanel4
@@ -486,7 +486,7 @@
 			// 
 			Encoding_comboBox.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			Encoding_comboBox.FormattingEnabled = true;
-			Encoding_comboBox.Items.AddRange(new object[] { "ANSI", "932 日本語", "936 简体中文", "949 Korea", "950 繁体中文", "936 GBK" });
+			Encoding_comboBox.Items.AddRange(new object[] { "Windows-1252", "932 日本語", "936 简体中文", "949 Korea", "950 繁体中文", "936 GBK" });
 			Encoding_comboBox.Location = new System.Drawing.Point(496, 4);
 			Encoding_comboBox.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			Encoding_comboBox.Name = "Encoding_comboBox";
@@ -541,7 +541,7 @@
 			tableLayoutPanel1.Name = "tableLayoutPanel1";
 			tableLayoutPanel1.RowCount = 1;
 			tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-			tableLayoutPanel1.Size = new System.Drawing.Size(664, 356);
+			tableLayoutPanel1.Size = new System.Drawing.Size(664, 334);
 			tableLayoutPanel1.TabIndex = 44;
 			// 
 			// tableLayoutPanel2
@@ -563,17 +563,17 @@
 			tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
 			tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
 			tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-			tableLayoutPanel2.Size = new System.Drawing.Size(111, 348);
+			tableLayoutPanel2.Size = new System.Drawing.Size(111, 326);
 			tableLayoutPanel2.TabIndex = 21;
 			// 
 			// buttonSavePrj
 			// 
 			buttonSavePrj.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			buttonSavePrj.Enabled = false;
-			buttonSavePrj.Location = new System.Drawing.Point(3, 211);
+			buttonSavePrj.Location = new System.Drawing.Point(3, 199);
 			buttonSavePrj.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonSavePrj.Name = "buttonSavePrj";
-			buttonSavePrj.Size = new System.Drawing.Size(105, 61);
+			buttonSavePrj.Size = new System.Drawing.Size(105, 57);
 			buttonSavePrj.TabIndex = 4;
 			buttonSavePrj.Text = "Save Project";
 			buttonSavePrj.UseVisualStyleBackColor = true;
@@ -582,10 +582,10 @@
 			// buttonLoadPrj
 			// 
 			buttonLoadPrj.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-			buttonLoadPrj.Location = new System.Drawing.Point(3, 142);
+			buttonLoadPrj.Location = new System.Drawing.Point(3, 134);
 			buttonLoadPrj.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonLoadPrj.Name = "buttonLoadPrj";
-			buttonLoadPrj.Size = new System.Drawing.Size(105, 61);
+			buttonLoadPrj.Size = new System.Drawing.Size(105, 57);
 			buttonLoadPrj.TabIndex = 3;
 			buttonLoadPrj.Text = "Load Project";
 			buttonLoadPrj.UseVisualStyleBackColor = true;
@@ -597,7 +597,7 @@
 			button2.Location = new System.Drawing.Point(3, 4);
 			button2.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			button2.Name = "button2";
-			button2.Size = new System.Drawing.Size(105, 61);
+			button2.Size = new System.Drawing.Size(105, 57);
 			button2.TabIndex = 1;
 			button2.Text = "Render";
 			button2.UseVisualStyleBackColor = true;
@@ -606,10 +606,10 @@
 			// buttonClear
 			// 
 			buttonClear.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-			buttonClear.Location = new System.Drawing.Point(3, 73);
+			buttonClear.Location = new System.Drawing.Point(3, 69);
 			buttonClear.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonClear.Name = "buttonClear";
-			buttonClear.Size = new System.Drawing.Size(105, 61);
+			buttonClear.Size = new System.Drawing.Size(105, 57);
 			buttonClear.TabIndex = 2;
 			buttonClear.Text = "Clear";
 			buttonClear.UseVisualStyleBackColor = true;
@@ -619,10 +619,10 @@
 			// button1
 			// 
 			button1.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-			button1.Location = new System.Drawing.Point(3, 280);
+			button1.Location = new System.Drawing.Point(3, 264);
 			button1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			button1.Name = "button1";
-			button1.Size = new System.Drawing.Size(105, 64);
+			button1.Size = new System.Drawing.Size(105, 58);
 			button1.TabIndex = 0;
 			button1.Text = "Save Font";
 			button1.UseVisualStyleBackColor = true;
@@ -641,7 +641,7 @@
 			tabControl1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabControl1.Name = "tabControl1";
 			tabControl1.SelectedIndex = 0;
-			tabControl1.Size = new System.Drawing.Size(541, 348);
+			tabControl1.Size = new System.Drawing.Size(541, 326);
 			tabControl1.TabIndex = 20;
 			tabControl1.SelectedIndexChanged += tabControl1_Enter;
 			// 
@@ -652,7 +652,7 @@
 			tabPage1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage1.Name = "tabPage1";
 			tabPage1.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			tabPage1.Size = new System.Drawing.Size(533, 318);
+			tabPage1.Size = new System.Drawing.Size(533, 296);
 			tabPage1.TabIndex = 0;
 			tabPage1.Tag = "Font";
 			tabPage1.Text = "Font";
@@ -943,7 +943,7 @@
 			tabPage5.Location = new System.Drawing.Point(4, 26);
 			tabPage5.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage5.Name = "tabPage5";
-			tabPage5.Size = new System.Drawing.Size(533, 318);
+			tabPage5.Size = new System.Drawing.Size(533, 296);
 			tabPage5.TabIndex = 4;
 			tabPage5.Tag = "Adjust";
 			tabPage5.Text = "Adjust";
@@ -1297,7 +1297,7 @@
 			tabPage2.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage2.Name = "tabPage2";
 			tabPage2.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			tabPage2.Size = new System.Drawing.Size(533, 318);
+			tabPage2.Size = new System.Drawing.Size(533, 296);
 			tabPage2.TabIndex = 1;
 			tabPage2.Tag = "Advance";
 			tabPage2.Text = "Advance";
@@ -1517,7 +1517,7 @@
 			tabPage4.Location = new System.Drawing.Point(4, 26);
 			tabPage4.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage4.Name = "tabPage4";
-			tabPage4.Size = new System.Drawing.Size(533, 318);
+			tabPage4.Size = new System.Drawing.Size(533, 296);
 			tabPage4.TabIndex = 3;
 			tabPage4.Tag = "Fallout3.ini";
 			tabPage4.Text = "Fallout3.INI";
@@ -1815,7 +1815,7 @@
 			tabPage3.Location = new System.Drawing.Point(4, 26);
 			tabPage3.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage3.Name = "tabPage3";
-			tabPage3.Size = new System.Drawing.Size(533, 318);
+			tabPage3.Size = new System.Drawing.Size(533, 296);
 			tabPage3.TabIndex = 2;
 			tabPage3.Tag = "Debug";
 			tabPage3.Text = "Debug";
@@ -1862,7 +1862,7 @@
 			tabPage6.Location = new System.Drawing.Point(4, 26);
 			tabPage6.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage6.Name = "tabPage6";
-			tabPage6.Size = new System.Drawing.Size(533, 318);
+			tabPage6.Size = new System.Drawing.Size(533, 296);
 			tabPage6.TabIndex = 5;
 			tabPage6.Tag = "Log";
 			tabPage6.Text = "Log";
@@ -1903,7 +1903,7 @@
 			// 
 			toolStripContainer1.ContentPanel.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			toolStripContainer1.ContentPanel.Size = new System.Drawing.Size(664, 14);
-			toolStripContainer1.Location = new System.Drawing.Point(3, 408);
+			toolStripContainer1.Location = new System.Drawing.Point(3, 386);
 			toolStripContainer1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			toolStripContainer1.Name = "toolStripContainer1";
 			toolStripContainer1.Size = new System.Drawing.Size(664, 45);

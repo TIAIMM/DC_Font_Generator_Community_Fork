@@ -11,7 +11,7 @@ namespace DC_Font_Generator
     public class FontEncoding
     {
         public List<string> Temp;
-        public Encoding enc = Encoding.Default;
+        public Encoding enc = Encoding.GetEncoding(1252);
         public Hashtable TempWith = new Hashtable();
         public bool ASCII_Only = false;
         public int count = 0;
@@ -107,10 +107,10 @@ namespace DC_Font_Generator
             else
             {
                 buffer = new byte[] { (byte)intFontCode };
-                c = Encoding.Default.GetChars(buffer)[0];
+                c = Encoding.GetEncoding(1252).GetChars(buffer)[0];
 
                 //檢查是否為錯誤字
-                byte[] check = Encoding.Default.GetBytes(new char[] { c });
+                byte[] check = Encoding.GetEncoding(1252).GetBytes(new char[] { c });
                 if (check[0] != buffer[0])
                 {
                     IsError = true;
@@ -129,7 +129,7 @@ namespace DC_Font_Generator
                 case (0): //ANSI
                     ASCII_Only = true;
                     count = this.ANSI();
-                    enc = Encoding.Default;
+                    enc = Encoding.GetEncoding(1252);
                     break;
                 case (1): //日文
                     count = this.SJIS();
@@ -301,7 +301,7 @@ namespace DC_Font_Generator
 
         public int ANSI()
         {
-            enc = Encoding.Default;
+            enc = Encoding.GetEncoding(1252);
             int count = MakeTemp();
             return count;
 

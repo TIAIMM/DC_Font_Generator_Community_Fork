@@ -114,7 +114,7 @@ namespace INI_RW
                         for (int s = 0; s < byte_count; s++)
                             tmp[s] = byte_data[s];
 
-                        returnedString.Append(Encoding.Default.GetString(tmp));
+                        returnedString.Append(Encoding.GetEncoding(1252).GetString(tmp));
                         byte_count = 0;
                     }
                     else
