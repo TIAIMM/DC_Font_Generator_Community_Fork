@@ -258,6 +258,13 @@ namespace DC_Font_Generator
 		/// <returns></returns>
 		public Bitmap DrawingFont(char c, out float BottomAlign)
 		{
+			// 对于控制字符，返回最小位图
+			if (c < 32)
+			{
+				BottomAlign = 0;
+				return new Bitmap(1, 1);
+			}
+
 			Bitmap image = null;
 			try
 			{
