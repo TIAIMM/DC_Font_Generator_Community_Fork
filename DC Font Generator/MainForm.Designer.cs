@@ -314,7 +314,7 @@
 			// 
 			checkBox_fixed.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			checkBox_fixed.AutoSize = true;
-			checkBox_fixed.Location = new System.Drawing.Point(330, 5);
+			checkBox_fixed.Location = new System.Drawing.Point(330, 4);
 			checkBox_fixed.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			checkBox_fixed.Name = "checkBox_fixed";
 			checkBox_fixed.Size = new System.Drawing.Size(181, 21);
@@ -434,7 +434,7 @@
 			tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
 			tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
 			tableLayoutPanel5.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 53F));
-			tableLayoutPanel5.Size = new System.Drawing.Size(670, 435);
+			tableLayoutPanel5.Size = new System.Drawing.Size(670, 470);
 			tableLayoutPanel5.TabIndex = 46;
 			// 
 			// tableLayoutPanel4
@@ -541,7 +541,7 @@
 			tableLayoutPanel1.Name = "tableLayoutPanel1";
 			tableLayoutPanel1.RowCount = 1;
 			tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-			tableLayoutPanel1.Size = new System.Drawing.Size(664, 334);
+			tableLayoutPanel1.Size = new System.Drawing.Size(664, 369);
 			tableLayoutPanel1.TabIndex = 44;
 			// 
 			// tableLayoutPanel2
@@ -563,17 +563,17 @@
 			tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
 			tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
 			tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-			tableLayoutPanel2.Size = new System.Drawing.Size(111, 326);
+			tableLayoutPanel2.Size = new System.Drawing.Size(111, 361);
 			tableLayoutPanel2.TabIndex = 21;
 			// 
 			// buttonSavePrj
 			// 
 			buttonSavePrj.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			buttonSavePrj.Enabled = false;
-			buttonSavePrj.Location = new System.Drawing.Point(3, 199);
+			buttonSavePrj.Location = new System.Drawing.Point(3, 220);
 			buttonSavePrj.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonSavePrj.Name = "buttonSavePrj";
-			buttonSavePrj.Size = new System.Drawing.Size(105, 57);
+			buttonSavePrj.Size = new System.Drawing.Size(105, 64);
 			buttonSavePrj.TabIndex = 4;
 			buttonSavePrj.Text = "Save Project";
 			buttonSavePrj.UseVisualStyleBackColor = true;
@@ -582,10 +582,10 @@
 			// buttonLoadPrj
 			// 
 			buttonLoadPrj.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-			buttonLoadPrj.Location = new System.Drawing.Point(3, 134);
+			buttonLoadPrj.Location = new System.Drawing.Point(3, 148);
 			buttonLoadPrj.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonLoadPrj.Name = "buttonLoadPrj";
-			buttonLoadPrj.Size = new System.Drawing.Size(105, 57);
+			buttonLoadPrj.Size = new System.Drawing.Size(105, 64);
 			buttonLoadPrj.TabIndex = 3;
 			buttonLoadPrj.Text = "Load Project";
 			buttonLoadPrj.UseVisualStyleBackColor = true;
@@ -597,7 +597,7 @@
 			button2.Location = new System.Drawing.Point(3, 4);
 			button2.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			button2.Name = "button2";
-			button2.Size = new System.Drawing.Size(105, 57);
+			button2.Size = new System.Drawing.Size(105, 64);
 			button2.TabIndex = 1;
 			button2.Text = "Render";
 			button2.UseVisualStyleBackColor = true;
@@ -606,10 +606,10 @@
 			// buttonClear
 			// 
 			buttonClear.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-			buttonClear.Location = new System.Drawing.Point(3, 69);
+			buttonClear.Location = new System.Drawing.Point(3, 76);
 			buttonClear.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonClear.Name = "buttonClear";
-			buttonClear.Size = new System.Drawing.Size(105, 57);
+			buttonClear.Size = new System.Drawing.Size(105, 64);
 			buttonClear.TabIndex = 2;
 			buttonClear.Text = "Clear";
 			buttonClear.UseVisualStyleBackColor = true;
@@ -619,10 +619,10 @@
 			// button1
 			// 
 			button1.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-			button1.Location = new System.Drawing.Point(3, 264);
+			button1.Location = new System.Drawing.Point(3, 292);
 			button1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			button1.Name = "button1";
-			button1.Size = new System.Drawing.Size(105, 58);
+			button1.Size = new System.Drawing.Size(105, 65);
 			button1.TabIndex = 0;
 			button1.Text = "Save Font";
 			button1.UseVisualStyleBackColor = true;
@@ -641,7 +641,7 @@
 			tabControl1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabControl1.Name = "tabControl1";
 			tabControl1.SelectedIndex = 0;
-			tabControl1.Size = new System.Drawing.Size(541, 326);
+			tabControl1.Size = new System.Drawing.Size(541, 361);
 			tabControl1.TabIndex = 20;
 			tabControl1.SelectedIndexChanged += tabControl1_Enter;
 			// 
@@ -652,7 +652,7 @@
 			tabPage1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage1.Name = "tabPage1";
 			tabPage1.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			tabPage1.Size = new System.Drawing.Size(533, 296);
+			tabPage1.Size = new System.Drawing.Size(533, 331);
 			tabPage1.TabIndex = 0;
 			tabPage1.Tag = "Font";
 			tabPage1.Text = "Font";
@@ -672,8 +672,8 @@
 			tableLayoutPanel3.RowCount = 3;
 			tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 49.6124F));
 			tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50.3876F));
-			tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 128F));
-			tableLayoutPanel3.Size = new System.Drawing.Size(533, 316);
+			tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 139F));
+			tableLayoutPanel3.Size = new System.Drawing.Size(533, 357);
 			tableLayoutPanel3.TabIndex = 50;
 			// 
 			// tableLayoutPanel18
@@ -689,7 +689,7 @@
 			tableLayoutPanel18.Name = "tableLayoutPanel18";
 			tableLayoutPanel18.RowCount = 1;
 			tableLayoutPanel18.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-			tableLayoutPanel18.Size = new System.Drawing.Size(527, 85);
+			tableLayoutPanel18.Size = new System.Drawing.Size(527, 100);
 			tableLayoutPanel18.TabIndex = 52;
 			// 
 			// groupBox4
@@ -700,7 +700,7 @@
 			groupBox4.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			groupBox4.Name = "groupBox4";
 			groupBox4.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			groupBox4.Size = new System.Drawing.Size(415, 77);
+			groupBox4.Size = new System.Drawing.Size(415, 92);
 			groupBox4.TabIndex = 48;
 			groupBox4.TabStop = false;
 			groupBox4.Text = "Single Byte Character Set";
@@ -725,7 +725,7 @@
 			buttonOpenFNT.Location = new System.Drawing.Point(424, 4);
 			buttonOpenFNT.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonOpenFNT.Name = "buttonOpenFNT";
-			buttonOpenFNT.Size = new System.Drawing.Size(100, 77);
+			buttonOpenFNT.Size = new System.Drawing.Size(100, 92);
 			buttonOpenFNT.TabIndex = 3;
 			buttonOpenFNT.Text = "Open";
 			buttonOpenFNT.UseVisualStyleBackColor = true;
@@ -735,11 +735,11 @@
 			// 
 			groupBox2.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			groupBox2.Controls.Add(tableLayoutPanel9);
-			groupBox2.Location = new System.Drawing.Point(3, 191);
+			groupBox2.Location = new System.Drawing.Point(3, 221);
 			groupBox2.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			groupBox2.Name = "groupBox2";
 			groupBox2.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			groupBox2.Size = new System.Drawing.Size(527, 121);
+			groupBox2.Size = new System.Drawing.Size(527, 132);
 			groupBox2.TabIndex = 50;
 			groupBox2.TabStop = false;
 			groupBox2.Text = "effect";
@@ -771,14 +771,14 @@
 			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
 			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33334F));
 			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33334F));
-			tableLayoutPanel9.Size = new System.Drawing.Size(514, 99);
+			tableLayoutPanel9.Size = new System.Drawing.Size(514, 92);
 			tableLayoutPanel9.TabIndex = 1;
 			// 
 			// label24
 			// 
 			label24.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			label24.AutoSize = true;
-			label24.Location = new System.Drawing.Point(3, 7);
+			label24.Location = new System.Drawing.Point(3, 6);
 			label24.Name = "label24";
 			label24.Size = new System.Drawing.Size(94, 17);
 			label24.TabIndex = 4;
@@ -801,7 +801,7 @@
 			// 
 			label25.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			label25.AutoSize = true;
-			label25.Location = new System.Drawing.Point(3, 40);
+			label25.Location = new System.Drawing.Point(3, 36);
 			label25.Name = "label25";
 			label25.Size = new System.Drawing.Size(94, 17);
 			label25.TabIndex = 5;
@@ -810,7 +810,7 @@
 			// numericUpDown_Outline
 			// 
 			numericUpDown_Outline.Anchor = System.Windows.Forms.AnchorStyles.Left;
-			numericUpDown_Outline.Location = new System.Drawing.Point(103, 37);
+			numericUpDown_Outline.Location = new System.Drawing.Point(103, 34);
 			numericUpDown_Outline.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			numericUpDown_Outline.Maximum = new decimal(new int[] { 10, 0, 0, 0 });
 			numericUpDown_Outline.Name = "numericUpDown_Outline";
@@ -822,7 +822,7 @@
 			// numericUpDown_MaxWidth
 			// 
 			numericUpDown_MaxWidth.Anchor = System.Windows.Forms.AnchorStyles.Left;
-			numericUpDown_MaxWidth.Location = new System.Drawing.Point(330, 37);
+			numericUpDown_MaxWidth.Location = new System.Drawing.Point(330, 34);
 			numericUpDown_MaxWidth.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			numericUpDown_MaxWidth.Maximum = new decimal(new int[] { 30, 0, 0, 0 });
 			numericUpDown_MaxWidth.Name = "numericUpDown_MaxWidth";
@@ -840,7 +840,7 @@
 			button_GlowColor.Location = new System.Drawing.Point(180, 4);
 			button_GlowColor.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			button_GlowColor.Name = "button_GlowColor";
-			button_GlowColor.Size = new System.Drawing.Size(81, 24);
+			button_GlowColor.Size = new System.Drawing.Size(81, 22);
 			button_GlowColor.TabIndex = 10;
 			button_GlowColor.Tag = "Glow";
 			button_GlowColor.UseVisualStyleBackColor = false;
@@ -850,10 +850,10 @@
 			// 
 			button_Outline.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			button_Outline.BackColor = System.Drawing.SystemColors.Control;
-			button_Outline.Location = new System.Drawing.Point(180, 36);
+			button_Outline.Location = new System.Drawing.Point(180, 34);
 			button_Outline.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			button_Outline.Name = "button_Outline";
-			button_Outline.Size = new System.Drawing.Size(81, 25);
+			button_Outline.Size = new System.Drawing.Size(81, 22);
 			button_Outline.TabIndex = 11;
 			button_Outline.Tag = "Outline";
 			button_Outline.UseVisualStyleBackColor = false;
@@ -863,7 +863,7 @@
 			// 
 			label1.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			label1.AutoSize = true;
-			label1.Location = new System.Drawing.Point(3, 73);
+			label1.Location = new System.Drawing.Point(3, 67);
 			label1.Name = "label1";
 			label1.Size = new System.Drawing.Size(94, 17);
 			label1.TabIndex = 14;
@@ -873,10 +873,10 @@
 			// 
 			buttonFontColor.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 			buttonFontColor.BackColor = System.Drawing.Color.White;
-			buttonFontColor.Location = new System.Drawing.Point(180, 69);
+			buttonFontColor.Location = new System.Drawing.Point(180, 64);
 			buttonFontColor.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonFontColor.Name = "buttonFontColor";
-			buttonFontColor.Size = new System.Drawing.Size(81, 26);
+			buttonFontColor.Size = new System.Drawing.Size(81, 24);
 			buttonFontColor.TabIndex = 15;
 			buttonFontColor.Tag = "FontColor";
 			buttonFontColor.UseVisualStyleBackColor = false;
@@ -890,12 +890,12 @@
 			tableLayoutPanel17.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
 			tableLayoutPanel17.Controls.Add(groupBox3, 0, 0);
 			tableLayoutPanel17.Controls.Add(buttonLink, 1, 0);
-			tableLayoutPanel17.Location = new System.Drawing.Point(3, 97);
+			tableLayoutPanel17.Location = new System.Drawing.Point(3, 112);
 			tableLayoutPanel17.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tableLayoutPanel17.Name = "tableLayoutPanel17";
 			tableLayoutPanel17.RowCount = 1;
 			tableLayoutPanel17.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-			tableLayoutPanel17.Size = new System.Drawing.Size(527, 86);
+			tableLayoutPanel17.Size = new System.Drawing.Size(527, 101);
 			tableLayoutPanel17.TabIndex = 51;
 			// 
 			// groupBox3
@@ -906,7 +906,7 @@
 			groupBox3.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			groupBox3.Name = "groupBox3";
 			groupBox3.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			groupBox3.Size = new System.Drawing.Size(415, 78);
+			groupBox3.Size = new System.Drawing.Size(415, 93);
 			groupBox3.TabIndex = 49;
 			groupBox3.TabStop = false;
 			groupBox3.Text = "Double Byte Character Set Font";
@@ -931,7 +931,7 @@
 			buttonLink.Location = new System.Drawing.Point(424, 4);
 			buttonLink.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			buttonLink.Name = "buttonLink";
-			buttonLink.Size = new System.Drawing.Size(100, 78);
+			buttonLink.Size = new System.Drawing.Size(100, 93);
 			buttonLink.TabIndex = 50;
 			buttonLink.Text = "Link";
 			buttonLink.UseVisualStyleBackColor = true;
@@ -943,7 +943,7 @@
 			tabPage5.Location = new System.Drawing.Point(4, 26);
 			tabPage5.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage5.Name = "tabPage5";
-			tabPage5.Size = new System.Drawing.Size(533, 296);
+			tabPage5.Size = new System.Drawing.Size(533, 314);
 			tabPage5.TabIndex = 4;
 			tabPage5.Tag = "Adjust";
 			tabPage5.Text = "Adjust";
@@ -1297,7 +1297,7 @@
 			tabPage2.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage2.Name = "tabPage2";
 			tabPage2.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			tabPage2.Size = new System.Drawing.Size(533, 296);
+			tabPage2.Size = new System.Drawing.Size(533, 314);
 			tabPage2.TabIndex = 1;
 			tabPage2.Tag = "Advance";
 			tabPage2.Text = "Advance";
@@ -1517,7 +1517,7 @@
 			tabPage4.Location = new System.Drawing.Point(4, 26);
 			tabPage4.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage4.Name = "tabPage4";
-			tabPage4.Size = new System.Drawing.Size(533, 296);
+			tabPage4.Size = new System.Drawing.Size(533, 314);
 			tabPage4.TabIndex = 3;
 			tabPage4.Tag = "Fallout3.ini";
 			tabPage4.Text = "Fallout3.INI";
@@ -1815,7 +1815,7 @@
 			tabPage3.Location = new System.Drawing.Point(4, 26);
 			tabPage3.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage3.Name = "tabPage3";
-			tabPage3.Size = new System.Drawing.Size(533, 296);
+			tabPage3.Size = new System.Drawing.Size(533, 314);
 			tabPage3.TabIndex = 2;
 			tabPage3.Tag = "Debug";
 			tabPage3.Text = "Debug";
@@ -1862,7 +1862,7 @@
 			tabPage6.Location = new System.Drawing.Point(4, 26);
 			tabPage6.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tabPage6.Name = "tabPage6";
-			tabPage6.Size = new System.Drawing.Size(533, 296);
+			tabPage6.Size = new System.Drawing.Size(533, 314);
 			tabPage6.TabIndex = 5;
 			tabPage6.Tag = "Log";
 			tabPage6.Text = "Log";
@@ -1903,7 +1903,7 @@
 			// 
 			toolStripContainer1.ContentPanel.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			toolStripContainer1.ContentPanel.Size = new System.Drawing.Size(664, 14);
-			toolStripContainer1.Location = new System.Drawing.Point(3, 386);
+			toolStripContainer1.Location = new System.Drawing.Point(3, 421);
 			toolStripContainer1.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			toolStripContainer1.Name = "toolStripContainer1";
 			toolStripContainer1.Size = new System.Drawing.Size(664, 45);
