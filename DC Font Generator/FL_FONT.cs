@@ -242,16 +242,16 @@
 					writer.Write(this.getBytes(enc, ASCII_only));
 				}
 
-				// 用内存流覆盖特殊区域
+				//Write glyph mapping data
 				using (FileStream file = new FileStream(filename, FileMode.Create))
 				using (MemoryStream mem = new MemoryStream(File.ReadAllBytes(tempFile)))
 				{
 					mem.Position = 0;
 					mem.CopyTo(file);
 
-					// 覆盖0x12C-0x823区域
-					file.Position = 0x12C;
-					file.Write(SpecialBytes, 0, Math.Min(SpecialBytes.Length, 0x823 - 0x12C + 1));
+					// 覆盖0x12C-0x823区域控制字符
+					//file.Position = 0x12C;
+					//file.Write(SpecialBytes, 0, Math.Min(SpecialBytes.Length, 0x823 - 0x12C + 1));
 				}
 
 				// 删除临时文件
