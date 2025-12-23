@@ -220,7 +220,7 @@ namespace DC_Font_Generator
             int count = 0;
             if (!ASCII_Only)
             {
-                for (uint hh = 0x81; hh <= 0xFE; hh++) //81 FE //A1 F7
+				for (uint hh = 0x81; hh <= 0xFE; hh++) //81 FE //A1 F7
                 {
                     for (uint ll = 0x40; ll <= 0xFE; ll++) //40 FE //A1 FE
                     {
@@ -232,30 +232,28 @@ namespace DC_Font_Generator
 
                 }
             }
-            else
-            {
-                for (byte b = 0x80; b < 0xFF; b++)
-                {
-                    if (!BandList.Contains(b.ToString("X4")))
-                    {
-                        char c = Convert.ToChar(b);
-                        Temp[b] = "0x" + b.ToString("X4") + " " + c;
-                        count++;
-                    }
-                }
+
+			for (byte b = 0x80; b < 0xFF; b++)
+			{
+				if (!BandList.Contains(b.ToString("X4")))
+				{
+					char c = Convert.ToChar(b);
+					Temp[b] = "0x" + b.ToString("X4") + " " + c;
+					count++;
+				}
+			}
 
 
-                //Thai
-                byte bb = 0xFF;
-                if (!BandList.Contains(bb.ToString("X4")))
-                {
-                    char cc = Convert.ToChar(bb);
-                    Temp[bb] = "0x" + bb.ToString("X4") + " " + cc;
-                    count++;
-                }
-            }
+			//Thai
+			byte bb = 0xFF;
+			if (!BandList.Contains(bb.ToString("X4")))
+			{
+				char cc = Convert.ToChar(bb);
+				Temp[bb] = "0x" + bb.ToString("X4") + " " + cc;
+				count++;
+			}
 
-            // 映射控制字符
+			// 映射控制字符
 			for (byte b = 0; b < 0x20; b++)
 			{
 				char c = Convert.ToChar(b);
