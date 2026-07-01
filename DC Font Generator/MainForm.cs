@@ -478,25 +478,44 @@ namespace DC_Font_Generator
         public void ProgressBarAdd()
         {
 
-            toolStripProgressBar1.Value++;
-            if (dt.Second != DateTime.Now.Second) //每秒更新
+            if (toolStripProgressBar1.Value < toolStripProgressBar1.Maximum)
+            {
+                toolStripProgressBar1.Value++;
+            }
+            ProgressBarRefresh();
+
+        }
+        public void ProgressBarRefresh()
+        {
+            if ((DateTime.Now - dt).TotalMilliseconds >= 50)
             {
                 statusStrip1.Refresh();
                 dt = DateTime.Now;
             }
-
         }
         public int ProgressBar
         {
             set
             {
+                if (value < toolStripProgressBar1.Minimum) value = toolStripProgressBar1.Minimum;
+                if (value > toolStripProgressBar1.Maximum) value = toolStripProgressBar1.Maximum;
                 toolStripProgressBar1.Value = value;
+                ProgressBarRefresh();
 
             }
         }
         public int ProgressBarMax
         {
-            set { toolStripProgressBar1.Maximum = value; }
+            set
+            {
+                if (value < toolStripProgressBar1.Minimum) value = toolStripProgressBar1.Minimum;
+                toolStripProgressBar1.Maximum = value;
+                if (toolStripProgressBar1.Value > toolStripProgressBar1.Maximum)
+                {
+                    toolStripProgressBar1.Value = toolStripProgressBar1.Maximum;
+                }
+                ProgressBarRefresh();
+            }
         }
 
         #endregion

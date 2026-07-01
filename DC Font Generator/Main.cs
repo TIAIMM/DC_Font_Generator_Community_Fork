@@ -238,7 +238,18 @@ namespace DC_Font_Generator
                 projectedCount++;
             }
 
-            RenderFontBuildItems(buildItems);
+            int renderCount = 0;
+            foreach (FontBuildItem item in buildItems)
+            {
+                if (!item.IsEmpty) renderCount++;
+            }
+            if (renderCount > 0)
+            {
+                mainform.ProgressBarMax = enc.Temp.Count + renderCount;
+                mainform.ProgressBar = enc.Temp.Count;
+            }
+
+            RenderFontBuildItems(buildItems, enc.Temp.Count);
             foreach (FontBuildItem item in buildItems)
             {
                 if (item.IsEmpty)
@@ -536,7 +547,7 @@ namespace DC_Font_Generator
 
         }
 
-        private void RenderFontBuildItems(List<FontBuildItem> buildItems)
+        private void RenderFontBuildItems(List<FontBuildItem> buildItems, int progressBase)
         {
             bool hasGlyph = false;
             foreach (FontBuildItem item in buildItems)
@@ -551,31 +562,46 @@ namespace DC_Font_Generator
 
             FontRenderSettings settings = CaptureFontRenderSettings();
             int maxParallelism = Math.Max(1, Math.Min(buildItems.Count, Environment.ProcessorCount - 1));
+            int renderedCount = 0;
 
-            Parallel.For<FontRenderState>(
-                0,
-                buildItems.Count,
-                new ParallelOptions { MaxDegreeOfParallelism = maxParallelism },
-                () => CreateFontRenderState(settings),
-                (i, loopState, renderState) =>
-                {
-                    FontBuildItem item = buildItems[i];
-                    if (!item.IsEmpty)
+            Task renderTask = Task.Run(() =>
+            {
+                Parallel.For<FontRenderState>(
+                    0,
+                    buildItems.Count,
+                    new ParallelOptions { MaxDegreeOfParallelism = maxParallelism },
+                    () => CreateFontRenderState(settings),
+                    (i, loopState, renderState) =>
                     {
-                        Font selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
-                        if (renderState.ActiveFont != selectedFont)
+                        FontBuildItem item = buildItems[i];
+                        if (!item.IsEmpty)
                         {
-                            renderState.Renderer.FontData = selectedFont;
-                            renderState.ActiveFont = selectedFont;
-                        }
+                            Font selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
+                            if (renderState.ActiveFont != selectedFont)
+                            {
+                                renderState.Renderer.FontData = selectedFont;
+                                renderState.ActiveFont = selectedFont;
+                            }
 
-                        float height;
-                        item.Fnt = BuildFontChar(item.Character, item.IsDC, renderState.Renderer, out height);
-                        item.Height = height;
-                    }
-                    return renderState;
-                },
-                DisposeFontRenderState);
+                            float height;
+                            item.Fnt = BuildFontChar(item.Character, item.IsDC, renderState.Renderer, out height);
+                            item.Height = height;
+                            Interlocked.Increment(ref renderedCount);
+                        }
+                        return renderState;
+                    },
+                    DisposeFontRenderState);
+            });
+
+            while (!renderTask.IsCompleted)
+            {
+                mainform.ProgressBar = progressBase + Volatile.Read(ref renderedCount);
+                Thread.Sleep(50);
+            }
+
+            renderTask.GetAwaiter().GetResult();
+            mainform.ProgressBar = progressBase + Volatile.Read(ref renderedCount);
+            mainform.ProgressBarRefresh();
         }
 
         private FontRenderSettings CaptureFontRenderSettings()
