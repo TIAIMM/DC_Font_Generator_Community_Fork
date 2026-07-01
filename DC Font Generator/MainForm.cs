@@ -1097,9 +1097,6 @@ namespace DC_Font_Generator
             toolStripProgressBar1.Visible = true;
             MaskReset();
 
-            Rectangle p = new Rectangle(0, 0, 0, 0);
-            int LineShift = 0;
-
             //集合fnt
 
             List<Fnt_char> sort = new List<Fnt_char>();
@@ -1126,18 +1123,37 @@ namespace DC_Font_Generator
             this.errorProvider1.SetError(this.label7, "");
             this.StatusText = GetString("Drawing...");
             DateTime dt = DateTime.Now;
-            bool redraw = true;
-            while (redraw)
-            {
-                redraw = false;
-                //製作Tex
-                this.pictureBox1.Invalidate();
-                CharIndex.Clear();
-                if (this.TextImage != null) this.TextImage.Dispose();
-                this.TextImage = new Bitmap(this.TextImageSize.Width, this.TextImageSize.Height);
-                this.pictureBox1.SetImage = this.TextImage;
 
-                Graphics graphics = Graphics.FromImage(this.TextImage);
+            int gap = (int)numericUpDownGap.Value;
+            List<Rectangle> placements = new List<Rectangle>(sort.Count);
+            Size bestSize;
+            int sizeXIndex;
+            int sizeYIndex;
+            if (!FindBestTexSize(sort, gap, Vertical, placements, out bestSize, out sizeXIndex, out sizeYIndex))
+            {
+                StatusText = GetString("Font file size exceeds the limit! Can not be processed.");
+                toolStripProgressBar1.Visible = false;
+                this.TexEnable = false;
+                return false;
+            }
+
+            bool oldReady = ready;
+            ready = false;
+            comboBoxSizeX.SelectedIndex = sizeXIndex;
+            comboBoxSizeY.SelectedIndex = sizeYIndex;
+            ready = oldReady;
+            this.TextImageSize = bestSize;
+            label_TexSize.Text = ((TexSize)comboBoxSizeX.SelectedItem).MergeSize(bestSize.Height);
+
+            //製作Tex
+            this.pictureBox1.Invalidate();
+            CharIndex.Clear();
+            if (this.TextImage != null) this.TextImage.Dispose();
+            this.TextImage = new Bitmap(this.TextImageSize.Width, this.TextImageSize.Height);
+            this.pictureBox1.SetImage = this.TextImage;
+
+            using (Graphics graphics = Graphics.FromImage(this.TextImage))
+            {
                 graphics.PageUnit = GraphicsUnit.Pixel;
                 int Draw_Mode = 1;
                 if (Draw_Mode == 1)
@@ -1147,7 +1163,7 @@ namespace DC_Font_Generator
                     graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
                     graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-				}
+                }
                 else
                 {
                     graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
@@ -1165,75 +1181,19 @@ namespace DC_Font_Generator
                 else
                     graphics.Clear(Color.FromArgb(BackColor));
 
-                p = new Rectangle(0, 0, 0, 0);
-                LineShift = 0;
-
                 ProgressBar = 0;
                 ProgressBarMax = sort.Count;
 
-                foreach (Fnt_char fnt in sort)
+                for (int i = 0; i < sort.Count; i++)
                 {
-                    int id = fnt.ID;
-                    if (this.MainList[id].DrawToScreen(this.TextImage, ref p, ref LineShift, fnt, CharIndex, (int)numericUpDownGap.Value, Vertical, graphics))
-                    {
-                        redraw = true;
-                        break;
-                    }
+                    DrawFontPlacement(sort[i], placements[i], graphics);
                     ProgressBarAdd();
                 }
-                if (!redraw)
-                {
-                    string format = GetString("done.") + " {0} " + GetString("sec.");
-                    StatusText = string.Format(format, DateTime.Now - dt);
-                    this.TexEnable = true;
-                    break;
-                }
-                else
-                {
-                    //自動擴增
-                    int x = comboBoxSizeX.SelectedIndex; //((TexSize)comboBoxSizeX.SelectedItem).size;
-                    int y = comboBoxSizeY.SelectedIndex; //((TexSize)comboBoxSizeY.SelectedItem).size; 
-                    //如果爆掉
-                    if (x + 1 == comboBoxSizeX.Items.Count && y + 1 == comboBoxSizeY.Items.Count)
-                    {
-                        StatusText = GetString("Font file size exceeds the limit! Can not be processed.");
-                        this.pictureBox1.SetImage = this.TextImage;
-                        toolStripProgressBar1.Visible = false;
-                        this.TexEnable = false;
-                        return false;
-                    }
-
-                    if (comboBoxSizeX.SelectedIndex <= comboBoxSizeY.SelectedIndex)
-                    {
-                        if (x < comboBoxSizeX.Items.Count)
-                        {
-                            comboBoxSizeX.SelectedIndex++;
-                            comboBoxSizeX.Refresh();
-                        }
-                        else
-                        {
-                            comboBoxSizeY.SelectedIndex++;
-                            comboBoxSizeY.Refresh();
-                        }
-
-                    }
-                    else
-                    {
-                        if (y < comboBoxSizeY.Items.Count)
-                        {
-                            comboBoxSizeY.SelectedIndex++;
-                            comboBoxSizeY.Refresh();
-                        }
-                        else
-                        {
-                            comboBoxSizeX.SelectedIndex++;
-                            comboBoxSizeX.Refresh();
-                        }
-                    }
-                    StatusText = GetString("Auto-amplification font size...");
-                    this.label7.Refresh();
-                }
             }
+
+            string format = GetString("done.") + " {0} " + GetString("sec.");
+            StatusText = string.Format(format, DateTime.Now - dt);
+            this.TexEnable = true;
             this.button1.Enabled = true; //開放save
             this.buttonSavePrj.Enabled = true; //開放save project
             this.tableLayoutPanelAdjust.Enabled = true; //開放調整
@@ -1242,6 +1202,179 @@ namespace DC_Font_Generator
             toolStripProgressBar1.Visible = false;
             return true;
         }
+
+        private void DrawFontPlacement(Fnt_char fnt, Rectangle placement, Graphics graphics)
+        {
+            if (!fnt.Enable || placement.Width <= 0 || placement.Height <= 0) return;
+
+            graphics.DrawImageUnscaledAndClipped(fnt.FontImage, placement);
+
+            int startX = placement.X;
+            int startY = placement.Y;
+            int width = placement.Width;
+            int height = placement.Height;
+
+            for (int y = 0; y < height; y++)
+            {
+                int currentY = startY + y;
+                for (int x = 0; x < width; x++)
+                {
+                    CharIndex[startX + x, currentY] = fnt;
+                }
+            }
+
+            float texWidth = TextImage.Width;
+            float texHeight = TextImage.Height;
+
+            fnt.x1 = startX / texWidth;
+            fnt.y1 = startY / texHeight;
+            fnt.x2 = (startX + width) / texWidth;
+            fnt.y2 = startY / texHeight;
+            fnt.x3 = startX / texWidth;
+            fnt.y3 = (startY + height) / texHeight;
+            fnt.x4 = (startX + width) / texWidth;
+            fnt.y4 = (startY + height) / texHeight;
+        }
+
+        private bool TryLayoutFonts(List<Fnt_char> sort, Size size, int gap, bool vertical, List<Rectangle> placements)
+        {
+            placements.Clear();
+
+            Rectangle p = new Rectangle(0, 0, 0, 0);
+            int lineShift = 0;
+
+            foreach (Fnt_char fnt in sort)
+            {
+                if (!fnt.Enable)
+                {
+                    placements.Add(Rectangle.Empty);
+                    continue;
+                }
+
+                int currentGap = gap;
+                bool addSpace = false;
+                if (currentGap == 0 && fnt.IsSpace)
+                {
+                    currentGap = 1;
+                    if (vertical) p.X += 1;
+                    else p.Y += 1;
+                    addSpace = true;
+                }
+
+                int width = fnt.FontImage.Width;
+                int height = fnt.FontImage.Height;
+
+                if (vertical)
+                {
+                    if ((p.Y + height + currentGap) >= size.Height)
+                    {
+                        p.Y = currentGap;
+                        p.X += lineShift + currentGap;
+                        lineShift = width;
+                    }
+                    if (p.X + width >= size.Width)
+                    {
+                        return true;
+                    }
+                }
+                else
+                {
+                    if ((p.X + width + currentGap) >= size.Width)
+                    {
+                        p.X = currentGap;
+                        p.Y += lineShift + currentGap;
+                        lineShift = height;
+                    }
+                    if (p.Y + height >= size.Height)
+                    {
+                        return true;
+                    }
+                }
+
+                placements.Add(new Rectangle(p.X, p.Y, width, height));
+
+                if (vertical)
+                {
+                    lineShift = Math.Max(lineShift, width + currentGap);
+                    p.Y += height + currentGap;
+                }
+                else
+                {
+                    lineShift = Math.Max(lineShift, height + currentGap);
+                    p.X += width + currentGap;
+                }
+
+                if (addSpace)
+                {
+                    if (vertical) p.Y += 1;
+                    else p.X += 1;
+                }
+            }
+
+            return false;
+        }
+
+        private bool FindBestTexSize(
+            List<Fnt_char> sort,
+            int gap,
+            bool vertical,
+            List<Rectangle> placements,
+            out Size bestSize,
+            out int sizeXIndex,
+            out int sizeYIndex)
+        {
+            placements.Clear();
+            bestSize = Size.Empty;
+            sizeXIndex = -1;
+            sizeYIndex = -1;
+
+            int sizeXCount = comboBoxSizeX.Items.Count;
+            int sizeYCount = comboBoxSizeY.Items.Count;
+            if (sizeXCount == 0 || sizeYCount == 0) return false;
+
+            int x = comboBoxSizeX.SelectedIndex;
+            int y = comboBoxSizeY.SelectedIndex;
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x >= sizeXCount) x = sizeXCount - 1;
+            if (y >= sizeYCount) y = sizeYCount - 1;
+
+            List<Rectangle> candidatePlacements = new List<Rectangle>(sort.Count);
+            while (true)
+            {
+                TexSize texSizeX = (TexSize)comboBoxSizeX.Items[x];
+                TexSize texSizeY = (TexSize)comboBoxSizeY.Items[y];
+                Size candidateSize = new Size(texSizeX.size, texSizeY.size);
+
+                if (!TryLayoutFonts(sort, candidateSize, gap, vertical, candidatePlacements))
+                {
+                    placements.Clear();
+                    placements.AddRange(candidatePlacements);
+                    bestSize = candidateSize;
+                    sizeXIndex = x;
+                    sizeYIndex = y;
+                    return true;
+                }
+
+                if (x + 1 == sizeXCount && y + 1 == sizeYCount)
+                {
+                    placements.Clear();
+                    return false;
+                }
+
+                if (x <= y)
+                {
+                    if (x + 1 < sizeXCount) x++;
+                    else if (y + 1 < sizeYCount) y++;
+                }
+                else
+                {
+                    if (y + 1 < sizeYCount) y++;
+                    else if (x + 1 < sizeXCount) x++;
+                }
+            }
+        }
+
         /// <summary>
         /// 編碼選擇
         /// </summary>
