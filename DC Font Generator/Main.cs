@@ -9,6 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -45,6 +46,36 @@ namespace DC_Font_Generator
         public List<Main> parent;
         public List<bool> Fallout3INI = new List<bool>(8);//所屬ini的編號(由1開始)
         #endregion
+
+        private sealed class FontBuildItem
+        {
+            public string Hex;
+            public char Character;
+            public bool IsDC;
+            public bool UseFont2;
+            public bool IsEmpty;
+            public Fnt_char Fnt;
+            public float Height;
+        }
+
+        private sealed class FontRenderSettings
+        {
+            public Color BackColor;
+            public int DrawMode;
+            public int Glow;
+            public Color GlowColor;
+            public int Outline;
+            public Color OutlineColor;
+            public Color FontColor;
+        }
+
+        private sealed class FontRenderState
+        {
+            public DrawFont Renderer;
+            public Font Font1;
+            public Font Font2;
+            public Font ActiveFont;
+        }
 
 
         #region Constructors
@@ -144,7 +175,10 @@ namespace DC_Font_Generator
 
 
             NowFont = this.font1;
-            
+
+            List<FontBuildItem> buildItems = new List<FontBuildItem>();
+            HashSet<string> pendingCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int projectedCount = this.iFntFile.CharList.Count;
 
             int loop_count = -1;
             //製作全文字
@@ -152,9 +186,10 @@ namespace DC_Font_Generator
             {
                 mainform.ProgressBarAdd();
                 loop_count++;
-       
-                if (this.iFntFile.CharList.Count >= 24322) continue; //已經都跑過了
-                if (this.iFntFile.HasCode(str.Substring(2, 4)))
+
+                string hex = str.Substring(2, 4);
+                if (projectedCount >= 24322) continue; //已經都跑過了
+                if (this.iFntFile.HasCode(hex) || pendingCodes.Contains(hex))
                 {
                     continue; //已經有的字就跳過
                 }
@@ -162,7 +197,9 @@ namespace DC_Font_Generator
 
                 if (str.Length == 6)
                 {
-                    this.iFntFile.AddEmpty(str.Substring(2, 4), ID); //無效的字碼
+                    buildItems.Add(new FontBuildItem { Hex = hex, IsEmpty = true }); //無效的字碼
+                    pendingCodes.Add(hex);
+                    projectedCount++;
                     continue;
                 }
 
@@ -172,21 +209,46 @@ namespace DC_Font_Generator
                 
                 if (IsError)
                 {
-                    this.iFntFile.AddEmpty(str.Substring(2, 4),ID);
+                    buildItems.Add(new FontBuildItem { Hex = hex, IsEmpty = true });
+                    pendingCodes.Add(hex);
+                    projectedCount++;
                     continue;
                 }
 
+                Font itemFont;
                 if (dc)
                 {
-                    NowFont = this.font2;
+                    itemFont = this.font2;
                 }
                 else
                 {
-                    NowFont = this.font1;
+                    itemFont = this.font1;
 
                 }
 
-                CreateFont(c, dc, str.Substring(2, 4));
+                NowFont = itemFont;
+                buildItems.Add(new FontBuildItem
+                {
+                    Hex = hex,
+                    Character = c,
+                    IsDC = dc,
+                    UseFont2 = dc
+                });
+                pendingCodes.Add(hex);
+                projectedCount++;
+            }
+
+            RenderFontBuildItems(buildItems);
+            foreach (FontBuildItem item in buildItems)
+            {
+                if (item.IsEmpty)
+                {
+                    this.iFntFile.AddEmpty(item.Hex, ID);
+                    continue;
+                }
+
+                this.iFntFile.Add(item.Fnt, item.Hex, ID);
+                RegisterFontHeight(item.Height);
             }
 
             //修正同寬字
@@ -370,7 +432,16 @@ namespace DC_Font_Generator
 
 		private void CreateFont(char c, bool dc, string hex)
         {
-            DrawFont.GlyphRenderResult glyph = SysDraw.RenderGlyph(c);
+            float height;
+            Fnt_char fnt = BuildFontChar(c, dc, SysDraw, out height);
+
+            this.iFntFile.Add(fnt, hex, ID);
+            RegisterFontHeight(height);
+        }
+
+        private Fnt_char BuildFontChar(char c, bool dc, DrawFont renderer, out float height)
+        {
+            DrawFont.GlyphRenderResult glyph = renderer.RenderGlyph(c);
             bool IsSpace = glyph.IsSpace;
 
 
@@ -378,7 +449,7 @@ namespace DC_Font_Generator
             fnt.c = c;
             fnt.IsDC = dc;
 
-            float Height = 0;
+            height = 0;
 
             if (glyph.OriginSize.Width > 0)
             {
@@ -395,7 +466,7 @@ namespace DC_Font_Generator
                 else //製造空白
                 {
                     //fnt.FontImage = new Bitmap(1, 1);
-                    ViewSize = new SizeF(SysDraw.SpaceWidth, 0);
+                    ViewSize = new SizeF(renderer.SpaceWidth, 0);
                     
 
                 }
@@ -416,7 +487,7 @@ namespace DC_Font_Generator
                     fnt.LeftSpace = glyph.RealSpace;
                     fnt.RightSpace = glyph.RealSpace;
                 }
-                if (!this.fixedFont && !IsSpace && (this.Glow > 0 || this.Outline > 0))
+                if (!this.fixedFont && !IsSpace && (renderer.Glow > 0 || renderer.OutlineWidth > 0))
                 {
                     float effectWidth = fnt.charViewWidth - glyph.OriginSize.Width;
                     if (effectWidth > 0)
@@ -442,17 +513,19 @@ namespace DC_Font_Generator
                     fnt.Empty = true;
                     fnt.IsSpace = true;
                 }
-                Height = fnt.charViewHeight;
+                height = fnt.charViewHeight;
             }
 
-            this.iFntFile.Add(fnt, hex, ID);
+            return fnt;
+        }
 
-            
+        private void RegisterFontHeight(float height)
+        {
             //this.iFntFile.Header.LineHeight = (this.iFntFile.Header.LineHeight < Height) ? Height : this.iFntFile.Header.LineHeight;
 
             
             //if (ef.Width > FontMaxWidth) FontMaxWidth = ef.Width; //登記最大寬度
-            if (Height > FontMaxHeight) FontMaxHeight = (int)Height; //登記最大高度
+            if (height > FontMaxHeight) FontMaxHeight = (int)height; //登記最大高度
             //if (!this.onSave)
             //{
                 //graphics.DrawRectangle(Pens.Red, p.X, p.Y, ef.Width, ef.Height);
@@ -461,6 +534,97 @@ namespace DC_Font_Generator
             
             //return true;
 
+        }
+
+        private void RenderFontBuildItems(List<FontBuildItem> buildItems)
+        {
+            bool hasGlyph = false;
+            foreach (FontBuildItem item in buildItems)
+            {
+                if (!item.IsEmpty)
+                {
+                    hasGlyph = true;
+                    break;
+                }
+            }
+            if (!hasGlyph) return;
+
+            FontRenderSettings settings = CaptureFontRenderSettings();
+            int maxParallelism = Math.Max(1, Math.Min(buildItems.Count, Environment.ProcessorCount - 1));
+
+            Parallel.For<FontRenderState>(
+                0,
+                buildItems.Count,
+                new ParallelOptions { MaxDegreeOfParallelism = maxParallelism },
+                () => CreateFontRenderState(settings),
+                (i, loopState, renderState) =>
+                {
+                    FontBuildItem item = buildItems[i];
+                    if (!item.IsEmpty)
+                    {
+                        Font selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
+                        if (renderState.ActiveFont != selectedFont)
+                        {
+                            renderState.Renderer.FontData = selectedFont;
+                            renderState.ActiveFont = selectedFont;
+                        }
+
+                        float height;
+                        item.Fnt = BuildFontChar(item.Character, item.IsDC, renderState.Renderer, out height);
+                        item.Height = height;
+                    }
+                    return renderState;
+                },
+                DisposeFontRenderState);
+        }
+
+        private FontRenderSettings CaptureFontRenderSettings()
+        {
+            return new FontRenderSettings
+            {
+                BackColor = SysDraw.BackColor,
+                DrawMode = SysDraw.DrawMode,
+                Glow = this.Glow,
+                GlowColor = this.GlowColor,
+                Outline = this.Outline,
+                OutlineColor = this.OutlineColor,
+                FontColor = this.FontColor
+            };
+        }
+
+        private FontRenderState CreateFontRenderState(FontRenderSettings settings)
+        {
+            return new FontRenderState
+            {
+                Renderer = CreateDrawFontRenderer(settings),
+                Font1 = (Font)this.font1.Clone(),
+                Font2 = (Font)this.font2.Clone()
+            };
+        }
+
+        private DrawFont CreateDrawFontRenderer(FontRenderSettings settings)
+        {
+            DrawFont renderer = new DrawFont();
+            renderer.BackColor = settings.BackColor;
+            renderer.DrawMode = settings.DrawMode;
+            renderer.OutlineWidth = settings.Outline;
+            renderer.GlowColor = settings.GlowColor;
+            renderer.OutlineColor = settings.OutlineColor;
+            renderer.FontColor = settings.FontColor;
+            renderer.Glow = settings.Glow;
+            return renderer;
+        }
+
+        private void DisposeFontRenderState(FontRenderState renderState)
+        {
+            if (renderState.Font1 != null)
+            {
+                renderState.Font1.Dispose();
+            }
+            if (renderState.Font2 != null)
+            {
+                renderState.Font2.Dispose();
+            }
         }
 
         /// <summary>
