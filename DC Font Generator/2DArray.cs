@@ -7,6 +7,7 @@ namespace Array2D
 	public abstract class SparseArray2DBase<T>
 	{
 		protected readonly Dictionary<(int, int), T> dictionary = new();
+		protected readonly Dictionary<int, List<RowRange<T>>> rowRanges = new();
 		protected int maxX = -1;
 		protected int maxY = -1;
 		protected bool isEmpty = true;
@@ -20,7 +21,19 @@ namespace Array2D
 
 		public T this[int x, int y]
 		{
-			get => dictionary.TryGetValue((x, y), out T value) ? value : DefaultValue;
+			get
+			{
+				if (dictionary.TryGetValue((x, y), out T value)) return value;
+				if (rowRanges.TryGetValue(y, out List<RowRange<T>> ranges))
+				{
+					for (int i = 0; i < ranges.Count; i++)
+					{
+						RowRange<T> range = ranges[i];
+						if (x >= range.X && x < range.EndX) return range.Value;
+					}
+				}
+				return DefaultValue;
+			}
 			set
 			{
 				var key = (x, y);
@@ -43,9 +56,25 @@ namespace Array2D
 		public void Clear()
 		{
 			dictionary.Clear();
+			rowRanges.Clear();
 			maxX = -1;
 			maxY = -1;
 			isEmpty = true;
+		}
+
+		public void SetRange(int x, int y, int width, T value)
+		{
+			if (width <= 0) return;
+			if (EqualityComparer<T>.Default.Equals(value, DefaultValue)) return;
+
+			if (!rowRanges.TryGetValue(y, out List<RowRange<T>> ranges))
+			{
+				ranges = new List<RowRange<T>>();
+				rowRanges[y] = ranges;
+			}
+
+			ranges.Add(new RowRange<T>(x, x + width, value));
+			UpdateBoundsAfterAdd(x + width - 1, y);
 		}
 
 		private void UpdateBoundsAfterAdd(int x, int y)
@@ -75,6 +104,20 @@ namespace Array2D
 	{
 		public IEnumerator<T> GetEnumerator() => dictionary.Values.GetEnumerator();
 		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+	}
+
+	public readonly struct RowRange<T>
+	{
+		public readonly int X;
+		public readonly int EndX;
+		public readonly T Value;
+
+		public RowRange(int x, int endX, T value)
+		{
+			X = x;
+			EndX = endX;
+			Value = value;
+		}
 	}
 
 	public class Char2D : SparseArray2DBase<char>

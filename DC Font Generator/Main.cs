@@ -399,10 +399,7 @@ namespace DC_Font_Generator
 			for (int y = 0; y < height; y++)
 			{
 				int currentY = startY + y;
-				for (int x = 0; x < width; x++)
-				{
-					CharIndex[startX + x, currentY] = fnt;
-				}
+				CharIndex.SetRange(startX, currentY, width, fnt);
 			}
 
 			// 设置UV坐标
@@ -932,23 +929,17 @@ namespace DC_Font_Generator
 
 				// 创建字符子位图
 				Rectangle rect = new Rectangle(px, py, pw, ph);
-				fnt.FontImage = new Bitmap(pw, ph);
-
-				using (Graphics g = Graphics.FromImage(fnt.FontImage))
-				{
-					g.DrawImage(b_tex, new Rectangle(0, 0, pw, ph),
-							   rect, GraphicsUnit.Pixel);
-				}
+				fnt.SetLazyFontImage(b_tex, rect);
 
 				// 直接处理像素数据而不使用 GetPixel
 				bool notBlack = false;
 				for (int y = py; y < ry; y++)
 				{
-					for (int x = px; x < rx; x++)
-					{
-						CharIndex[x, y] = fnt;
+					CharIndex.SetRange(px, y, pw, fnt);
 
-						if (!notBlack)
+					if (!notBlack)
+					{
+						for (int x = px; x < rx; x++)
 						{
 							// 计算像素在缓存中的位置
 							int offset = (y * bmpData.Stride) + (x * bytesPerPixel);
@@ -961,6 +952,7 @@ namespace DC_Font_Generator
 								 pixelBuffer[offset] > 0))      // Blue
 							{
 								notBlack = true;
+								break;
 							}
 						}
 					}
@@ -1005,6 +997,7 @@ namespace DC_Font_Generator
 					this.iFntFile.EmptySC = index;
 			}
 		}
+
 		public Bitmap LoadTex(string path)
 		{
 			using (FileStream input = new FileStream(path, FileMode.Open, FileAccess.Read))

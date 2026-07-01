@@ -1236,10 +1236,7 @@ namespace DC_Font_Generator
             for (int y = 0; y < height; y++)
             {
                 int currentY = startY + y;
-                for (int x = 0; x < width; x++)
-                {
-                    CharIndex[startX + x, currentY] = fnt;
-                }
+                CharIndex.SetRange(startX, currentY, width, fnt);
             }
 
             float texWidth = TextImage.Width;

@@ -2,12 +2,17 @@
 using System.IO;
 using System.Drawing;
 using System.Collections.Generic;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace DC_Font_Generator
 {
 
     public class Fnt_char
     {
+        [DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")]
+        private static extern void CopyMemory(IntPtr dest, IntPtr src, uint length);
+
         public int ID = 0; //所屬的上層編號
         private float iBottomAlign;
         private float icharViewHeight;
@@ -34,6 +39,8 @@ namespace DC_Font_Generator
         public float charViewHeightFixed = 0;
         public float charViewWidthFixed = 0;
         private Bitmap image;
+        private Bitmap lazySourceImage;
+        private Rectangle lazySourceRect;
         public float FixedWidth = 0; //等寬修正
         public string HEX = "";
 
@@ -101,11 +108,58 @@ namespace DC_Font_Generator
             {
                 if (image == null)
                 {
+                    if (lazySourceImage != null && lazySourceRect.Width > 0 && lazySourceRect.Height > 0)
+                    {
+                        image = CopyBitmapRegion(lazySourceImage, lazySourceRect);
+                        lazySourceImage = null;
+                    }
+                    if (image != null)
+                    {
+                        return image;
+                    }
                     return new Bitmap(1, 1);
                 }
                 return image;
             }
-            set { image = value; }
+            set
+            {
+                image = value;
+                lazySourceImage = null;
+                lazySourceRect = Rectangle.Empty;
+            }
+        }
+        public void SetLazyFontImage(Bitmap sourceImage, Rectangle sourceRect)
+        {
+            image = null;
+            lazySourceImage = sourceImage;
+            lazySourceRect = sourceRect;
+        }
+        private static Bitmap CopyBitmapRegion(Bitmap source, Rectangle sourceRect)
+        {
+            Bitmap cropped = new Bitmap(sourceRect.Width, sourceRect.Height, PixelFormat.Format32bppArgb);
+            BitmapData sourceData = source.LockBits(sourceRect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            BitmapData croppedData = cropped.LockBits(
+                new Rectangle(0, 0, cropped.Width, cropped.Height),
+                ImageLockMode.WriteOnly,
+                PixelFormat.Format32bppArgb);
+
+            try
+            {
+                int copyBytes = sourceRect.Width * 4;
+                for (int y = 0; y < sourceRect.Height; y++)
+                {
+                    IntPtr sourcePtr = IntPtr.Add(sourceData.Scan0, y * sourceData.Stride);
+                    IntPtr croppedPtr = IntPtr.Add(croppedData.Scan0, y * croppedData.Stride);
+                    CopyMemory(croppedPtr, sourcePtr, (uint)copyBytes);
+                }
+            }
+            finally
+            {
+                cropped.UnlockBits(croppedData);
+                source.UnlockBits(sourceData);
+            }
+
+            return cropped;
         }
         public float BottomAlign
         {
