@@ -429,6 +429,14 @@ namespace DC_Font_Generator
                     fnt.LeftSpace = RealSpace;
                     fnt.RightSpace = RealSpace;
                 }
+                if (!this.fixedFont && !IsSpace && (this.Glow > 0 || this.Outline > 0))
+                {
+                    float effectWidth = fnt.charViewWidth - p.Width;
+                    if (effectWidth > 0)
+                    {
+                        fnt.RightSpace -= effectWidth;
+                    }
+                }
                 /*
                 if (SysDraw.Glow > 0)
                 {
