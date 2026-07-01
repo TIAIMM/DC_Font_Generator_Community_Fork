@@ -370,20 +370,8 @@ namespace DC_Font_Generator
 
 		private void CreateFont(char c, bool dc, string hex)
         {
-            SizeF DisplaySize; float RealSpace;
-            Rectangle p = new Rectangle();
-            p.Size = SysDraw.GetOriginFontHeight(c, out DisplaySize,out RealSpace); //取得原文字圖形大小
-
-            if (hex == "A3AC")
-            {
-                DisplaySize.Height = DisplaySize.Height;
-            }
-
-            bool IsSpace = false;
-            if (p.Size.Height == 0)
-                IsSpace = true;
-            else
-                IsSpace = false;
+            DrawFont.GlyphRenderResult glyph = SysDraw.RenderGlyph(c);
+            bool IsSpace = glyph.IsSpace;
 
 
             Fnt_char fnt = new Fnt_char();
@@ -392,15 +380,14 @@ namespace DC_Font_Generator
 
             float Height = 0;
 
-            if (p.Width > 0)
+            if (glyph.OriginSize.Width > 0)
             {
                 SizeF ViewSize;
-                float BottomAlign = 0;
                 if (!IsSpace)
                 {
                     //繪製文字
 
-                    fnt.FontImage = SysDraw.DrawingFont(c,out BottomAlign);
+                    fnt.FontImage = glyph.Image;
 
                     ViewSize = new SizeF(fnt.FontImage.Width, fnt.FontImage.Height);
 
@@ -418,20 +405,20 @@ namespace DC_Font_Generator
                 //ef.Width += this.sc_i右下角.X;
                 //ef.Height += this.sc_i右下角.Y;
 
-                fnt.BottomAlign = BottomAlign;
+                fnt.BottomAlign = glyph.BottomAlign;
                 fnt.charViewHeight = (float)ViewSize.Height;  //顯示高度
                 fnt.charViewWidth = (float)ViewSize.Width;      //顯示寬度
 
                 fnt.LeftSpace = 0;
                 fnt.RightSpace = 0;
-                if (RealSpace > 0)
+                if (glyph.RealSpace > 0)
                 {
-                    fnt.LeftSpace = RealSpace;
-                    fnt.RightSpace = RealSpace;
+                    fnt.LeftSpace = glyph.RealSpace;
+                    fnt.RightSpace = glyph.RealSpace;
                 }
                 if (!this.fixedFont && !IsSpace && (this.Glow > 0 || this.Outline > 0))
                 {
-                    float effectWidth = fnt.charViewWidth - p.Width;
+                    float effectWidth = fnt.charViewWidth - glyph.OriginSize.Width;
                     if (effectWidth > 0)
                     {
                         fnt.RightSpace -= effectWidth;

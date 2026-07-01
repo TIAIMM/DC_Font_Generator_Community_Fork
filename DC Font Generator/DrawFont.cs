@@ -258,33 +258,42 @@ namespace DC_Font_Generator
 		/// <returns></returns>
 		public Bitmap DrawingFont(char c, out float BottomAlign)
 		{
-			// 对于控制字符，返回最小位图
+			GlyphRenderResult glyph = RenderGlyph(c);
+			BottomAlign = glyph.BottomAlign;
+			return glyph.Image ?? new Bitmap(1, 1);
+		}
+
+		public GlyphRenderResult RenderGlyph(char c)
+		{
+			GlyphRenderResult result = new GlyphRenderResult();
 			if (c < 32)
 			{
-				BottomAlign = 0;
-				return new Bitmap(1, 1);
+				result.IsSpace = true;
+				return result;
 			}
 
-			Bitmap image = null;
 			try
 			{
-				image = CDZ_image;
 				CDZ_g.Clear(BackColor);
-				int shift = (glow + OutlineWidth);
+				int shift = glow + OutlineWidth;
+				string text = c.ToString();
 
-				// 重用可复用路径
 				_reusablePath.Reset();
-				_reusablePoint.X = shift + 0.5f; // 添加0.5像素水平偏移
-				_reusablePoint.Y = shift + 0.5f; // 添加0.5像素垂直偏移
+				_reusablePoint.X = shift + 0.5f;
+				_reusablePoint.Y = shift + 0.5f;
+				_reusablePath.AddString(text, fontFamily, (int)_Font.Style, _Font.Size, _reusablePoint, strformat);
 
-				_reusablePath.AddString(
-					c.ToString(),
-					fontFamily,
-					(int)_Font.Style,
-					_Font.Size,
-					_reusablePoint,
-					strformat
-				);
+				RectangleF originBounds = _reusablePath.GetBounds();
+				if (originBounds.Width <= 0 || originBounds.Height <= 0)
+				{
+					result.IsSpace = true;
+					result.OriginSize = new Size((int)SpaceWidth, 0);
+					result.RealSpace = SpaceWidth;
+					return result;
+				}
+
+				result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
+				result.RealSpace = GetPathRealSpace(text, originBounds.Width);
 
 				if (glow > 0)
 				{
@@ -301,18 +310,51 @@ namespace DC_Font_Generator
 				if (DrawMode == 1)
 					CDZ_g.FillPath(sfbrush, _reusablePath);
 				else
-					CDZ_g.DrawString(c.ToString(), _Font, sfbrush, _reusablePoint);
+					CDZ_g.DrawString(text, _Font, sfbrush, _reusablePoint);
 
-				Rectangle ef = GetFontGSize(image);
-				Bitmap crop = cropImage(image, ef);
-				BottomAlign = CDZ_BottomAlign - ef.Y;
-				return crop;
+				Rectangle bounds = GetFontGSize(CDZ_image);
+				if (bounds.Width <= 0 || bounds.Height <= 0)
+				{
+					result.IsSpace = true;
+					result.OriginSize = new Size((int)SpaceWidth, 0);
+					result.RealSpace = SpaceWidth;
+					return result;
+				}
+
+				result.Image = cropImage(CDZ_image, bounds);
+				result.BottomAlign = CDZ_BottomAlign - bounds.Y;
+				return result;
 			}
 			finally
 			{
-				// 确保路径重置，但保留重用路径
 				_reusablePath.Reset();
 			}
+		}
+
+		private float GetPathRealSpace(string text, float originWidth)
+		{
+			using (GraphicsPath doublePath = new GraphicsPath())
+			{
+				doublePath.AddString(
+					text + text,
+					fontFamily,
+					(int)_Font.Style,
+					_Font.Size,
+					_reusablePoint,
+					strformat);
+
+				RectangleF doubleBounds = doublePath.GetBounds();
+				return (doubleBounds.Width - (originWidth * 2)) / 4;
+			}
+		}
+
+		public class GlyphRenderResult
+		{
+			public Bitmap Image;
+			public Size OriginSize;
+			public float RealSpace;
+			public float BottomAlign;
+			public bool IsSpace;
 		}
 
 		/// <summary>
