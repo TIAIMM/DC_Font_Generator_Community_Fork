@@ -144,14 +144,7 @@
         {
             MemoryStream output = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(output,enc);
-            writer.Write(this.iHeader.getBytes(enc));
-            int count = 0;
-            foreach (Fnt_char _char in this.iCharList)
-            {
-                if (ASCII_only && count > 255) break;
-                writer.Write(_char.getBytes());
-                count++;
-            }
+            WriteTo(writer, enc, ASCII_only);
             writer.Flush();
             writer.Close();
             return output.ToArray();
@@ -160,16 +153,28 @@
         {
             MemoryStream output = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(output);
-            int count = 0;
-            foreach (Fnt_char _char in this.iCharList)
-            {
-                if (count > 255)
-                    writer.Write(_char.getBytes());
-                count++;
-            }
+            WriteAppendTo(writer);
             writer.Flush();
             writer.Close();
             return output.ToArray();
+        }
+
+        private void WriteTo(BinaryWriter writer, Encoding enc, bool ASCII_only)
+        {
+            writer.Write(this.iHeader.getBytes(enc));
+            int max = ASCII_only ? Math.Min(256, this.iCharList.Count) : this.iCharList.Count;
+            for (int i = 0; i < max; i++)
+            {
+                this.iCharList[i].WriteTo(writer);
+            }
+        }
+
+        private void WriteAppendTo(BinaryWriter writer)
+        {
+            for (int i = 256; i < this.iCharList.Count; i++)
+            {
+                this.iCharList[i].WriteTo(writer);
+            }
         }
 
         private void setBytes(string filename, Encoding enc, List<string> Temp,int ID)
@@ -233,29 +238,11 @@
 		{
 			try
 			{
-				// 保存临时文件
-				string tempFile = Path.GetTempFileName();
-				using (FileStream output = new FileStream(tempFile, FileMode.Create))
+				using (FileStream output = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024))
 				using (BinaryWriter writer = new BinaryWriter(output, enc))
 				{
-					// 写入头部和字符数据
-					writer.Write(this.getBytes(enc, ASCII_only));
+					WriteTo(writer, enc, ASCII_only);
 				}
-
-				//Write glyph mapping data
-				using (FileStream file = new FileStream(filename, FileMode.Create))
-				using (MemoryStream mem = new MemoryStream(File.ReadAllBytes(tempFile)))
-				{
-					mem.Position = 0;
-					mem.CopyTo(file);
-
-					// 覆盖0x12C-0x823区域控制字符
-					//file.Position = 0x12C;
-					//file.Write(SpecialBytes, 0, Math.Min(SpecialBytes.Length, 0x823 - 0x12C + 1));
-				}
-
-				// 删除临时文件
-				File.Delete(tempFile);
 			}
 			catch (Exception ee)
 			{
@@ -267,12 +254,11 @@
         {
             try
             {
-                FileStream output = new FileStream(filename, FileMode.Append);
-                BinaryWriter writer = new BinaryWriter(output);
-                writer.Write(getBytes_append());
-                writer.Flush();
-                writer.Close();
-                output.Close();
+                using (FileStream output = new FileStream(filename, FileMode.Append, FileAccess.Write, FileShare.None, 64 * 1024))
+                using (BinaryWriter writer = new BinaryWriter(output))
+                {
+                    WriteAppendTo(writer);
+                }
             }
             catch (Exception ee)
             {

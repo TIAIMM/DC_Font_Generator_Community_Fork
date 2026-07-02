@@ -66,6 +66,13 @@ namespace DC_Font_Generator
         {
             MemoryStream output = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(output);
+            WriteTo(writer);
+            writer.Flush();
+            writer.Close();
+            return output.ToArray();
+        }
+        public void WriteTo(BinaryWriter writer)
+        {
             writer.Write(iConstant_0);
             writer.Write(this.ix1);
             writer.Write(this.iy1);
@@ -80,9 +87,6 @@ namespace DC_Font_Generator
             writer.Write(this.iLeftSpace);
             writer.Write(this.iRightSpace);
             writer.Write(this.iBottomAlign);
-            writer.Flush();
-            writer.Close();
-            return output.ToArray();
         }
         public void setBytes(BinaryReader reader)
         {

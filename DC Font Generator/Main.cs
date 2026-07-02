@@ -807,29 +807,62 @@ namespace DC_Font_Generator
         }
         public void SaveTex(string path,Bitmap b)
         {
-            FileStream output = new FileStream(path, FileMode.Create);
-            BinaryWriter writer = new BinaryWriter(output);
+            using FileStream output = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024);
+            using BinaryWriter writer = new BinaryWriter(output);
             writer.Write(b.Width);
             writer.Write(b.Height);
             this.mainform.ProgressBarMax = b.Height;
             this.mainform.ProgressBar = 0;
-            //
-            for (int y = 0; y < b.Height; y++)
-            {
-                for (int x = 0; x < b.Width; x++)
-                {
-                    Color pixel = b.GetPixel(x, y);
-                    writer.Write(pixel.R);
-                    writer.Write(pixel.G);
-                    writer.Write(pixel.B);
-                    writer.Write(pixel.A);
-
-                }
-                this.mainform.ProgressBarAdd();
-            }
             writer.Flush();
-            writer.Close();
-            output.Close();
+
+            Bitmap source = b;
+            bool disposeSource = false;
+            if (source.PixelFormat != PixelFormat.Format32bppArgb)
+            {
+                source = new Bitmap(b.Width, b.Height, PixelFormat.Format32bppArgb);
+                using (Graphics g = Graphics.FromImage(source))
+                {
+                    g.DrawImageUnscaled(b, 0, 0);
+                }
+                disposeSource = true;
+            }
+
+            Rectangle rect = new Rectangle(0, 0, source.Width, source.Height);
+            BitmapData bmpData = source.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int rowBytes = source.Width * 4;
+                byte[] sourceRow = new byte[rowBytes];
+                byte[] outputRow = new byte[rowBytes];
+
+                for (int y = 0; y < source.Height; y++)
+                {
+                    IntPtr sourcePtr = IntPtr.Add(bmpData.Scan0, y * bmpData.Stride);
+                    Marshal.Copy(sourcePtr, sourceRow, 0, rowBytes);
+
+                    for (int i = 0; i < rowBytes; i += 4)
+                    {
+                        outputRow[i] = sourceRow[i + 2];
+                        outputRow[i + 1] = sourceRow[i + 1];
+                        outputRow[i + 2] = sourceRow[i];
+                        outputRow[i + 3] = sourceRow[i + 3];
+                    }
+
+                    output.Write(outputRow, 0, rowBytes);
+                    if ((y & 0x0F) == 0 || y == source.Height - 1)
+                    {
+                        this.mainform.ProgressBar = y + 1;
+                    }
+                }
+            }
+            finally
+            {
+                source.UnlockBits(bmpData);
+                if (disposeSource)
+                {
+                    source.Dispose();
+                }
+            }
 
         }
 
