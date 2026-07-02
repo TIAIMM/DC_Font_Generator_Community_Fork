@@ -183,7 +183,7 @@ namespace DC_Font_Generator
                 CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 				CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
 				CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
 			}
             else
@@ -192,7 +192,7 @@ namespace DC_Font_Generator
 				CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 				CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
 				CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-				CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+				CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 			}
             CDZ_g.Clear(BackColor);
 
@@ -375,7 +375,7 @@ namespace DC_Font_Generator
 					g.InterpolationMode = InterpolationMode.Default;
 					g.PixelOffsetMode = PixelOffsetMode.Default;
 					g.SmoothingMode = SmoothingMode.None;
-					g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+					g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
 					// 绘制单个字符
 					g.Clear(BackColor);
@@ -461,7 +461,7 @@ namespace DC_Font_Generator
 				g.InterpolationMode = InterpolationMode.Default;
 				g.PixelOffsetMode = PixelOffsetMode.Default;
 				g.SmoothingMode = SmoothingMode.None;
-				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
 				// 绘制字符
 				g.Clear(BackColor);

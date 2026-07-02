@@ -1181,7 +1181,7 @@ namespace DC_Font_Generator
                     graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                     graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
                     graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                    graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                    graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
                 }
                 else
                 {
@@ -1882,7 +1882,7 @@ namespace DC_Font_Generator
             mask.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
             mask.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
             mask.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-            mask.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            mask.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
 
             //繪製選取方塊
@@ -2480,7 +2480,7 @@ namespace DC_Font_Generator
             mask.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
             mask.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
             mask.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-            mask.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            mask.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 			mask.Clear(Color.FromArgb(0, Color.Black));
             if (textBox_TypeTest.Text == "") return;
 
