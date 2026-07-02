@@ -490,18 +490,20 @@ namespace DC_Font_Generator
 
                 fnt.LeftSpace = 0;
                 fnt.RightSpace = 0;
-                if (glyph.RealSpace > 0)
+                if (!this.fixedFont && !IsSpace)
+                {
+                    float layoutAdvance = glyph.OriginSize.Width;
+                    if (glyph.RealSpace > 0)
+                    {
+                        layoutAdvance += glyph.RealSpace * 2f;
+                    }
+
+                    fnt.RightSpace = layoutAdvance - fnt.charViewWidth;
+                }
+                else if (glyph.RealSpace > 0)
                 {
                     fnt.LeftSpace = glyph.RealSpace;
                     fnt.RightSpace = glyph.RealSpace;
-                }
-                if (!this.fixedFont && !IsSpace && (renderer.Glow > 0 || renderer.OutlineWidth > 0))
-                {
-                    float effectWidth = fnt.charViewWidth - glyph.OriginSize.Width;
-                    if (effectWidth > 0)
-                    {
-                        fnt.RightSpace -= effectWidth;
-                    }
                 }
                 /*
                 if (SysDraw.Glow > 0)
