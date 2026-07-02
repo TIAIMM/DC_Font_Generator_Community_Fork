@@ -283,6 +283,7 @@ namespace DC_Font_Generator
 				this.iFntFile.Header.LineHeight = Math.Max(lineHeight1, lineHeight2);
 
 			}
+            NormalizeBaselines();
             return true;
         }
         /// <summary>
@@ -668,6 +669,137 @@ namespace DC_Font_Generator
                 fnt.BottomAlignFixed += shift;
             }
 
+        }
+
+        private void NormalizeBaselines()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "")
+            {
+                return;
+            }
+
+            float singleByteCenter;
+            float doubleByteCenter;
+            if (!TryGetSingleByteReferenceCenter(out singleByteCenter)
+                || !TryGetDoubleByteReferenceCenter(out doubleByteCenter))
+            {
+                return;
+            }
+
+            float doubleByteShift = doubleByteCenter - singleByteCenter;
+            if (Math.Abs(doubleByteShift) < 0.001f)
+            {
+                return;
+            }
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!fnt.Enable || fnt.IsSpace || !fnt.IsDC)
+                {
+                    continue;
+                }
+
+                fnt.BottomAlign += doubleByteShift;
+            }
+        }
+
+        private bool TryGetSingleByteReferenceCenter(out float center)
+        {
+            char[] referenceChars = { 'H', 'A', 'M', 'W', '0' };
+            List<float> centers = new List<float>();
+            for (int i = 0; i < referenceChars.Length; i++)
+            {
+                Fnt_char fnt = this.iFntFile.GetFntFromChar(referenceChars[i]);
+                if (IsBaselineCandidate(fnt, false))
+                {
+                    centers.Add(GetVisualCenter(fnt));
+                }
+            }
+
+            if (TryGetMedian(centers, out center))
+            {
+                return true;
+            }
+
+            return TryGetMedianVisualCenter(false, false, false, out center);
+        }
+
+        private bool TryGetDoubleByteReferenceCenter(out float center)
+        {
+            if (TryGetMedianVisualCenter(true, true, true, out center))
+            {
+                return true;
+            }
+
+            if (TryGetMedianVisualCenter(true, true, false, out center))
+            {
+                return true;
+            }
+
+            return TryGetMedianVisualCenter(true, false, false, out center);
+        }
+
+        private bool TryGetMedianVisualCenter(bool isDC, bool preferFullHeight, bool cjkOnly, out float center)
+        {
+            List<float> centers = new List<float>();
+            float minHeight = this.iFntFile.Header.LineHeight * 0.5f;
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!IsBaselineCandidate(fnt, isDC))
+                {
+                    continue;
+                }
+
+                if (preferFullHeight && fnt.charViewHeight < minHeight)
+                {
+                    continue;
+                }
+
+                if (cjkOnly && !IsCjkIdeograph(fnt.c))
+                {
+                    continue;
+                }
+
+                centers.Add(GetVisualCenter(fnt));
+            }
+
+            return TryGetMedian(centers, out center);
+        }
+
+        private float GetVisualCenter(Fnt_char fnt)
+        {
+            return this.iFntFile.Header.LineHeight - fnt.BottomAlign + (fnt.charViewHeight / 2f);
+        }
+
+        private static bool TryGetMedian(List<float> values, out float median)
+        {
+            if (values.Count == 0)
+            {
+                median = 0;
+                return false;
+            }
+
+            values.Sort();
+            median = values[values.Count / 2];
+            return true;
+        }
+
+        private static bool IsBaselineCandidate(Fnt_char fnt, bool isDC)
+        {
+            return fnt.Enable
+                && !fnt.Empty
+                && !fnt.IsSpace
+                && fnt.IsDC == isDC
+                && fnt.charViewWidth > 0
+                && fnt.charViewHeight > 0;
+        }
+
+        private static bool IsCjkIdeograph(char c)
+        {
+            return (c >= '\u3400' && c <= '\u4DBF')
+                || (c >= '\u4E00' && c <= '\u9FFF')
+                || (c >= '\uF900' && c <= '\uFAFF');
         }
 
         private void PointFOffset(ref Point p, int x, int y)
