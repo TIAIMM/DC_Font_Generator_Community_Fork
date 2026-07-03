@@ -31,7 +31,6 @@
 			components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
 			saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
-			fontDialog1 = new System.Windows.Forms.FontDialog();
 			errorProvider1 = new System.Windows.Forms.ErrorProvider(components);
 			statusStrip1 = new System.Windows.Forms.StatusStrip();
 			toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
@@ -2182,7 +2181,6 @@
 		#endregion
 
 		private System.Windows.Forms.SaveFileDialog saveFileDialog1;
-        private System.Windows.Forms.FontDialog fontDialog1;
         private System.Windows.Forms.ErrorProvider errorProvider1;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;

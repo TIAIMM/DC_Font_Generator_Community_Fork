@@ -1,5 +1,4 @@
 ﻿using INI_RW;
-using Microsoft.VisualBasic;
 using Microsoft.Win32;
 using System;
 using System.Collections;
@@ -74,12 +73,7 @@ namespace DC_Font_Generator
 
             LangSetup();
             this.Text = string.Format("{0} {1} [Version: {2}]", base.ProductName,GetString("by aabby & Artaud"), base.ProductVersion);
-            this.fontDialog1.ShowColor=false;
-            this.fontDialog1.ShowEffects=false;
-            this.fontDialog1.ShowHelp=false;
-            this.fontDialog1.AllowScriptChange=true;
-            this.fontDialog1.AllowVectorFonts=true;
-            this.fontDialog1.AllowVerticalFonts=false;
+            FontPickerForm.BeginWarmup();
             
             button1.Enabled = false;
             button2.Enabled = false;
@@ -624,17 +618,6 @@ namespace DC_Font_Generator
 
 		#endregion
 
-		public string GetUserInput()
-		{
-			string prompt = "Font Size(px):";
-			string title = "Font Size";
-			string defaultValue = "18";
-			int xPos = -1; // 使用默认水平位置
-			int yPos = -1; // 使用默认垂直位置
-
-			return Interaction.InputBox(prompt, title, defaultValue, xPos, yPos);
-		}
-
 		#region Font Page Event
 		/// <summary>
 		/// 選擇字型
@@ -643,58 +626,59 @@ namespace DC_Font_Generator
 		/// <param name="e"></param>
 		private void label_Click(object sender, EventArgs e)
         {
-            FontDialog fd = new FontDialog();
-            fd.ShowColor = false;
-            fd.ShowEffects = false;
-            fd.ShowHelp = false;
-            fd.AllowScriptChange = true;
-            fd.AllowVectorFonts = true;
-            fd.AllowVerticalFonts = false;
-
             string Tag = ((Label)sender).Tag.ToString();
+            Font currentFont = this.MainList[MainSelect].font1;
             switch (Tag)
             {
                 case ("Font1"):
-                    Font font1=this.MainList[MainSelect].font1;
-                    fd.Font = font1;
-
+                    currentFont = this.MainList[MainSelect].font1;
                     break;
                 case ("Font2"):
-                    Font font2=this.MainList[MainSelect].font2;
-                    fd.Font = font2;
+                    currentFont = this.MainList[MainSelect].font2;
                     break;
             }
 
             try
             {
-                if (fd.ShowDialog() == DialogResult.OK)
+                Main currentMain = this.MainList[MainSelect];
+                bool editingDoubleByteFont = Tag == "Font2";
+                using (FontPickerForm picker = new FontPickerForm(
+                    currentFont,
+                    currentMain.font1,
+                    currentMain.font2,
+                    editingDoubleByteFont,
+                    fenc.ASCII_Only,
+                    fenc.enc.CodePage,
+                    currentMain.Glow,
+                    currentMain.GlowColor,
+                    currentMain.Outline,
+                    currentMain.OutlineColor,
+                    currentMain.FontColor))
                 {
-                    Font font = new Font(fd.Font.FontFamily, int.Parse(GetUserInput()), fd.Font.Style, GraphicsUnit.Pixel);
-                    
-                    
-                    
-                    ((Label)sender).Text = font.Name + "," + font.Size + "," + font.Height;
-                    switch (Tag)
+                    if (picker.ShowDialog(this) == DialogResult.OK)
                     {
-                        case("Font1"):
-                            this.MainList[MainSelect].font1 = font;
-                            this.MainList[MainSelect].ImportFont1name = "";
-                            break;
-                        case("Font2"):
-                            this.MainList[MainSelect].font2 = font;
-                            this.MainList[MainSelect].ImportFont2name = "";
-                            this.MainList[MainSelect].DCfontLink = -1;
-                            break;
+                        Font font = (Font)picker.SelectedFont.Clone();
+                        ((Label)sender).Text = font.Name + "," + font.Size + "," + font.Height;
+                        switch (Tag)
+                        {
+                            case("Font1"):
+                                this.MainList[MainSelect].font1 = font;
+                                this.MainList[MainSelect].ImportFont1name = "";
+                                break;
+                            case("Font2"):
+                                this.MainList[MainSelect].font2 = font;
+                                this.MainList[MainSelect].ImportFont2name = "";
+                                this.MainList[MainSelect].DCfontLink = -1;
+                                break;
+                        }
+
+                        this.MainList[MainSelect].Clear(); //清除已經繪製的字
+                        this.button1.Enabled = false;
+
+                        if (font.Size>27)
+                            font = new Font(font.FontFamily, 28f, font.Style, GraphicsUnit.Pixel);
+                        ((Label)sender).Font = font;
                     }
-
-                    this.MainList[MainSelect].Clear(); //清除已經繪製的字
-                    this.button1.Enabled = false;
-
-                    if (font.Size>27)
-                        font = new Font(this.fontDialog1.Font.FontFamily, 28f, this.fontDialog1.Font.Style, GraphicsUnit.Pixel);
-                    ((Label)sender).Font = font;
-                    
-
                 }
             }
             catch
@@ -1516,7 +1500,6 @@ namespace DC_Font_Generator
             this.label4.Text = f.Name + "," + f.Size;
             this.label4.Font = f;
 
-            fontDialog1.Font = f;
             if (ready)
             {
                 comboBoxSizeX.SelectedIndex = 0;
