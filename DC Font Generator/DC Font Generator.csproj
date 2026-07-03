@@ -43,6 +43,19 @@
     <Compile Include="FL_FONT.cs" />
     <Compile Include="Fnt_char.cs" />
     <Compile Include="Fnt_Header.cs" />
+    <Compile Include="FalloutFontServices.cs" />
+    <Compile Include="FontFileImportService.cs" />
+    <Compile Include="FontGenerationServices.cs" />
+    <Compile Include="FontIniWorkflowService.cs" />
+    <Compile Include="FontPickerServices.cs" />
+    <Compile Include="FontPickerPreviewRenderer.cs" />
+    <Compile Include="FontRenderWorkflowService.cs" />
+    <Compile Include="FontSectionStateService.cs" />
+    <Compile Include="FontUiLogicServices.cs" />
+    <Compile Include="FontWorkflowServices.cs" />
+    <Compile Include="GlyphEditingServices.cs" />
+    <Compile Include="GlyphInteractionService.cs" />
+    <Compile Include="GlyphSelectionWorkflowService.cs" />
     <Compile Include="FontPickerForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -65,6 +78,10 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Program.cs" />
+    <Compile Include="ProjectSerializationService.cs" />
+    <Compile Include="ProjectApplicationService.cs" />
+    <Compile Include="ProjectFileWorkflowService.cs" />
+    <Compile Include="ProjectOpenWorkflowService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -76,6 +93,8 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <Compile Include="TextureFileService.cs" />
+    <Compile Include="TextureWorkflowService.cs" />
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
   </ItemGroup>

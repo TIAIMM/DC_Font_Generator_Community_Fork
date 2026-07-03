@@ -1,17 +1,11 @@
 ﻿using INI_RW;
-using Microsoft.Win32;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using System.Xml;
 
 namespace DC_Font_Generator
 {
@@ -37,12 +31,10 @@ namespace DC_Font_Generator
         public FontEncoding fenc;
 
         private bool TexEnable = false;
-        private List<Fnt_char> SelectFnt = new List<Fnt_char>(); //選取容器
-        private List<Fnt_char> SelectFnt2 = new List<Fnt_char>(); //選取容器
-        private List<Fnt_char> RemoveFnt = new List<Fnt_char>(); //移除字型容器
-        private Graphics mask;
+        private GlyphSelectionState glyphSelection = new GlyphSelectionState();
         private Bitmap AdjPreview = new Bitmap(207, 96);
         private List<ToolStripMenuItem> tsb = new List<ToolStripMenuItem>(8);
+        private string progressStage = "";
 
         #endregion
 
@@ -88,61 +80,9 @@ namespace DC_Font_Generator
             toolStripStatusLabel1.Text = GetString("Please select Encoding.") + " [CodePage:"+ Encoding.Default.WebName+"]";
             toolStripProgressBar1.Visible = false;
             dt = DateTime.Now;
-            GamePath = GetGamePath(); //取得遊戲資安裝料夾
-            
-            //setup font select
-
-            //set font path
-            if (GamePath != "")
-            {
-                if (Directory.Exists(GamePath))
-                {
-
-                    FontPath = Path.Combine(GamePath , @"Data\textures\Fonts\");
-                    if (!Directory.Exists(GamePath))
-                    {
-                        Directory.CreateDirectory(FontPath); //建立Fonts資料夾
-                    }
-
-
-                }
-                else
-                {
-                    GamePath = "";
-                }
-
-            }
-            if (GamePath == "")
-            {
-                toolStripStatusLabel1.Text += " [" + GetString("Fallout3 not installed.") + "]";
-                tableLayoutPanel6.Enabled = false;
-
-            }
+            InitializeFalloutEnvironment();
             saveFileDialog1.InitialDirectory = FontPath;
             openFileDialog1.InitialDirectory = FontPath;
-            //MyDocuments
-            if (tableLayoutPanel6.Enabled)
-            {
-                string MyDocumentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                string MyGamesPath = Path.Combine(MyDocumentsPath, "My Games");
-                MyGamesPath = Path.Combine(MyGamesPath, "Fallout3");  
-                if (!Directory.Exists(MyGamesPath))
-                {
-                    tableLayoutPanel6.Enabled = false;
-                    StatusText += " [" + GetString("FALLOUT.INI Not Found.") + "]";
-                }
-                else
-                {
-                    INIPath = Path.Combine(MyGamesPath, "FALLOUT.INI");
-                    if (!File.Exists(INIPath))
-                    {
-                        INIPath = "";
-                        tableLayoutPanel6.Enabled = false;
-                        StatusText += " [" + GetString("FALLOUT.INI Not Found.") + "]";
-                    }
-                }
-            }
-            if (tableLayoutPanel6.Enabled) ini = new IniFile(INIPath);
                 
             InitFontSelector();
             ready = false;
@@ -165,6 +105,46 @@ namespace DC_Font_Generator
             
             ready = true;
         }
+
+        private void InitializeFalloutEnvironment()
+        {
+            FalloutEnvironmentInfo environment = FalloutEnvironmentService.Detect();
+            GamePath = environment.GamePath;
+            FontPath = environment.FontPath;
+            INIPath = environment.IniPath;
+
+            if (!environment.GameInstalled)
+            {
+                toolStripStatusLabel1.Text += " [" + GetString("Fallout3 not installed.") + "]";
+                tableLayoutPanel6.Enabled = false;
+                return;
+            }
+
+            if (!environment.IniAvailable)
+            {
+                tableLayoutPanel6.Enabled = false;
+                StatusText += " [" + GetString("FALLOUT.INI Not Found.") + "]";
+                return;
+            }
+
+            ini = new IniFile(INIPath);
+        }
+
+        private ComboBox[] GetIniComboBoxes()
+        {
+            return new[]
+            {
+                comboBox1,
+                comboBox2,
+                comboBox3,
+                comboBox4,
+                comboBox5,
+                comboBox6,
+                comboBox7,
+                comboBox8
+            };
+        }
+
         private void LangSetup()
         {
             label7.Text = GetString("Font file size:");
@@ -268,81 +248,30 @@ namespace DC_Font_Generator
         private void InitFontSelector()
         {
             if (!tableLayoutPanel6.Enabled) return;
-            if (!Directory.Exists(FontPath))
-            {
-                Directory.CreateDirectory(FontPath);
-            }
-            comboBox1.Items.Clear(); comboBox2.Items.Clear(); comboBox3.Items.Clear(); comboBox4.Items.Clear();
-            comboBox5.Items.Clear(); comboBox6.Items.Clear(); comboBox7.Items.Clear(); comboBox8.Items.Clear();
-            List<FontFile> FontFiles = new List<FontFile>();
-            //建立預設font
-            FontFile ff = new FontFile("Glow_Monofonto_Large.fnt", true, comboBox1, 0, fenc.enc);
-            comboBox1.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Monofonto_Large.fnt", true, comboBox2, 0, fenc.enc);
-            comboBox2.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Glow_Monofonto_Medium.fnt", true, comboBox3, 0, fenc.enc);
-            comboBox3.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Monofonto_VeryLarge02_Dialogs2.fnt", true, comboBox4, 0, fenc.enc);
-            comboBox4.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Fixedsys_Comp_uniform_width.fnt", true, comboBox5, 0, fenc.enc);
-            comboBox5.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Glow_Monofonto_VL_dialogs.fnt", true, comboBox6, 0, fenc.enc);
-            comboBox6.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Baked-in_Monofonto_Large.fnt", true, comboBox7, 0, fenc.enc);
-            comboBox7.Items.Add(ff); FontFiles.Add(ff);
-            ff = new FontFile("Glow_Futura_Caps_Large.fnt", true, comboBox8, 0, fenc.enc);
-            comboBox8.Items.Add(ff); FontFiles.Add(ff);
-            //搜尋已有的Fonts
-            int index=1;
-            foreach (string dir in Directory.GetFiles(FontPath, "*.fnt"))
-            {
-                ff = new FontFile(dir, false, index++, fenc.enc);
-                if (ff.Enable)
-                {
-                    comboBox1.Items.Add(ff); comboBox2.Items.Add(ff); comboBox3.Items.Add(ff); comboBox4.Items.Add(ff);
-                    comboBox5.Items.Add(ff); comboBox6.Items.Add(ff); comboBox7.Items.Add(ff); comboBox8.Items.Add(ff);
-                    FontFiles.Add(ff);
-                }
-                else
-                {
-                    this.OutputLog(ff.Err); StatusText = GetString("Fallout.ini Font has error.");
-                    index--;
-                }
-                
-            }
-            //讀取ini對應combobox
-            
-            string[] Font = new string[8];
-            Font[0] = ini.IniReadValue("Fonts", "sFontFile_1");
-            Font[1] = ini.IniReadValue("Fonts", "sFontFile_2");
-            Font[2] = ini.IniReadValue("Fonts", "sFontFile_3");
-            Font[3] = ini.IniReadValue("Fonts", "sFontFile_4");
-            Font[4] = ini.IniReadValue("Fonts", "sFontFile_5");
-            Font[5] = ini.IniReadValue("Fonts", "sFontFile_6");
-            Font[6] = ini.IniReadValue("Fonts", "sFontFile_7");
-            Font[7] = ini.IniReadValue("Fonts", "sFontFile_8");
-            ComboBox[] cb = new ComboBox[8];
-            cb[0] = comboBox1; cb[1] = comboBox2; cb[2] = comboBox3; cb[3] = comboBox4;
-            cb[4] = comboBox5; cb[5] = comboBox6; cb[6] = comboBox7; cb[7] = comboBox8;
-            index = 0;
+
+            FontSelectorLoadResult selector = FontIniWorkflowService.LoadSelectorState(FontPath, ini, fenc.enc);
+            ComboBox[] cb = GetIniComboBoxes();
             ready = false;
             for (int i = 0; i < 8; i++)
             {
-                int pos = Font[i].LastIndexOf(@"\") + 1;
-                string fn = Font[i].Substring(pos);
-                bool find = false;
-                foreach (FontFile f in FontFiles)
+                cb[i].Items.Clear();
+                foreach (FontFile font in selector.SlotItems[i])
                 {
-                    if (f.IsThis(fn))
-                    {
-                        find = true;
-                        f.SetComboBox(cb[i]);
-                    }
+                    cb[i].Items.Add(font);
                 }
-                if (!find)
+
+                if (cb[i].Items.Count > 0)
                 {
-                    OutputLog(fn + " : File does not exist."); StatusText = GetString("Fallout.ini Font has error.");
+                    cb[i].SelectedIndex = FontIniWorkflowService.ClampSelectedIndex(
+                        selector.SelectedIndices[i],
+                        cb[i].Items.Count);
                 }
+            }
+
+            foreach (string error in selector.Errors)
+            {
+                OutputLog(error);
+                StatusText = GetString("Fallout.ini Font has error.");
             }
             ready = true;
 
@@ -355,94 +284,49 @@ namespace DC_Font_Generator
             ready = false;
             this.TextImageSize.Width = this.TextImage.Width;
             this.TextImageSize.Height = this.TextImage.Height;
+            FontSectionViewState state = FontSectionStateService.CreateViewState(this.MainList, this.MainSelect);
 
-            labelFnt.Text = this.MainList[MainSelect].name;
+            labelFnt.Text = state.FntName;
 
-            numericUpDown_MaxWidth.Value = (decimal)this.MainList[MainSelect].FontMaxWidth;
-            numericUpDown_MaxWidth.Visible = this.MainList[MainSelect].fixedFont;
+            numericUpDown_MaxWidth.Value = (decimal)state.FontMaxWidth;
+            numericUpDown_MaxWidth.Visible = state.FixedFont;
 
-            numericUpDown1.Value = this.MainList[MainSelect].Glow; //glow
-            numericUpDown_Outline.Value = this.MainList[MainSelect].Outline; //outline
+            numericUpDown1.Value = state.Glow; //glow
+            numericUpDown_Outline.Value = state.Outline; //outline
 
-            checkBox_fixed.Checked = this.MainList[MainSelect].fixedFont; //等寬字
+            checkBox_fixed.Checked = state.FixedFont; //等寬字
 
-            button_GlowColor.BackColor = this.MainList[MainSelect].GlowColor;
-            button_Outline.BackColor = this.MainList[MainSelect].OutlineColor;
-            buttonFontColor.BackColor = this.MainList[MainSelect].FontColor;
+            button_GlowColor.BackColor = state.GlowColor;
+            button_Outline.BackColor = state.OutlineColor;
+            buttonFontColor.BackColor = state.FontColor;
 
-            label2.Font = this.MainList[MainSelect].font1;
-            if (this.MainList[MainSelect].ImportFont1name != "")
-                label2.Text = this.MainList[MainSelect].ImportFont1name;
-            else
-                label2.Text = this.MainList[MainSelect].font1.Name + "," + this.MainList[MainSelect].font1.Size;
-            if (this.MainList[MainSelect].ImportFont2name != "")
-                label4.Text = this.MainList[MainSelect].ImportFont2name;
-            else
-                label4.Text = this.MainList[MainSelect].font2.Name + "," + this.MainList[MainSelect].font2.Size;
-            label4.Font = this.MainList[MainSelect].font2;
+            label2.Font = state.SingleByteFont;
+            label2.Text = state.SingleByteFontText;
+            label4.Text = state.DoubleByteFontText;
+            label4.Font = state.DoubleByteFont;
 
-            this.textBoxFntName.Text = this.MainList[this.MainSelect].name;
-            this.labelFnt.Text = "Fnt " + (this.MainSelect + 1) + "/" + (this.MainList.Count);
+            this.textBoxFntName.Text = state.FntName;
+            this.labelFnt.Text = state.FontLabel;
 
-            if (this.MainSelect == 0) buttonFntUp.Enabled = false; else { if (this.MainList.Count > 1) buttonFntUp.Enabled = true; }
-            if (this.MainSelect >= this.MainList.Count - 1) buttonFntDown.Enabled = false; else { if (this.MainList.Count > 1) buttonFntDown.Enabled = true; }
-            if (this.MainList.Count == 1) this.buttonFntRemove.Enabled = false; else this.buttonFntRemove.Enabled = true;
-            if (this.MainList.Count >= 8) this.buttonFntNew.Enabled = false; else this.buttonFntNew.Enabled = true;
-
-            if (MainList[MainSelect].Fallout3INI.Count > 0)
-            {
-
-            }
+            buttonFntUp.Enabled = state.CanMoveUp;
+            buttonFntDown.Enabled = state.CanMoveDown;
+            this.buttonFntRemove.Enabled = state.CanRemove;
+            this.buttonFntNew.Enabled = state.CanAdd;
             for (int i = 0; i < 8; i++)
             {
-                if (MainList[MainSelect].Fallout3INI[i])
-                {
-                    tsb[i].Checked = true;
-                }
-                else
-                {
-                    tsb[i].Checked = false;
-                }
-                tsb[i].Enabled = true;
-            }
-            List<int> INIstat = new List<int>(8); for (int i = 0; i < 8; i++) INIstat.Add(-1);
-            int index = 0;
-            foreach (Main m in MainList)
-            {
-                 for (int i = 0; i < 8; i++)
-                     if (MainList[index].Fallout3INI[i])
-                     {
-                         INIstat[i] = index;
-                     }
-                index++;
-            }
-            for (int i = 0; i < 8; i++)
-            {
-                if (INIstat[i] > -1)
-                {
-                    if (INIstat[i] != MainSelect) tsb[i].Enabled = false;
-                }
+                tsb[i].Checked = state.IniLinks[i].Checked;
+                tsb[i].Enabled = state.IniLinks[i].Enabled;
             }
 
-            this.EnableLink();
+            ApplyLinkState(state);
             if (tabControl1.SelectedTab == tabControl1.TabPages[1])
             {
                 ReflashAdjustPreview();
             }
 
-            if (checkBox_fixed.Checked) //等寬字
-            {
-                radioButton_LeftSpacing.Enabled = false;
-                radioButton_RightSpacing.Enabled = false;
-				//radioButtonLineSpacing.Enabled = false;
-				radioButtonLineSpacing.Enabled = true;
-			}
-            else
-            {
-                radioButton_LeftSpacing.Enabled = true;
-                radioButton_RightSpacing.Enabled = true;
-                radioButtonLineSpacing.Enabled = true;
-            }
+            radioButton_LeftSpacing.Enabled = state.LeftSpacingEnabled;
+            radioButton_RightSpacing.Enabled = state.RightSpacingEnabled;
+            radioButtonLineSpacing.Enabled = state.LineSpacingEnabled;
 
             //主表單重繪
             tableLayoutPanel4.Refresh();
@@ -512,6 +396,63 @@ namespace DC_Font_Generator
             }
         }
 
+        private IProgress<FontProgress> CreateFontProgress()
+        {
+            progressStage = "";
+            return new DirectFontProgress(ReportFontProgress);
+        }
+
+        private void ReportFontProgress(FontProgress progress)
+        {
+            if (progress == null) return;
+
+            if (progress.Stage != progressStage)
+            {
+                progressStage = progress.Stage;
+                string statusText = GetProgressStatusText(progress.Stage);
+                if (statusText != "")
+                {
+                    StatusText = statusText;
+                }
+            }
+
+            if (progress.Maximum >= toolStripProgressBar1.Minimum
+                && toolStripProgressBar1.Maximum != progress.Maximum)
+            {
+                ProgressBarMax = progress.Maximum;
+            }
+
+            ProgressBar = progress.Value;
+        }
+
+        private string GetProgressStatusText(string stage)
+        {
+            switch (stage)
+            {
+                case "Manufacturing":
+                    return GetString("Manufacturing fonts...");
+                case "Drawing":
+                    return GetString("Drawing...");
+                default:
+                    return "";
+            }
+        }
+
+        private sealed class DirectFontProgress : IProgress<FontProgress>
+        {
+            private readonly Action<FontProgress> report;
+
+            public DirectFontProgress(Action<FontProgress> report)
+            {
+                this.report = report;
+            }
+
+            public void Report(FontProgress value)
+            {
+                report(value);
+            }
+        }
+
         #endregion
 
         #region Other Methods
@@ -537,83 +478,11 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void DealWithTextFLow(object sender, EventArgs e)
         {
-            if (((Main)sender).isTextOverFlow)
+            if (FontSectionStateService.IsTextOverflowSender(sender))
             {
                 this.errorProvider1.SetError(this.label7, "");
                 //StatusText = "请扩大字库尺寸";
             }
-        }
-
-        /// <summary>
-        /// 取得遊戲資料夾
-        /// </summary>
-        /// <returns></returns>
-        private string GetGamePath()
-        {
-            string path = "";
-            try
-            {
-                // Auslesen des Oblivion-Installationsordners aus der Registry
-                RegistryKey userKey = Registry.LocalMachine;
-
-                userKey = userKey.OpenSubKey(@"SOFTWARE\Bethesda Softworks\Fallout3", false);
-                if (userKey != null) // gefunden
-                {
-                    path = userKey.GetValue("Installed Path").ToString();
-                    // Data-Ordner anhängen
-                    //path = Path.Combine(path, "Data");
-                }
-                else //x64
-                {
-                    userKey = Registry.LocalMachine;
-                    userKey = userKey.OpenSubKey(@"SOFTWARE\Wow6432Node\Bethesda Softworks\Fallout3", false);
-                    if (userKey != null) // gefunden
-                    {
-                        path = userKey.GetValue("Installed Path").ToString();
-                        // Data-Ordner anhängen
-                        //path = Path.Combine(path, "Data");
-                    }
-                }
-
-                return path;
-
-            }
-            catch
-            {
-                return path;
-            }
-
-        }
-
-        /// <summary>
-        /// 檢查Fnt資料
-        /// </summary>
-        /// <param name="path"></param>
-        /// <param name="IsDC"></param>
-        /// <returns></returns>
-        private bool CheckFnt(string path, out bool IsDC)
-        {
-            IsDC = false;
-            bool Enable = false;
-            if (File.Exists(path))
-            {
-                FileInfo info = new FileInfo(path);
-                if (info.Length == 14632)
-                {
-                    Enable = true;
-                    IsDC = false;
-                }
-                else if (info.Length == 1362328)
-                {
-                    Enable = true;
-                    IsDC = true;
-                }
-                else
-                    Enable = false;
-            }
-            else
-                Enable = false;
-            return Enable;
         }
 
 		#endregion
@@ -624,60 +493,39 @@ namespace DC_Font_Generator
 		/// </summary>
 		/// <param name="sender"></param>
 		/// <param name="e"></param>
-		private void label_Click(object sender, EventArgs e)
+        private void label_Click(object sender, EventArgs e)
         {
             string Tag = ((Label)sender).Tag.ToString();
-            Font currentFont = this.MainList[MainSelect].font1;
-            switch (Tag)
-            {
-                case ("Font1"):
-                    currentFont = this.MainList[MainSelect].font1;
-                    break;
-                case ("Font2"):
-                    currentFont = this.MainList[MainSelect].font2;
-                    break;
-            }
+            bool editingDoubleByteFont = Tag == "Font2";
+            FontSectionPickerState pickerState = FontSectionStateService.CreatePickerState(
+                this.MainList,
+                MainSelect,
+                editingDoubleByteFont,
+                fenc);
 
             try
             {
-                Main currentMain = this.MainList[MainSelect];
-                bool editingDoubleByteFont = Tag == "Font2";
                 using (FontPickerForm picker = new FontPickerForm(
-                    currentFont,
-                    currentMain.font1,
-                    currentMain.font2,
-                    editingDoubleByteFont,
-                    fenc.ASCII_Only,
-                    fenc.enc.CodePage,
-                    currentMain.Glow,
-                    currentMain.GlowColor,
-                    currentMain.Outline,
-                    currentMain.OutlineColor,
-                    currentMain.FontColor))
+                    pickerState.CurrentFont,
+                    pickerState.SingleByteFont,
+                    pickerState.DoubleByteFont,
+                    pickerState.EditingDoubleByteFont,
+                    pickerState.AsciiOnly,
+                    pickerState.EncodingCodePage,
+                    pickerState.Glow,
+                    pickerState.GlowColor,
+                    pickerState.Outline,
+                    pickerState.OutlineColor,
+                    pickerState.FontColor))
                 {
                     if (picker.ShowDialog(this) == DialogResult.OK)
                     {
                         Font font = (Font)picker.SelectedFont.Clone();
                         ((Label)sender).Text = font.Name + "," + font.Size + "," + font.Height;
-                        switch (Tag)
-                        {
-                            case("Font1"):
-                                this.MainList[MainSelect].font1 = font;
-                                this.MainList[MainSelect].ImportFont1name = "";
-                                break;
-                            case("Font2"):
-                                this.MainList[MainSelect].font2 = font;
-                                this.MainList[MainSelect].ImportFont2name = "";
-                                this.MainList[MainSelect].DCfontLink = -1;
-                                break;
-                        }
-
-                        this.MainList[MainSelect].Clear(); //清除已經繪製的字
+                        FontSectionStateService.ApplySelectedFont(this.MainList, MainSelect, editingDoubleByteFont, font);
                         this.button1.Enabled = false;
 
-                        if (font.Size>27)
-                            font = new Font(font.FontFamily, 28f, font.Style, GraphicsUnit.Pixel);
-                        ((Label)sender).Font = font;
+                        ((Label)sender).Font = FontPickerCatalogService.CreateDisplayFont(font, 28f);
                     }
                 }
             }
@@ -695,13 +543,14 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void buttonLink_Click(object sender, EventArgs e)
         {
-            FontListSelect fs = new FontListSelect(this.MainList, this.MainSelect, lang);
+            FontListSelect fs = new FontListSelect(FontLinkService.GetCandidates(this.MainList, this.MainSelect), lang);
             if (fs.Enable)
             {
                 fs.ShowDialog();
                 if (fs.SelectIndex > -1)
                 {
-                    label4.Text = "Link to : Fnt" + (MainList[MainSelect].DCfontLink + 1);
+                    FontLinkService.ApplyLink(this.MainList, this.MainSelect, fs.SelectIndex);
+                    ApplyLinkState(FontSectionStateService.CreateViewState(this.MainList, this.MainSelect));
                 }
 
             }
@@ -717,24 +566,7 @@ namespace DC_Font_Generator
         {
             string Tag = ((NumericUpDown)sender).Tag.ToString();
             float value = (float)((NumericUpDown)sender).Value;
-            switch (Tag)
-            {
-                case ("Glow"):
-                    this.MainList[MainSelect].Glow = (int)value;
-                    if (ready) this.MainList[MainSelect].Clear();
-                    break;
-                case ("Outline"):
-                    this.MainList[MainSelect].Outline = (int)value;
-                    if (ready) this.MainList[MainSelect].Clear();
-                    break;
-                case ("SC_BA"):
-                    if (ready) this.MainList[MainSelect].Clear();
-                    break;
-                case ("DC_BA"):
-                    if (ready) this.MainList[MainSelect].Clear();
-                    break;
-                
-            }
+            FontSectionStateService.ApplyNumericChange(this.MainList, MainSelect, Tag, value, ready);
             this.button1.Enabled = false;
         }
         /// <summary>
@@ -751,24 +583,7 @@ namespace DC_Font_Generator
             {
                 Color color = colorDialog1.Color;
                 ((Button)sender).BackColor = color;
-                switch (Tag)
-                {
-                    case ("Glow"):
-                        this.MainList[MainSelect].GlowColor = color;
-                        this.MainList[MainSelect].Clear();
-                        break;
-                    case ("Outline"):
-                        this.MainList[MainSelect].OutlineColor = color;
-                        this.MainList[MainSelect].Clear();
-                        break;
-                    case ("FontColor"):
-                        this.MainList[MainSelect].FontColor = color;
-                        this.MainList[MainSelect].Clear();
-                        break;
-                    case ("Gap"):
-
-                        break;
-                }
+                FontSectionStateService.ApplyEffectColor(this.MainList, MainSelect, Tag, color);
 
             }
 
@@ -780,18 +595,8 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void checkBox_fixed_CheckedChanged(object sender, EventArgs e)
         {
-
-            if (checkBox_fixed.Checked)
-            {
-                if (ready) this.MainList[MainSelect].DrawMode = 1;
-            }
-            else
-            {
-                if (ready) this.MainList[MainSelect].DrawMode = 1;
-            }
-
             if (ready) numericUpDown_MaxWidth.Visible = checkBox_fixed.Checked;
-            if (ready) this.MainList[MainSelect].FixedFont(checkBox_fixed.Checked, (float)numericUpDown_MaxWidth.Value);
+            if (ready) FontSectionStateService.ApplyFixedFont(this.MainList, MainSelect, checkBox_fixed.Checked, (float)numericUpDown_MaxWidth.Value);
         }
 
         /// <summary>
@@ -801,9 +606,7 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void numericUpDown_MaxWidth_ValueChanged(object sender, EventArgs e)
         {
-            if (ready) this.MainList[MainSelect].FixedFont(checkBox_fixed.Checked, (float)numericUpDown_MaxWidth.Value);
-
-            if (ready) this.MainList[MainSelect].Clear();
+            if (ready) FontSectionStateService.ApplyFixedFontWidth(this.MainList, MainSelect, checkBox_fixed.Checked, (float)numericUpDown_MaxWidth.Value);
         }
         /// <summary>
         /// 匯入Fallout3字型
@@ -819,8 +622,8 @@ namespace DC_Font_Generator
             openFileDialog1.InitialDirectory = FontPath;
             if (this.openFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            string filename = Path.GetFileNameWithoutExtension(this.openFileDialog1.FileName);
-            string path = Path.GetDirectoryName(this.openFileDialog1.FileName) + @"\" + filename + ".fnt";
+            string filename = FontImportWorkflowService.GetImportName(this.openFileDialog1.FileName);
+            string path = FontImportWorkflowService.GetImportPath(this.openFileDialog1.FileName);
 
             if (!ImportFntAndTex(path, filename))
             {
@@ -845,72 +648,37 @@ namespace DC_Font_Generator
         {
             toolStripProgressBar1.Visible = true;
 
-            bool IsDC;
-            if (!CheckFnt(path, out IsDC))
-            {
-                toolStripProgressBar1.Visible = false;
-                return false;
-            }
-
-            //關閉字型選取
-            label2.Text = filename;
-            label2.Font = Control.DefaultFont;
-            this.MainList[MainSelect].ImportFont1name = filename;
-            if (IsDC)
-            {
-                label4.Text = filename;
-                label4.Font = Control.DefaultFont;
-                this.MainList[MainSelect].ImportFont2name = filename;
-            }
-            
-
             StatusText = GetString("Please wait...");
             if (this.TextImage != null) this.TextImage.Dispose();
-            if (!this.MainList[MainSelect].LoadFnt(path, true, CharIndex, out this.TextImage, fenc))
+            ImportedFontResult result = FontImportWorkflowService.Import(new ImportedFontRequest
+            {
+                Path = path,
+                FontName = filename,
+                FontSections = this.MainList,
+                SelectedFontIndex = MainSelect,
+                Encoding = fenc,
+                CharIndex = CharIndex,
+                Progress = CreateFontProgress()
+            });
+            if (!result.Success)
             {
                 toolStripProgressBar1.Visible = false;
                 return false;
             }
-            //檢查band
-            foreach (Fnt_char fnt in this.MainList[MainSelect].FntFile.CharList)
-            {
-                if (fnt.Enable)
-                {
-                    if (fenc.IsBand(fnt.HEX))
-                        fnt.Enable = false;
-                }
-            }
 
+            this.TextImage = result.Texture;
             SetNowData();
             buttonClear.Enabled = true;
             toolStripProgressBar1.Visible = false;
             return true;
         }
-        /// <summary>
-        /// 啟用字型連結
-        /// </summary>
-        private void EnableLink()
+        private void ApplyLinkState(FontSectionViewState state)
         {
-            buttonLink.Enabled = false;
-            if (Encoding_comboBox.SelectedIndex < 1) return;
-            if (MainList.Count <= 1) return;
-
-            //計算有效的選取
-            int index=0;
-            foreach (Main m in MainList)
+            buttonLink.Enabled = Encoding_comboBox.SelectedIndex >= 1 && MainList.Count > 1 && state.LinkButtonEnabled;
+            if (!string.IsNullOrEmpty(state.LinkLabelText))
             {
-                if (m.DCfontLink == -1 && index != MainSelect)
-                {
-                    buttonLink.Enabled = true; break;
-                }
-                index++;
+                label4.Text = state.LinkLabelText;
             }
-            if (MainList[MainSelect].DCfontLink > -1)
-            {
-                label4.Text = "Link to : Fnt" + (MainList[MainSelect].DCfontLink + 1);
-                buttonLink.Enabled = true;
-            }
-
         }
         #endregion
 
@@ -945,21 +713,18 @@ namespace DC_Font_Generator
                 return;
             }
 
-            TexName = Path.GetFileNameWithoutExtension(this.saveFileDialog1.FileName);
+            TexName = FontSaveWorkflowService.GetTexName(this.saveFileDialog1.FileName);
             textBoxTexName.Text = TexName;
-            //save tex
-            toolStripProgressBar1.Visible = true;
-            string path = Path.GetDirectoryName(this.saveFileDialog1.FileName) + @"\" + TexName + ".Tex";
-            this.MainList[MainSelect].SaveTex(path, this.TextImage);
 
-            //save fnt
+            string texPath = FontSaveWorkflowService.GetTexPath(this.saveFileDialog1.FileName);
+            List<string> fntPaths = new List<string>();
             int index = 1;
-            foreach (Main main in this.MainList)
+            foreach (string fontName in FontSaveWorkflowService.GetSuggestedFontNames(this.MainList))
             {
                 if (this.MainList.Count > 1)
                 {
-                    this.saveFileDialog1.InitialDirectory = Path.GetDirectoryName(path);
-                    this.saveFileDialog1.FileName = main.name;
+                    this.saveFileDialog1.InitialDirectory = FontSaveWorkflowService.GetDirectory(texPath);
+                    this.saveFileDialog1.FileName = fontName;
                     this.saveFileDialog1.Filter = "Fnt & Tex File|*.Fnt";
                     this.saveFileDialog1.FilterIndex = 1;
                     this.saveFileDialog1.Title = "Save Fnt " + index;
@@ -970,87 +735,82 @@ namespace DC_Font_Generator
                         return;
                     }
                 }
-                string FntName = Path.GetFileNameWithoutExtension(this.saveFileDialog1.FileName);
-                main.name = FntName;
-
-                //save fnt
-                main.PictureFileName = TexName;
-                path = Path.GetDirectoryName(this.saveFileDialog1.FileName) + @"\" + FntName + ".fnt";
-                main.SaveFnt(path, fenc.enc);
-
-                //設定ini
-                InitFontSelector(); //ini選取重設
-                SetFallout3INI(main.Fallout3INI, FntName);
-                
-                
-
-                if (index - 1 == this.MainSelect)
-                {
-                    textBoxFntName.Text = FntName;
-                }
+                fntPaths.Add(FontSaveWorkflowService.GetFntPath(this.saveFileDialog1.FileName));
                 index++;
-
             }
+
+            toolStripProgressBar1.Visible = true;
+            FontSaveResult saveResult = FontSaveWorkflowService.Save(new FontSaveRequest
+            {
+                FontSections = this.MainList,
+                TextImage = this.TextImage,
+                TexPath = texPath,
+                TexName = TexName,
+                FntPaths = fntPaths,
+                Encoding = fenc.enc,
+                Progress = CreateFontProgress()
+            });
+
+            InitFontSelector();
+            ApplySavedFontIniSelections(
+                FontSaveWorkflowService.FindSavedFontIniSelections(
+                    this.MainList,
+                    saveResult.FontNames,
+                    GetIniSlotItems()));
+
+            if (this.MainSelect >= 0 && this.MainSelect < saveResult.FontNames.Count)
+            {
+                textBoxFntName.Text = saveResult.FontNames[this.MainSelect];
+            }
+
             toolStripProgressBar1.Visible = false;
             StatusText = GetString("Save complete.");
             this.saveFileDialog1.InitialDirectory = FontPath;
             
         }
-        /// <summary>
-        /// 存檔後直接改變ini設置
-        /// </summary>
-        /// <param name="sfont"></param>
-        /// <param name="FntName"></param>
-        private void SetFallout3INI(List<bool> Fallout3INI, string FntName)
-        {
-            for (int i = 0; i < 8; i++)
-            {
-                if (Fallout3INI[i])
-                {
 
-                    switch (i + 1)
-                    {
-                        case 1:
-                            SetFallout3INI_sub(comboBox1, FntName);
-                            break;
-                        case 2:
-                            SetFallout3INI_sub(comboBox2, FntName);
-                            break;
-                        case 3:
-                            SetFallout3INI_sub(comboBox3, FntName);
-                            break;
-                        case 4:
-                            SetFallout3INI_sub(comboBox4, FntName);
-                            break;
-                        case 5:
-                            SetFallout3INI_sub(comboBox5, FntName);
-                            break;
-                        case 6:
-                            SetFallout3INI_sub(comboBox6, FntName);
-                            break;
-                        case 7:
-                            SetFallout3INI_sub(comboBox7, FntName);
-                            break;
-                        case 8:
-                            SetFallout3INI_sub(comboBox8, FntName);
-                            break;
-                    }
+        private List<IEnumerable<FontFile>> GetIniSlotItems()
+        {
+            List<IEnumerable<FontFile>> slotItems = new List<IEnumerable<FontFile>>();
+            foreach (ComboBox comboBox in GetIniComboBoxes())
+            {
+                slotItems.Add(comboBox.Items.Cast<FontFile>().ToList());
+            }
+
+            return slotItems;
+        }
+
+        private void ApplySavedFontIniSelections(IEnumerable<SavedFontIniSelection> selections)
+        {
+            ComboBox[] comboBoxes = GetIniComboBoxes();
+            foreach (SavedFontIniSelection selection in selections)
+            {
+                if (selection.SlotIndex < 0 || selection.SlotIndex >= comboBoxes.Length)
+                {
+                    continue;
+                }
+
+                ComboBox comboBox = comboBoxes[selection.SlotIndex];
+                if (selection.SelectedIndex >= 0 && selection.SelectedIndex < comboBox.Items.Count)
+                {
+                    comboBox.SelectedIndex = selection.SelectedIndex;
                 }
             }
         }
-        private void SetFallout3INI_sub(ComboBox cb, string FntName)
-        {
-            int index = 0;
-            foreach (FontFile ff in cb.Items)
-            {
-                if (ff.FntName.ToLower() == FntName.ToLower())
-                {
-                    cb.SelectedIndex = index;
-                    break;
-                }
-                index++;
-            }
 
+        private void ApplyIniComboBoxSelections(IList<int> selectedIndices)
+        {
+            ComboBox[] comboBoxes = GetIniComboBoxes();
+            for (int i = 0; i < comboBoxes.Length && i < selectedIndices.Count; i++)
+            {
+                int selectedIndex = FontIniWorkflowService.ClampSelectedIndex(
+                    selectedIndices[i],
+                    comboBoxes[i].Items.Count);
+                if (selectedIndex >= 0)
+                {
+                    comboBoxes[i].SelectedIndex = selectedIndex;
+                }
+            }
         }
         /// <summary>
         /// 繪製文字
@@ -1059,80 +819,28 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void button2_Click(object sender, EventArgs e)
         {
-            //移除RemoveFnt
-            bool AddBandList = false;
-            foreach (Fnt_char fnt in RemoveFnt)
-            {
-                if (!fenc.IsBand(fnt.HEX)) { fenc.AddBand=fnt.HEX; AddBandList = true; }
-                fnt.Enable = false;
-            }
-            RemoveFnt.Clear();
-            SelectFnt.Clear();
-            SelectFnt2.Clear();
-            if (AddBandList) fenc.SaveBandFile();
-
-            MakeFonts(); //製造字元
-
-            DrawFonts(); //繪製文字
-
-            //關聯文字複製
-            foreach (Main m in MainList)
-            {
-                m.LinkClone();
-            }
-
+            RunRenderWorkflow();
         }
-        private void MakeFonts()
-        {
-            toolStripProgressBar1.Visible = true;
-            StatusText = GetString("Manufacturing fonts...");
-            //製作fnt
-            foreach (Main m in MainList)
-            {
-                m.NewDrawing(fenc);
-            }
-            //開放清除
-            this.buttonClear.Enabled = true;
-            toolStripProgressBar1.Visible = false;
-        }
-        private bool DrawFonts()
+
+        private bool RunRenderWorkflow()
         {
             toolStripProgressBar1.Visible = true;
             MaskReset();
 
-            //集合fnt
-
-            List<Fnt_char> sort = new List<Fnt_char>();
-            foreach (Main m in this.MainList)
-            {
-                foreach (Fnt_char fnt in m.FntFile.CharList)
-                {
-                    if (fnt.Enable && !fenc.IsBand(fnt.HEX))
-                        sort.Add(fnt);
-                }
-            }
-
-            bool Vertical = false; //縱向排列
-            if (radioButtonArrangeHeight.Checked)
-            {
-                sort.Sort(new DC_Font_Generator.Main.Fnt_char_Height()); //用高度排序
-            }
-            else if (radioButtonWidthArrange.Checked)
-            {
-                sort.Sort(new DC_Font_Generator.Main.Fnt_char_Width()); //用寬度排序
-                Vertical = true;
-            }
-
             this.errorProvider1.SetError(this.label7, "");
-            this.StatusText = GetString("Drawing...");
-            DateTime dt = DateTime.Now;
+            this.StatusText = GetString("Manufacturing fonts...");
+            DateTime startTime = DateTime.Now;
 
-            int gap = (int)numericUpDownGap.Value;
-            List<Rectangle> placements = new List<Rectangle>(sort.Count);
-            Size bestSize;
-            int sizeXIndex;
-            int sizeYIndex;
-            if (!FindBestTexSize(sort, gap, Vertical, placements, out bestSize, out sizeXIndex, out sizeYIndex))
+            FontRenderWorkflowResult result = FontRenderWorkflowService.Render(new FontRenderWorkflowRequest
+            {
+                FontSections = this.MainList,
+                Encoding = fenc,
+                GlyphSelection = glyphSelection,
+                AtlasRequest = CreateFontAtlasRequest(),
+                Progress = CreateFontProgress()
+            });
+
+            if (!result.Success)
             {
                 StatusText = GetString("Font file size exceeds the limit! Can not be processed.");
                 toolStripProgressBar1.Visible = false;
@@ -1140,62 +848,30 @@ namespace DC_Font_Generator
                 return false;
             }
 
+            BindAtlasResult(result.AtlasResult, startTime);
+            this.buttonClear.Enabled = true;
+            return true;
+        }
+
+        private void BindAtlasResult(FontAtlasResult result, DateTime startTime)
+        {
             bool oldReady = ready;
             ready = false;
-            comboBoxSizeX.SelectedIndex = sizeXIndex;
-            comboBoxSizeY.SelectedIndex = sizeYIndex;
+            comboBoxSizeX.SelectedIndex = result.SizeXIndex;
+            comboBoxSizeY.SelectedIndex = result.SizeYIndex;
             ready = oldReady;
-            this.TextImageSize = bestSize;
-            label_TexSize.Text = ((TexSize)comboBoxSizeX.SelectedItem).MergeSize(bestSize.Height);
+            this.TextImageSize = result.TextImageSize;
+            label_TexSize.Text = ((TexSize)comboBoxSizeX.SelectedItem).MergeSize(result.TextImageSize.Height);
 
             //製作Tex
             this.pictureBox1.Invalidate();
-            CharIndex.Clear();
             if (this.TextImage != null) this.TextImage.Dispose();
-            this.TextImage = new Bitmap(this.TextImageSize.Width, this.TextImageSize.Height);
+            this.TextImage = result.TextImage;
+            this.CharIndex = result.CharIndex;
             this.pictureBox1.SetImage = this.TextImage;
 
-            using (Graphics graphics = Graphics.FromImage(this.TextImage))
-            {
-                graphics.PageUnit = GraphicsUnit.Pixel;
-                int Draw_Mode = 1;
-                if (Draw_Mode == 1)
-                {
-                    graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                    graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                    graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-                }
-                else
-                {
-                    graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                    graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
-                    graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
-                    graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-                    graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-                }
-
-                int RGB = Color.FromArgb(0xFF, Color.Black).ToArgb();
-                int ARGB = Color.FromArgb(0, Color.Black).ToArgb();
-                int BackColor = button5.BackColor.ToArgb();
-                if (BackColor == RGB || BackColor == ARGB)
-                    graphics.Clear(Color.FromArgb(ARGB));
-                else
-                    graphics.Clear(Color.FromArgb(BackColor));
-
-                ProgressBar = 0;
-                ProgressBarMax = sort.Count;
-
-                for (int i = 0; i < sort.Count; i++)
-                {
-                    DrawFontPlacement(sort[i], placements[i], graphics);
-                    ProgressBarAdd();
-                }
-            }
-
             string format = GetString("done.") + " {0} " + GetString("sec.");
-            StatusText = string.Format(format, DateTime.Now - dt);
+            StatusText = string.Format(format, DateTime.Now - startTime);
             this.TexEnable = true;
             this.button1.Enabled = true; //開放save
             this.buttonSavePrj.Enabled = true; //開放save project
@@ -1203,176 +879,20 @@ namespace DC_Font_Generator
             this.pictureBox1.SetImage = this.TextImage;
             this.tableLayoutPanelAdjust.Enabled = true;
             toolStripProgressBar1.Visible = false;
-            return true;
         }
 
-        private void DrawFontPlacement(Fnt_char fnt, Rectangle placement, Graphics graphics)
+        private FontAtlasRequest CreateFontAtlasRequest()
         {
-            if (!fnt.Enable || placement.Width <= 0 || placement.Height <= 0) return;
-
-            graphics.DrawImageUnscaledAndClipped(fnt.FontImage, placement);
-
-            int startX = placement.X;
-            int startY = placement.Y;
-            int width = placement.Width;
-            int height = placement.Height;
-
-            for (int y = 0; y < height; y++)
-            {
-                int currentY = startY + y;
-                CharIndex.SetRange(startX, currentY, width, fnt);
-            }
-
-            float texWidth = TextImage.Width;
-            float texHeight = TextImage.Height;
-
-            fnt.x1 = startX / texWidth;
-            fnt.y1 = startY / texHeight;
-            fnt.x2 = (startX + width) / texWidth;
-            fnt.y2 = startY / texHeight;
-            fnt.x3 = startX / texWidth;
-            fnt.y3 = (startY + height) / texHeight;
-            fnt.x4 = (startX + width) / texWidth;
-            fnt.y4 = (startY + height) / texHeight;
-        }
-
-        private bool TryLayoutFonts(List<Fnt_char> sort, Size size, int gap, bool vertical, List<Rectangle> placements)
-        {
-            placements.Clear();
-
-            Rectangle p = new Rectangle(0, 0, 0, 0);
-            int lineShift = 0;
-
-            foreach (Fnt_char fnt in sort)
-            {
-                if (!fnt.Enable)
-                {
-                    placements.Add(Rectangle.Empty);
-                    continue;
-                }
-
-                int currentGap = gap;
-                bool addSpace = false;
-                if (currentGap == 0 && fnt.IsSpace)
-                {
-                    currentGap = 1;
-                    if (vertical) p.X += 1;
-                    else p.Y += 1;
-                    addSpace = true;
-                }
-
-                int width = fnt.FontImage.Width;
-                int height = fnt.FontImage.Height;
-
-                if (vertical)
-                {
-                    if ((p.Y + height + currentGap) >= size.Height)
-                    {
-                        p.Y = currentGap;
-                        p.X += lineShift + currentGap;
-                        lineShift = width;
-                    }
-                    if (p.X + width >= size.Width)
-                    {
-                        return true;
-                    }
-                }
-                else
-                {
-                    if ((p.X + width + currentGap) >= size.Width)
-                    {
-                        p.X = currentGap;
-                        p.Y += lineShift + currentGap;
-                        lineShift = height;
-                    }
-                    if (p.Y + height >= size.Height)
-                    {
-                        return true;
-                    }
-                }
-
-                placements.Add(new Rectangle(p.X, p.Y, width, height));
-
-                if (vertical)
-                {
-                    lineShift = Math.Max(lineShift, width + currentGap);
-                    p.Y += height + currentGap;
-                }
-                else
-                {
-                    lineShift = Math.Max(lineShift, height + currentGap);
-                    p.X += width + currentGap;
-                }
-
-                if (addSpace)
-                {
-                    if (vertical) p.Y += 1;
-                    else p.X += 1;
-                }
-            }
-
-            return false;
-        }
-
-        private bool FindBestTexSize(
-            List<Fnt_char> sort,
-            int gap,
-            bool vertical,
-            List<Rectangle> placements,
-            out Size bestSize,
-            out int sizeXIndex,
-            out int sizeYIndex)
-        {
-            placements.Clear();
-            bestSize = Size.Empty;
-            sizeXIndex = -1;
-            sizeYIndex = -1;
-
-            int sizeXCount = comboBoxSizeX.Items.Count;
-            int sizeYCount = comboBoxSizeY.Items.Count;
-            if (sizeXCount == 0 || sizeYCount == 0) return false;
-
-            int x = comboBoxSizeX.SelectedIndex;
-            int y = comboBoxSizeY.SelectedIndex;
-            if (x < 0) x = 0;
-            if (y < 0) y = 0;
-            if (x >= sizeXCount) x = sizeXCount - 1;
-            if (y >= sizeYCount) y = sizeYCount - 1;
-
-            List<Rectangle> candidatePlacements = new List<Rectangle>(sort.Count);
-            while (true)
-            {
-                TexSize texSizeX = (TexSize)comboBoxSizeX.Items[x];
-                TexSize texSizeY = (TexSize)comboBoxSizeY.Items[y];
-                Size candidateSize = new Size(texSizeX.size, texSizeY.size);
-
-                if (!TryLayoutFonts(sort, candidateSize, gap, vertical, candidatePlacements))
-                {
-                    placements.Clear();
-                    placements.AddRange(candidatePlacements);
-                    bestSize = candidateSize;
-                    sizeXIndex = x;
-                    sizeYIndex = y;
-                    return true;
-                }
-
-                if (x + 1 == sizeXCount && y + 1 == sizeYCount)
-                {
-                    placements.Clear();
-                    return false;
-                }
-
-                if (x <= y)
-                {
-                    if (x + 1 < sizeXCount) x++;
-                    else if (y + 1 < sizeYCount) y++;
-                }
-                else
-                {
-                    if (y + 1 < sizeYCount) y++;
-                    else if (x + 1 < sizeXCount) x++;
-                }
-            }
+            return TextureSizeSelectionService.CreateAtlasRequest(
+                this.MainList,
+                fenc,
+                GetTexSizeItems(comboBoxSizeX),
+                GetTexSizeItems(comboBoxSizeY),
+                comboBoxSizeX.SelectedIndex,
+                comboBoxSizeY.SelectedIndex,
+                (int)numericUpDownGap.Value,
+                GetProjectArrangeMethod(),
+                button5.BackColor);
         }
 
         /// <summary>
@@ -1383,28 +903,20 @@ namespace DC_Font_Generator
         private void Encoding_comboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
             int index = Encoding_comboBox.SelectedIndex;
-            int count = fenc.SwitchEnc(index);
-            if (index >= 0)
+            EncodingSelectionResult result = EncodingSelectionService.Select(fenc, index);
+            if (result.HasSelection)
             {
-                if (index == 0 || index == 6)//dc選取字型
-                {
-                    label4.Enabled = false;
-
-                }
-                else
-                {
-                    label4.Enabled = true; 
-                }
+                label4.Enabled = result.DoubleByteFontEnabled;
                 this.button1.Enabled = false;
                 this.button2.Enabled = true;
                 this.button3.Enabled = true;
                 this.button4.Enabled = true;
                 this.buttonOpenFNT.Enabled = true;
                 this.toolStrip1.Enabled = true;
-                this.EnableLink(); //更動字型Link狀態
+                ApplyLinkState(FontSectionStateService.CreateViewState(this.MainList, this.MainSelect)); //更動字型Link狀態
                 //toolStripProgressBar1.Visible = false;
                 //StatusText = string.Format("char count={0} , 重複字={1}", count, repcount);
-                StatusText = string.Format(GetString("Characters count") + " = {0}", count);
+                StatusText = string.Format(GetString("Characters count") + " = {0}", result.CharactersCount);
             }
         }
         /// <summary>
@@ -1415,12 +927,12 @@ namespace DC_Font_Generator
         private void TexSizeChanged(object sender, EventArgs e)
         {
             if (!ready) return;
-            int X = ((TexSize)comboBoxSizeX.SelectedItem).size;
-            int Y = ((TexSize)comboBoxSizeY.SelectedItem).size;
-            this.TextImageSize = new Size(X, Y);
+            TexSize selectedWidth = (TexSize)comboBoxSizeX.SelectedItem;
+            TexSize selectedHeight = (TexSize)comboBoxSizeY.SelectedItem;
+            this.TextImageSize = TextureSizeSelectionService.GetSelectedSize(selectedWidth, selectedHeight);
             this.button1.Enabled = false;
             this.errorProvider1.SetError(this.label7, "");
-            label_TexSize.Text = ((TexSize)comboBoxSizeX.SelectedItem).MergeSize(Y);
+            label_TexSize.Text = selectedWidth.MergeSize(selectedHeight.size);
 
         }
         /// <summary>
@@ -1428,44 +940,42 @@ namespace DC_Font_Generator
         /// </summary>
         private bool ChangeImageSize()
         {
-            this.TextImageSize.Width = this.TextImage.Width;
-            this.TextImageSize.Height = this.TextImage.Height;
+            this.TextImageSize = new Size(this.TextImage.Width, this.TextImage.Height);
 
             ready = false;
-            bool xfind = false;
-            int index = 0;
-            foreach (TexSize tx in comboBoxSizeX.Items)
-            {
-                if (tx.size == this.TextImageSize.Width)
-                {
-                    comboBoxSizeX.SelectedIndex = index;
-                    xfind = true;
-                    break;
-                }
-                index++;
-            }
-            bool yfind = false;
-            index = 0;
-            foreach (TexSize ty in comboBoxSizeY.Items)
-            {
-                if (ty.size == this.TextImageSize.Height)
-                {
-                    comboBoxSizeY.SelectedIndex = index;
-                    yfind = true;
-                    break;
-                }
-                index++;
-            }
+            TextureSizeSelectionResult result = TextureSizeSelectionService.FindSize(
+                GetTexSizeItems(comboBoxSizeX),
+                GetTexSizeItems(comboBoxSizeY),
+                this.TextImageSize);
+            if (result.SizeXIndex >= 0) comboBoxSizeX.SelectedIndex = result.SizeXIndex;
+            if (result.SizeYIndex >= 0) comboBoxSizeY.SelectedIndex = result.SizeYIndex;
 
             ready = true;
 
-            if (!xfind || !yfind)
+            if (!result.Success)
             {
                 StatusText = string.Format("Image Size error ({0},{1}).", this.TextImageSize.Width, this.TextImageSize.Height);
                 return false;
             }
             return true;
         }
+
+        private static List<TexSize> GetTexSizeItems(ComboBox comboBox)
+        {
+            return comboBox.Items.Cast<TexSize>().ToList();
+        }
+
+        private void ApplyTextImage(Bitmap image, bool disposeOldImage)
+        {
+            if (disposeOldImage && this.TextImage != null && !object.ReferenceEquals(this.TextImage, image))
+            {
+                this.TextImage.Dispose();
+            }
+
+            this.TextImage = image;
+            this.pictureBox1.SetImage = this.TextImage;
+        }
+
         /// <summary>
         /// 清除
         /// </summary>
@@ -1479,26 +989,13 @@ namespace DC_Font_Generator
         {
             ready = false;
 
-            SelectFnt.Clear();
-            SelectFnt2.Clear();
-            RemoveFnt.Clear();
+            glyphSelection.Clear();
 
             this.TexEnable = false;
-            CharIndex.Clear();
-            this.MainList.Clear();
             MainSelect = 0;
-            Main main = new Main(this, this.MainList, 0);
-            main.TextOverFlow += new EventHandler(this.DealWithTextFLow);
-            this.MainList.Add(main);
+            FontSectionService.ResetSections(this.MainList, CharIndex, CreateProjectMainSection);
 
             this.buttonClear.Enabled = false;
-            Font f = main.font1;
-            this.label2.Text = f.Name + "," + f.Size;
-            this.label2.Font = f;
-
-            f = main.font2;
-            this.label4.Text = f.Name + "," + f.Size;
-            this.label4.Font = f;
 
             if (ready)
             {
@@ -1534,8 +1031,14 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void button3_Click(object sender, EventArgs e)
         {
+            openFileDialog1.Title = GetString("Import Encoding Text");
+            openFileDialog1.FileName = "";
+            openFileDialog1.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            openFileDialog1.FilterIndex = 1;
+            openFileDialog1.RestoreDirectory = true;
+            if (this.openFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            int count = fenc.ImportEncoding();
+            int count = fenc.ImportEncoding(this.openFileDialog1.FileName);
             StatusText = GetString("Import characters count") + " = " + count;
             this.button1.Enabled = false;
 
@@ -1563,41 +1066,36 @@ namespace DC_Font_Generator
             if (!ready) return;
             string Tag = ((Button)sender).Tag.ToString();
             bool pass = false;
+            TextureWorkflowFormat format = TextureWorkflowFormat.Tex;
             switch (Tag)
             {
                 case ("ImportTex"):
                     openFileDialog1.Title = "Import Tex";
                     openFileDialog1.Filter = "Tex File|*.Tex";
                     openFileDialog1.FilterIndex = 1;
+                    format = TextureWorkflowFormat.Tex;
                     pass = true;
                     break;
                 case ("ImportBmp"):
                     openFileDialog1.Title = "Import PNG";
                     openFileDialog1.Filter = "PNG File|*.PNG";
                     openFileDialog1.FilterIndex = 1;
+                    format = TextureWorkflowFormat.Png;
                     pass = true;
                     break;
             }
             if (!pass) return;
             if (this.openFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            string path = Path.GetDirectoryName(this.openFileDialog1.FileName) + @"\" + Path.GetFileNameWithoutExtension(this.openFileDialog1.FileName);
             toolStripProgressBar1.Visible = true;
             StatusText = GetString("Please wait...");
-            switch (Tag)
+            TextureImportResult importResult = TextureWorkflowService.Import(this.openFileDialog1.FileName, format);
+            ApplyTextImage(importResult.Image, true);
+            if (ChangeImageSize())
             {
-                case ("ImportTex"):
-                    this.MainList[MainSelect].LoadTex(path + ".Tex");
-                    this.pictureBox1.SetImage = this.TextImage;
-                    if (ChangeImageSize())
-                        StatusText = "Import Tex done.";
-                    break;
-                case ("ImportBmp"):
-                    this.MainList[MainSelect].LoadBmp(path + ".png");
-                    this.pictureBox1.SetImage = this.TextImage;
-                    if (ChangeImageSize())
-                        StatusText = "Import PNG done.";
-                    break;
+                StatusText = format == TextureWorkflowFormat.Tex
+                    ? "Import Tex done."
+                    : "Import PNG done.";
             }
 
             //設定ComboBox Size
@@ -1633,40 +1131,13 @@ namespace DC_Font_Generator
         {
             if (!ready) return;
             if (!tableLayoutPanel6.Enabled) return;
-            string Tag = ((ComboBox)sender).Tag.ToString();
-            FontFile ff = (FontFile)((ComboBox)sender).SelectedItem;
-            string key = "";
-            switch (Tag)
+            ComboBox comboBox = (ComboBox)sender;
+            FontFile ff = (FontFile)comboBox.SelectedItem;
+            int slot = Array.IndexOf(GetIniComboBoxes(), comboBox);
+            if (slot >= 0)
             {
-                case ("Font1"):
-                    key = "sFontFile_1";
-                    break;
-                case ("Font2"):
-                    key = "sFontFile_2";
-                    break;
-                case ("Font3"):
-                    key = "sFontFile_3";
-                    break;
-                case ("Font4"):
-                    key = "sFontFile_4";
-                    break;
-                case ("Font5"):
-                    key = "sFontFile_5";
-                    break;
-                case ("Font6"):
-                    key = "sFontFile_6";
-                    break;
-                case ("Font7"):
-                    key = "sFontFile_7";
-                    break;
-                case ("Font8"):
-                    key = "sFontFile_8";
-                    break;
-
-
+                FontIniWorkflowService.WriteSlot(ini, slot, ff);
             }
-            if (key!="")
-                ini.IniWriteValue("Fonts", key, ff.intFontPath);
         }
         /// <summary>
         /// Fallout3 Default Fonts
@@ -1675,8 +1146,7 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void button7_Click(object sender, EventArgs e)
         {
-            comboBox1.SelectedIndex = 0; comboBox2.SelectedIndex = 0; comboBox3.SelectedIndex = 0; comboBox4.SelectedIndex = 0;
-            comboBox5.SelectedIndex = 0; comboBox6.SelectedIndex = 0; comboBox7.SelectedIndex = 0; comboBox8.SelectedIndex = 0;
+            ApplyIniComboBoxSelections(FontIniWorkflowService.GetDefaultSelections(GetIniComboBoxes().Length));
         }
         /// <summary>
         /// 讀取ini設定
@@ -1696,12 +1166,7 @@ namespace DC_Font_Generator
                 return;
             }
             string path = this.openFileDialog1.FileName;
-            IniFile fini = new IniFile(path);
-            for (int i = 1; i <= 8; i++)
-            {
-                string s = fini.IniReadValue("Fonts", "sFontFile_" + i);
-                ini.IniWriteValue("Fonts", "sFontFile_" + i, s);
-            }
+            FontIniWorkflowService.CopySlots(path, ini);
             InitFontSelector();
         }
         /// <summary>
@@ -1730,28 +1195,12 @@ namespace DC_Font_Generator
 
             try
             {
-                using (StreamWriter sw = File.CreateText(path))
+                List<FontFile> selectedFonts = new List<FontFile>();
+                foreach (ComboBox comboBox in GetIniComboBoxes())
                 {
-                    
-                    sw.WriteLine("[Fonts]");
-                    FontFile ff = (FontFile)comboBox1.SelectedItem;
-                    sw.WriteLine("sFontFile_1=" + ff.intFontPath);
-                    ff = (FontFile)comboBox2.SelectedItem;
-                    sw.WriteLine("sFontFile_2=" + ff.intFontPath);
-                    ff = (FontFile)comboBox3.SelectedItem;
-                    sw.WriteLine("sFontFile_3=" + ff.intFontPath);
-                    ff = (FontFile)comboBox4.SelectedItem;
-                    sw.WriteLine("sFontFile_4=" + ff.intFontPath);
-                    ff = (FontFile)comboBox5.SelectedItem;
-                    sw.WriteLine("sFontFile_5=" + ff.intFontPath);
-                    ff = (FontFile)comboBox6.SelectedItem;
-                    sw.WriteLine("sFontFile_6=" + ff.intFontPath);
-                    ff = (FontFile)comboBox7.SelectedItem;
-                    sw.WriteLine("sFontFile_7=" + ff.intFontPath);
-                    ff = (FontFile)comboBox8.SelectedItem;
-                    sw.WriteLine("sFontFile_8=" + ff.intFontPath);
-                    sw.Close();
+                    selectedFonts.Add(comboBox.SelectedItem as FontFile);
                 }
+                FontIniWorkflowService.SaveSlots(path, selectedFonts);
             }
             catch (Exception ee)
             {
@@ -1792,122 +1241,43 @@ namespace DC_Font_Generator
         public string MouseLeftClick(int x, int y,bool selected,bool remove)
         {
             if (this.pictureBox1.SizeNormal()) return "";
-            if (CharIndex[x, y] == null)
+            GlyphInteractionResult result = GlyphInteractionService.Handle(new GlyphInteractionRequest
             {
-                MaskReset();
-                return "";
+                TextImage = this.TextImage,
+                TextImageSize = this.TextImageSize,
+                CharIndex = this.CharIndex,
+                FontSections = this.MainList,
+                SelectedFontIndex = this.MainSelect,
+                Selection = glyphSelection,
+                X = x,
+                Y = y,
+                ToggleSelection = selected,
+                Remove = remove,
+                ToolTipFormat = this.ToolTipFormat
+            });
+
+            if (this.TextImageMask != null)
+            {
+                this.TextImageMask.Dispose();
             }
 
-            char c = CharIndex[x, y].c;
-
-            byte[] b = fenc.enc.GetBytes(c.ToString());
-            string hexOutput = CharIndex[x, y].HEX;
-
-            //對文字畫上方塊
-            
-            
-
-            //取得文字座標
-            Fnt_char fnt = CharIndex[x, y];
-            float rx = fnt.x1 * ((float)this.TextImageSize.Width);
-            float ry = fnt.y1 * ((float)this.TextImageSize.Height);
-            float bx = fnt.x4 * ((float)this.TextImageSize.Width);
-            float by = fnt.y4 * ((float)this.TextImageSize.Height);
-
-            if (fnt.ID != MainSelect) //link fnt
+            this.TextImageMask = result.MaskImage;
+            if (this.TextImageMask != null)
             {
-                fnt = MainList[MainSelect].FntFile.GetFntFromHEX(hexOutput);
-                if (!fnt.Enable)
-                    fnt = CharIndex[x, y];
+                this.pictureBox1.ChangeImage = this.TextImageMask;
             }
-            if (selected)
-            {
-                if (!remove) //加入選取容器
-                {
-                    if (SelectFnt.Contains(fnt))
-                        SelectFnt.Remove(fnt);
-                    else
-                        SelectFnt.Add(fnt);
-                }
-                else //加入移除容器
-                {
-                    if (RemoveFnt.Contains(fnt))
-                        RemoveFnt.Remove(fnt);
-                    else
-                        RemoveFnt.Add(fnt);
-                }
-            }
-
-            MaskReset();
-            //繪製圖像大小方框
-            Pen red = new Pen(Color.Red, 1f);
-            mask.DrawRectangle(red, rx, ry, bx - rx, by - ry);
-            //繪製底部對齊
-            Pen yellow = new Pen(Color.Yellow, 1f);
-            mask.DrawLine(Pens.Yellow, rx + 1, ry + fnt.BottomAlign, bx - 1, ry + fnt.BottomAlign);
-
-            string s = string.Format(this.ToolTipFormat, c, hexOutput, fnt.charViewWidth, fnt.charViewHeight, MainList[MainSelect].FntFile.Header.LineHeight, MainList[MainSelect].FntFile.Header.LineHeightFixed, fnt.BottomAlign, fnt.LeftSpace, fnt.RightSpace, bx - rx, by - ry, fnt.ID);
-
-            this.pictureBox1.ToolTip = s;
-            return string.Format("[{0}] Hex:[{1}]", c, hexOutput);
+            this.pictureBox1.ToolTip = result.ToolTip;
+            return result.StatusText;
         }
         public void MaskReset()
         {
             if (this.TextImageMask != null) this.TextImageMask.Dispose();
-            if (mask != null) mask.Dispose();
+            if (this.TextImage == null) return;
 
-            this.TextImageMask = (Bitmap)this.TextImage.Clone();
-            mask = Graphics.FromImage(this.TextImageMask);
-            //mask.Clear(Color.FromArgb(0, Color.Black));
-            mask.PageUnit = GraphicsUnit.Pixel;
-
-            mask.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-            mask.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
-            mask.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
-            mask.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-            mask.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-
-
-            //繪製選取方塊
-            foreach (Fnt_char fnt in SelectFnt)
-            {
-                float rx = fnt.x1 * ((float)this.TextImageSize.Width);
-                float ry = fnt.y1 * ((float)this.TextImageSize.Height);
-                float bx = fnt.x4 * ((float)this.TextImageSize.Width);
-                float by = fnt.y4 * ((float)this.TextImageSize.Height);
-                //繪製圖像大小方框
-                Pen red = new Pen(Color.Red, 1f);
-                mask.DrawRectangle(red, rx, ry, bx - rx, by - ry);
-                //繪製底部對齊
-            }
-            //繪製選取方塊
-            foreach (Fnt_char fnt in SelectFnt2)
-            {
-                float rx = fnt.x1 * ((float)this.TextImageSize.Width);
-                float ry = fnt.y1 * ((float)this.TextImageSize.Height);
-                float bx = fnt.x4 * ((float)this.TextImageSize.Width);
-                float by = fnt.y4 * ((float)this.TextImageSize.Height);
-                //繪製圖像大小方框
-                Pen red = new Pen(Color.Red, 1f);
-                mask.DrawRectangle(red, rx, ry, bx - rx, by - ry);
-                //繪製底部對齊
-            }
-
-            //繪製移除方塊
-            foreach (Fnt_char fnt in RemoveFnt)
-            {
-                float rx = fnt.x1 * ((float)this.TextImageSize.Width);
-                float ry = fnt.y1 * ((float)this.TextImageSize.Height);
-                float bx = fnt.x4 * ((float)this.TextImageSize.Width);
-                float by = fnt.y4 * ((float)this.TextImageSize.Height);
-                //繪製X
-                Pen red = new Pen(Color.Red, 1f);
-                mask.DrawLine(red, new PointF(rx, ry), new PointF(bx, by));
-                mask.DrawLine(red, new PointF(bx, ry),new PointF( rx, by));
-                //繪製底部對齊
-            }
-
-            //置換mask
+            this.TextImageMask = GlyphInteractionService.CreateMask(
+                this.TextImage,
+                this.TextImageSize,
+                glyphSelection);
             this.pictureBox1.ChangeImage = this.TextImageMask;
 
         }
@@ -1929,17 +1299,15 @@ namespace DC_Font_Generator
             this.openFileDialog1.FilterIndex = 1;
             if (this.openFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            string path = Path.GetDirectoryName(this.openFileDialog1.FileName) + @"\" + Path.GetFileNameWithoutExtension(this.openFileDialog1.FileName);
-            toolStripProgressBar1.Visible = true;
-            StatusText = GetString("Please wait...");
-            Bitmap b = this.MainList[MainSelect].LoadTex(path + ".Tex");
             this.saveFileDialog1.Title = "Save PNG";
-            this.saveFileDialog1.FileName = path;
+            this.saveFileDialog1.FileName = TextureWorkflowService.GetPngOutputPath(this.openFileDialog1.FileName);
             this.saveFileDialog1.Filter = "PNG File|*.PNG";
             this.saveFileDialog1.FilterIndex = 1;
             if (this.saveFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            b.Save(this.saveFileDialog1.FileName, ImageFormat.Png); //save bmp
+            toolStripProgressBar1.Visible = true;
+            StatusText = GetString("Please wait...");
+            TextureWorkflowService.ConvertTexToPng(this.openFileDialog1.FileName, this.saveFileDialog1.FileName);
             
             toolStripProgressBar1.Visible = false;
             StatusText = GetString("Convert Tex to PNG") + " : " + GetString("done.");
@@ -1956,23 +1324,21 @@ namespace DC_Font_Generator
             this.openFileDialog1.Filter = "PNG File|*.PNG";
             this.openFileDialog1.FilterIndex = 1;
             if (this.openFileDialog1.ShowDialog() == DialogResult.Cancel) return;
-            string path = Path.GetDirectoryName(this.openFileDialog1.FileName) + @"\" + Path.GetFileNameWithoutExtension(this.openFileDialog1.FileName);
             //if (File.Exists(path + ".Tex"))
             //{
             //    MessageBoxResult result = MessageBox.Show(message, caption, MessageBoxButton.OKCancel);
 
             //}
             
-            toolStripProgressBar1.Visible = true;
-            StatusText = GetString("Please wait...");
-            Bitmap b = this.MainList[MainSelect].LoadBmp(path + ".png");
             this.saveFileDialog1.Title = "Save Tex";
-            this.saveFileDialog1.FileName = path;
+            this.saveFileDialog1.FileName = TextureWorkflowService.GetTexOutputPath(this.openFileDialog1.FileName);
             this.saveFileDialog1.Filter = "Tex File|*.Tex";
             this.saveFileDialog1.FilterIndex = 1;
             if (this.saveFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            this.MainList[MainSelect].SaveTex(this.saveFileDialog1.FileName, b);
+            toolStripProgressBar1.Visible = true;
+            StatusText = GetString("Please wait...");
+            TextureWorkflowService.ConvertPngToTex(this.openFileDialog1.FileName, this.saveFileDialog1.FileName, CreateFontProgress());
             toolStripProgressBar1.Visible = false;
             StatusText = GetString("Convert PNG to Tex") + " : " + GetString("done.");
         }
@@ -1990,59 +1356,20 @@ namespace DC_Font_Generator
         {
 
             string Tag = ((ToolStripButton)sender).Tag.ToString();
-            int befor = this.MainSelect;
 
-            switch (Tag)
+            FontSectionControlResult result = FontSectionService.ApplyControlCommand(
+                this.MainList,
+                this.MainSelect,
+                Tag,
+                CharIndex,
+                CreateProjectMainSection);
+
+            if (result.Changed)
             {
-                case ("Up"):
-                    this.MainSelect--; if (this.MainSelect < 0) this.MainSelect = 0;
-                    SetNowData();
-                    break;
-                case ("Down"):
-                    this.MainSelect++; if (this.MainSelect >= this.MainList.Count) this.MainSelect = this.MainList.Count - 1;
-                    SetNowData();
-                    break;
-                case ("+"):
-                    Main newMain = new Main(this, this.MainList, this.MainList.Count);
-                    
-                    
-                    newMain.TextOverFlow += new EventHandler(this.DealWithTextFLow);
-                    this.MainList.Add(newMain);
-                    this.MainSelect = this.MainList.Count - 1;
-                    SetNowData();
-                    break;
-                case ("-"):
-                    if (this.MainList.Count > 0)
-                    {
-                        int DelID = this.MainList[this.MainSelect].ID;
-                        Font DelF2 = this.MainList[this.MainSelect].font2;
-                        this.MainList.Remove(this.MainList[this.MainSelect]);
-                        foreach (Main m in this.MainList)
-                        {
-                            if (m.ID > this.MainSelect)
-                            {
-                                m.ID--;
-                                foreach(Fnt_char fnt in m.FntFile.CharList)
-                                {
-                                    fnt.ID = m.ID;
-                                }
-                            }
-                            if (m.DCfontLink == DelID)
-                            {
-                                m.DCfontLink = -1; //不關聯
-                                m.font2 = DelF2;//拿回字型
-                                m.FntFile.reset(true);
-                            }
-                        }
-                        CharIndex.Clear();
-                        this.MainSelect=0;
-                        
-                        SetNowData();
-                    }
-                    break;
+                this.MainSelect = result.SelectedIndex;
+                SetNowData();
             }
-            SelectFnt.Clear();
-            SelectFnt2.Clear();
+            glyphSelection.ClearSelection();
             ready = false;
             checkBox_SelectAllSC.Checked = false;
             checkBox_SelectAllDC.Checked = false;
@@ -2052,7 +1379,7 @@ namespace DC_Font_Generator
 
         private void textBoxFntName_TextChanged(object sender, EventArgs e)
         {
-            this.MainList[this.MainSelect].name = this.textBoxFntName.Text;
+            FontSectionStateService.SetName(this.MainList, this.MainSelect, this.textBoxFntName.Text);
         }
         /// <summary>
         /// 關聯INI
@@ -2064,7 +1391,7 @@ namespace DC_Font_Generator
             string Tag = ((ToolStripMenuItem)sender).Tag.ToString();
             bool value=((ToolStripMenuItem)sender).Checked;
             int index = int.Parse(Tag) - 1;
-            MainList[MainSelect].Fallout3INI[index] = value;
+            FontSectionStateService.SetIniLink(MainList, MainSelect, index, value);
 
             
         }
@@ -2082,21 +1409,7 @@ namespace DC_Font_Generator
             if (!ready) return;
             string Text = ((TextBox)sender).Text;
             string Tag = ((TextBox)sender).Tag.ToString();
-            string hexOutput = "";
-            if (Text != "")
-            {
-                char[] c = Text.ToCharArray();
-                byte[] b = fenc.enc.GetBytes(c[0].ToString());
-                
-                if (b.Length == 1)
-                {
-                    hexOutput = String.Format("{0:X2}", b[0]);
-                }
-                else if (b.Length > 1)
-                {
-                    hexOutput = String.Format("{0:X2}{1:X2}", b[0], b[1]);
-                }
-            }            
+            string hexOutput = EncodingInputService.TextToHex(Text, fenc.enc);
             ready = false;
             switch (Tag)
             {
@@ -2136,40 +1449,15 @@ namespace DC_Font_Generator
         {
             if (!ready) return;
             string Text = ((TextBox)sender).Text;
+            HexKeyInputResult input = EncodingInputService.EvaluateHexKey(e.KeyChar, Text);
             if (e.KeyChar == (Char)8) return; //backspace
             ready = false;
-            if (Text.Length > 3) { ((TextBox)sender).Text = ""; }
+            if (input.ClearExistingText) { ((TextBox)sender).Text = ""; }
             ready = true;
-            bool handled = true;
-            #region HexCode
-            switch (e.KeyChar.ToString().ToUpper())
+            e.Handled = input.Handled;
+            if (!input.Handled)
             {
-                case ("0"):
-                case ("4"):
-                case ("1"):
-                case ("2"):
-                case ("3"):
-                case ("5"):
-                case ("6"):
-                case ("7"):
-                case ("8"):
-                case ("9"):
-                case ("A"):
-                case ("B"):
-                case ("C"):
-                case ("D"):
-                case ("E"):
-                case ("F"):
-                    handled = false;
-                    break;
-            }
-            #endregion
-            e.Handled = handled;
-            if (!handled)
-            {
-                string convert = e.KeyChar.ToString().ToUpper();
-                char[] c = convert.ToCharArray();
-                e.KeyChar = c[0];
+                e.KeyChar = input.KeyChar;
             }
         }
         /// <summary>
@@ -2183,25 +1471,7 @@ namespace DC_Font_Generator
             string Text = ((TextBox)sender).Text;
             string Tag = ((TextBox)sender).Tag.ToString();
 
-            string TextOutput = "";
-            int len = Text.Length;
-            if (len == 4 || len == 2)
-            {
-                int num2 = int.Parse(Text, NumberStyles.AllowHexSpecifier);
-                byte[] buffer = new byte[1];
-
-                char c = '\0';
-                if (len == 4)
-                {
-                    buffer = new byte[] { (byte)(num2 / 0x100), (byte)(num2 % 0x100) };
-                }
-                else if (len == 2)
-                {
-                    buffer = new byte[] { (byte)(num2 % 0x100) };
-                }
-                c = fenc.enc.GetChars(buffer)[0];
-                TextOutput = c.ToString();
-            }
+            string TextOutput = EncodingInputService.HexToText(Text, fenc.enc);
             
             ready = false;
             switch (Tag)
@@ -2223,44 +1493,16 @@ namespace DC_Font_Generator
         /// </summary>
         private void RangeSelect()
         {
-            SelectFnt2.Clear();
-            string startHex = textBox_FromHex.Text;
-            string endHex = textBox_ToHex.Text;
-            if (startHex == "") startHex = endHex;
-            if (endHex == "") endHex = startHex;
-            if (startHex == "" && endHex == "" && !checkBox_SelectAllSC.Checked && !checkBox_SelectAllDC.Checked) return;
-
-            int start = int.Parse(startHex, NumberStyles.AllowHexSpecifier);
-            int end = int.Parse(endHex, NumberStyles.AllowHexSpecifier);
-            if (start > end)
+            GlyphSelectionWorkflowService.SelectRange(new GlyphRangeSelectionRequest
             {
-                int tmp = start;
-                start = end; end = tmp;
-            }
-            foreach (Fnt_char fnt in MainList[MainSelect].FntFile.CharList)
-            {
-                if (!fnt.Enable) continue;
-                int hex = int.Parse(fnt.HEX, NumberStyles.AllowHexSpecifier);
-
-                bool s = false;
-                if (hex>=start && hex<=end) 
-                {
-                    s = true;
-                }
-                else if (checkBox_SelectAllSC.Checked && hex >= 0 && hex <= 255)
-                {
-                    s = true;
-                }
-                else if (checkBox_SelectAllDC.Checked && hex >= 256 && hex <= 65535)
-                {
-                    s = true;
-                }
-
-                if (s && !SelectFnt.Contains(fnt) && !SelectFnt2.Contains(fnt))
-                {
-                    SelectFnt2.Add(fnt);
-                }
-            }
+                FontSections = MainList,
+                SelectedFontIndex = MainSelect,
+                Selection = glyphSelection,
+                StartHex = textBox_FromHex.Text,
+                EndHex = textBox_ToHex.Text,
+                IncludeSingleByte = checkBox_SelectAllSC.Checked,
+                IncludeDoubleByte = checkBox_SelectAllDC.Checked
+            });
             MaskReset();
         }
         private void FunctionChange_CheckedChanged(object sender, EventArgs e)
@@ -2288,123 +1530,35 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void buttonAdjust_Click(object sender, EventArgs e)
         {
-            if (SelectFnt.Count == 0 && SelectFnt2.Count == 0)
+            GlyphAdjustmentWorkflowResult result = GlyphSelectionWorkflowService.ApplyAdjustment(new GlyphAdjustmentWorkflowRequest
+            {
+                FontSections = MainList,
+                SelectedFontIndex = MainSelect,
+                Selection = glyphSelection,
+                FixedFont = checkBox_fixed.Checked,
+                LeftSpacing = radioButton_LeftSpacing.Checked,
+                RightSpacing = radioButton_RightSpacing.Checked,
+                LineSpacing = radioButtonLineSpacing.Checked,
+                BottomAlign = radioButton_BottomAlign.Checked,
+                Scale = radioButtonScale.Checked,
+                Command = ((Button)sender).Tag.ToString(),
+                Increment = (float)numericUpDown_Increment.Value
+            });
+
+            if (result.MissingSelection)
             {
                 StatusText = GetString("Has not selected any font.");
-                if (!radioButtonLineSpacing.Checked)
-                    return;
-            }
-            if (StatusText == GetString("Has not selected any font.")) StatusText = "";
-            string Tag = ((Button)sender).Tag.ToString();
-
-            float av = 0;
-            switch (Tag)
-            {
-                case("Add"):
-                    av = (float)numericUpDown_Increment.Value;
-                    break;
-                case("Dec"):
-                    av = -(float)numericUpDown_Increment.Value;
-                    break;
-            }
-            
-
-            int adj_traget = 0;
-            if (radioButton_LeftSpacing.Checked && !checkBox_fixed.Checked) adj_traget = 1;
-            if (radioButton_RightSpacing.Checked && !checkBox_fixed.Checked) adj_traget = 2;
-            //if (radioButtonLineSpacing.Checked && !checkBox_fixed.Checked)
-			if (radioButtonLineSpacing.Checked)
-				{
-
-                MainList[MainSelect].FntFile.Header.LineHeight += av;
-                MainList[MainSelect].FntFile.Header.LineHeightFixed += av;
-                ReflashAdjustPreview();
                 return;
             }
-            if (radioButton_BottomAlign.Checked) adj_traget = 3;
-            if (radioButtonScale.Checked) adj_traget = 4;
-            
-            if (adj_traget == 0) return;
+            if (StatusText == GetString("Has not selected any font.")) StatusText = "";
 
-            foreach (Fnt_char fnt in SelectFnt)
+            if (!result.Applied)
             {
-                switch (adj_traget)
-                {
-                    case(1):
-                        fnt.LeftSpace += av;
-                        fnt.LeftSpaceFixed += av;
-                        break;
-                    case(2):
-                        fnt.RightSpace += av;
-                        fnt.RightSpaceFixed += av;
-                        break;
-                    case(3):
-                        fnt.BottomAlign += av;
-                        fnt.BottomAlignFixed += av;
-                        break;
-                    case(4):
-                        if (fnt.charViewHeight + av > 0 && fnt.charViewWidth + av > 0)
-                        {
-                            fnt.charViewHeight += av;
-                            fnt.charViewWidth += av;
-                            fnt.charViewHeightFixed += av;
-                            fnt.charViewWidthFixed += av;
-                            fnt.BottomAlign += av;
-                            fnt.BottomAlignFixed += av;
-
-                            if (!checkBox_fixed.Checked && MainList[MainSelect].FntFile.Header.LineHeight < fnt.charViewHeight)
-                            {
-                                //MainList[MainSelect].FntFile.Header.LineHeight += av;
-                                //MainList[MainSelect].FntFile.Header.LineHeightFixed += av;
-                            }
-                        }
-                        break;
-                }
+                return;
             }
-            foreach (Fnt_char fnt in SelectFnt2)
-            {
-                switch (adj_traget)
-                {
-                    case (1):
-                        fnt.LeftSpace += av;
-                        fnt.LeftSpaceFixed += av;
-                        break;
-                    case (2):
-                        fnt.RightSpace += av;
-                        fnt.RightSpaceFixed += av;
-                        break;
-                    case (3):
-                        fnt.BottomAlign += av;
-                        fnt.BottomAlignFixed += av;
-                        break;
-                    case (4):
-                        if (fnt.charViewHeight + av > 0 && fnt.charViewWidth + av > 0)
-                        {
-                            fnt.charViewHeight += av;
-                            fnt.charViewWidth += av;
-                            fnt.charViewHeightFixed += av;
-                            fnt.charViewWidthFixed += av;
-                            fnt.BottomAlign += av;
-                            fnt.BottomAlignFixed += av;
-
-                            if (!checkBox_fixed.Checked && MainList[MainSelect].FntFile.Header.LineHeight < fnt.charViewHeight)
-                            {
-                                //MainList[MainSelect].FntFile.Header.LineHeight += av;
-                                //MainList[MainSelect].FntFile.Header.LineHeightFixed += av;
-                            }
-                        }
-                        break;
-
-                }
-            }
-            //修正等寬字
-            if(MainList[MainSelect].fixedFont)
-            {
-                MainList[MainSelect].FixedFont(MainList[MainSelect].fixedFont, MainList[MainSelect].FontMaxWidth);
-            }
-
             ReflashAdjustPreview();
         }
+
         /// <summary>
         /// 還原調整值
         /// </summary>
@@ -2412,40 +1566,7 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void buttonRestoreAdjust_Click(object sender, EventArgs e)
         {
-            MainList[MainSelect].FntFile.Header.LineHeight -= MainList[MainSelect].FntFile.Header.LineHeightFixed;
-            MainList[MainSelect].FntFile.Header.LineHeightFixed = 0;
-            foreach (Fnt_char fnt in SelectFnt)
-            {
-                if (fnt.Enable)
-                {
-                    fnt.LeftSpace -= fnt.LeftSpaceFixed;
-                    fnt.LeftSpaceFixed = 0;
-                    fnt.RightSpace -= fnt.RightSpaceFixed;
-                    fnt.RightSpaceFixed = 0;
-                    fnt.BottomAlign -= fnt.BottomAlignFixed;
-                    fnt.BottomAlignFixed = 0;
-                    fnt.charViewHeight -= fnt.charViewHeightFixed;
-                    fnt.charViewHeightFixed = 0;
-                    fnt.charViewWidth -= fnt.charViewWidthFixed;
-                    fnt.charViewWidthFixed = 0;
-                }
-            }
-            foreach (Fnt_char fnt in SelectFnt2)
-            {
-                if (fnt.Enable)
-                {
-                    fnt.LeftSpace -= fnt.LeftSpaceFixed;
-                    fnt.LeftSpaceFixed = 0;
-                    fnt.RightSpace -= fnt.RightSpaceFixed;
-                    fnt.RightSpaceFixed = 0;
-                    fnt.BottomAlign -= fnt.BottomAlignFixed;
-                    fnt.BottomAlignFixed = 0;
-                    fnt.charViewHeight -= fnt.charViewHeightFixed;
-                    fnt.charViewHeightFixed = 0;
-                    fnt.charViewWidth -= fnt.charViewWidthFixed;
-                    fnt.charViewWidthFixed = 0;
-                }
-            }
+            GlyphSelectionWorkflowService.RestoreAdjustment(MainList, MainSelect, glyphSelection);
             ReflashAdjustPreview();
         }
         /// <summary>
@@ -2456,56 +1577,7 @@ namespace DC_Font_Generator
             ready = false;
             pictureBoxPrview.Image = AdjPreview;
             ready = true;
-            mask = Graphics.FromImage(AdjPreview);
-            mask.PageUnit = GraphicsUnit.Pixel;
-
-            mask.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-            mask.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
-            mask.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
-            mask.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-            mask.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-			mask.Clear(Color.FromArgb(0, Color.Black));
-            if (textBox_TypeTest.Text == "") return;
-
-            float LineH = MainList[MainSelect].FntFile.Header.LineHeight;
-            PointF p=new PointF(0,0);
-            char[] c = textBox_TypeTest.Text.ToCharArray();
-            Fnt_char LastFnt=MainList[MainSelect].FntFile.GetFntFromChar(' ');
-
-            int LinePoint = (int)LineH;
-            for (int i = 0; i < c.Length; i++)
-            {
-                p.X += LastFnt.charViewWidth + LastFnt.RightSpace;
-                Fnt_char fnt = MainList[MainSelect].FntFile.GetFntFromChar(c[i]);
-
-                p.X += fnt.LeftSpace;
-                if (p.X > AdjPreview.Width)
-                {
-                    p.X = 0;
-                    LinePoint += (int)LineH;
-                }
-                p.Y = LinePoint - fnt.BottomAlign;
-                if (p.Y > AdjPreview.Height) break;
-
-                Bitmap fntimage = null;
-                if (fnt.IsDC && MainList[MainSelect].DCfontLink > -1) //link fnt
-                {
-                    int link = MainList[MainSelect].DCfontLink;
-                    Fnt_char f = MainList[link].FntFile.GetFntFromChar(c[i]);
-                    fntimage = f.FontImage;
-                }
-                else
-                    fntimage = fnt.FontImage;
-                if (p.X < 0) p.X = 0;
-                if (p.Y < LineH - fnt.BottomAlign) p.Y = LineH - fnt.BottomAlign;
-                if (p.Y < 0) p.Y = 0;
-                mask.DrawImage(fntimage, p.X,p.Y, fnt.charViewWidth, fnt.charViewHeight);
-                LastFnt = fnt;
-                
-                
-                
-
-            }
+            GlyphSelectionWorkflowService.RenderPreview(AdjPreview, textBox_TypeTest.Text, MainList, MainSelect);
             pictureBoxPrview.Refresh();
         }
         private void textBox_TypeTest_TextChanged(object sender, EventArgs e)
@@ -2538,114 +1610,35 @@ namespace DC_Font_Generator
                 StatusText = GetString("Save Cancel.");
                 return;
             }
-            XmlWriterSettings mySettings = new XmlWriterSettings();
-            mySettings.Indent = true;
-            mySettings.IndentChars = ("    ");
-
-            string filename = Path.GetFileNameWithoutExtension(this.saveFileDialog1.FileName);
-            if (filename.Length > 8 && filename.Substring(filename.Length - 8).ToLower() == ".project")
-                filename += ".xml";
-            else
-                filename += ".Project.xml";
-            
-            
-            string path = Path.GetDirectoryName(this.saveFileDialog1.FileName);
             try
             {
-                XmlWriter myWriter = XmlWriter.Create(Path.Combine(path, filename), mySettings);
-
-
-                myWriter.WriteStartElement("main");
-                myWriter.WriteElementString("Encoding", this.Encoding_comboBox.SelectedIndex.ToString());
-                myWriter.WriteElementString("SizeX", this.comboBoxSizeX.SelectedIndex.ToString());
-                myWriter.WriteElementString("SizeY", this.comboBoxSizeY.SelectedIndex.ToString());
-                myWriter.WriteElementString("TexFileName", this.textBoxTexName.Text);
-                myWriter.WriteElementString("Gap", this.numericUpDownGap.Value.ToString());
-                myWriter.WriteElementString("BackGroundColor", this.button5.BackColor.ToArgb().ToString());
-                
-                int select = 0;
-                if (radioButtonWidthArrange.Checked) select = 1;
-                if (radioButtonCodeOrdered.Checked) select = 2;
-                myWriter.WriteElementString("ArrangeMethod", select.ToString());
-                myWriter.WriteElementString("FontLists", MainList.Count.ToString());
-                int index = 1;
-                foreach (Main m in MainList)
-                {
-                    myWriter.WriteStartElement("font", index.ToString());
-                    if (m.ImportFont1name == "")
-                    {
-
-                        myWriter.WriteElementString("SCFontName", m.font1.FontFamily.Name);
-                        myWriter.WriteElementString("SCFontSize", m.font1.Size.ToString());
-                        myWriter.WriteElementString("SCFontStyle", m.font1.Style.ToString());
-
-                    }
-                    else
-                    {
-                        myWriter.WriteElementString("import_font", m.ImportFont1name);
-                        
-                    }
-                    if (m.ImportFont2name == "")
-                    {
-                        if (m.DCfontLink > -1)
-                        {
-                            myWriter.WriteElementString("DCFontLink", m.DCfontLink.ToString());
-                        }
-                        else if (this.Encoding_comboBox.SelectedIndex != 0)
-                        {
-                            myWriter.WriteElementString("DCFontName", m.font2.FontFamily.Name);
-                            myWriter.WriteElementString("DCFontSize", m.font2.Size.ToString());
-                            myWriter.WriteElementString("DCFontStyle", m.font2.Style.ToString());
-                        }
-                    }
-
-                    myWriter.WriteElementString("FntName", m.name);
-                    myWriter.WriteElementString("Glow", m.Glow.ToString());
-                    myWriter.WriteElementString("GlowColor", m.GlowColor.ToArgb().ToString());
-                    myWriter.WriteElementString("Outline", m.Outline.ToString());
-                    myWriter.WriteElementString("OutlineColor", m.OutlineColor.ToArgb().ToString());
-                    myWriter.WriteElementString("FontColor", m.FontColor.ToArgb().ToString());
-                    for (int i = 0; i < 8; i++)
-                    {
-                        myWriter.WriteElementString("LinkINI"+(i+1), m.Fallout3INI[i].ToString());
-                    }
-                    myWriter.WriteElementString("LineHeight", m.FntFile.Header.LineHeightFixed.ToString());
-                    if (m.fixedFont)
-                    {
-                        myWriter.WriteElementString("FontMaxWidth", m.FontMaxWidth.ToString());
-                    }
-
-                    //調整參數
-                    myWriter.WriteStartElement("Adjust");
-                    foreach (Fnt_char fnt in m.FntFile.CharList)
-                    {
-                        if (!fnt.Enable) continue;
-                        if(fnt.LeftSpaceFixed!=0)
-                            myWriter.WriteElementString("LeftSpacing",fnt.HEX, fnt.LeftSpaceFixed.ToString());
-                        if(fnt.RightSpaceFixed!=0)
-                            myWriter.WriteElementString("RightSpacing", fnt.HEX, fnt.RightSpaceFixed.ToString());
-                        if (fnt.BottomAlignFixed!=0)
-                            myWriter.WriteElementString("BottomAlign", fnt.HEX, fnt.BottomAlignFixed.ToString());
-                        if (fnt.charViewHeightFixed!=0)
-                            myWriter.WriteElementString("CharViewHeight", fnt.HEX, fnt.charViewHeightFixed.ToString());
-                        if (fnt.charViewWidthFixed != 0)
-                            myWriter.WriteElementString("CharViewWidth", fnt.HEX, fnt.charViewWidthFixed.ToString());
-                    }
-                    myWriter.WriteEndElement();
-
-
-                    myWriter.WriteEndElement();
-                    index++;
-                }
-                myWriter.WriteEndElement();
-                myWriter.Flush();
-                myWriter.Close();
+                ProjectFileWorkflowService.Save(this.saveFileDialog1.FileName, CreateProjectSaveRequest());
                 StatusText = GetString("Project has been saved.");
             }
             catch (Exception ee)
             {
                 System.Windows.Forms.MessageBox.Show(ee.Message);
             }
+        }
+
+        private ProjectSaveRequest CreateProjectSaveRequest()
+        {
+            return ProjectRequestFactory.CreateSaveRequest(
+                this.Encoding_comboBox.SelectedIndex,
+                this.comboBoxSizeX.SelectedIndex,
+                this.comboBoxSizeY.SelectedIndex,
+                this.textBoxTexName.Text,
+                this.numericUpDownGap.Value,
+                this.button5.BackColor.ToArgb(),
+                GetProjectArrangeMethod(),
+                this.MainList);
+        }
+
+        private int GetProjectArrangeMethod()
+        {
+            return ProjectRequestFactory.GetArrangeMethod(
+                radioButtonWidthArrange.Checked,
+                radioButtonCodeOrdered.Checked);
         }
 
 
@@ -2661,334 +1654,11 @@ namespace DC_Font_Generator
             {
                 return;
             }
-            string filename = Path.GetFileNameWithoutExtension(this.openFileDialog1.FileName) + ".xml";
-            string path = Path.GetDirectoryName(this.openFileDialog1.FileName);
 
             try
             {
-                
-                XmlReaderSettings settings = new XmlReaderSettings();
-                settings.IgnoreComments = true; // 不處理註解
-                settings.IgnoreWhitespace = true; // 跳過空白
-                settings.ValidationType = ValidationType.None; // 不驗證任何資料
-
-                XmlReader myReader = XmlReader.Create(Path.Combine(path, filename), settings);
-                Clear();
-                int ChangeSizeX = -1; int ChangeSizeY = -1;
-
-                //循環變數
-                string CFontName = ""; float CFontSize = 0; string HEX = ""; FntFixed fx = new FntFixed(); FontStyle CFontStyle = FontStyle.Regular;
-
-                List<PostAmendment> pas = new List<PostAmendment>(); //後製修正
-                int pa = -1;
-                // 進入讀取主要部分
-                string value = "";
-                bool err = false;
-                while (myReader.Read())
-                {
-
-                    switch (myReader.NodeType)
-                    {
-                        case XmlNodeType.Element:
-                            string LocalName = myReader.LocalName; // 取得標籤名稱
-                            switch (LocalName)
-                            {
-                                case ("Encoding"):
-                                    myReader.Read();
-                                    value = myReader.Value;
-                                    this.Encoding_comboBox.SelectedIndex = int.Parse(value);
-                                    break;
-                                case("SizeX"):
-                                    myReader.Read(); value = myReader.Value;
-                                    ChangeSizeX = int.Parse(value);
-                                    break;
-                                case ("SizeY"):
-                                    myReader.Read(); value = myReader.Value;
-                                    ChangeSizeY = int.Parse(value);
-                                    break;
-                                case ("Gap"):
-                                    myReader.Read(); value = myReader.Value;
-                                    this.numericUpDownGap.Value = decimal.Parse(value);
-                                    break;
-                                case("BackGroundColor"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value=="-16777216")
-                                        this.button5.BackColor = Color.FromArgb(0,Color.Black);
-                                    else
-                                        this.button5.BackColor = Color.FromArgb(int.Parse(value));
-                                    break;
-                                case ("TexFileName"):
-                                    myReader.Read(); value = myReader.Value;
-                                    this.textBoxTexName.Text = value;
-                                    break;
-                                case ("ArrangeMethod"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value == "0") radioButtonArrangeHeight.Checked = true;
-                                    if (value == "1") radioButtonWidthArrange.Checked = true;
-                                    if (value == "2") radioButtonCodeOrdered.Checked = true;
-                                    break;
-                                case("FontLists"):
-                                    myReader.Read(); value = myReader.Value;
-                                    int MainListCount = int.Parse(value);
-                                    if (MainListCount > 1)
-                                    {
-                                        for (int li = 1; li < MainListCount; li++)
-                                        {
-                                            Main newMain = new Main(this, this.MainList, li);
-                                            newMain.TextOverFlow += new EventHandler(this.DealWithTextFLow);
-                                            this.MainList.Add(newMain);
-                                            this.MainSelect = li;
-                                        }
-
-                                    }
-                                    else
-                                    {
-                                        this.MainSelect = 0;
-                                    }
-                                    break;
-                                case("font"):
-                                    this.MainSelect = int.Parse(myReader.NamespaceURI) - 1;
-                                    PostAmendment postAmendment = new PostAmendment();
-                                    postAmendment.ID = this.MainSelect;
-                                    pas.Add(postAmendment);
-                                    pa++;
-
-                                    break;
-                                case ("Adjust"):
-                                    break;
-
-                                case ("SCFontName"):
-                                case ("DCFontName"):
-                                    myReader.Read(); value = myReader.Value;
-                                    CFontName = value;
-                                    break;
-                                case("SCFontSize"):
-                                case ("DCFontSize"):
-                                    myReader.Read(); value = myReader.Value;
-                                    CFontSize = float.Parse(value);
-                                    break;
-                                case("SCFontStyle"):
-                                    myReader.Read(); value = myReader.Value;
-                                    CFontStyle=ConvertFontStyle(value);
-                                    Font SCF = new Font(CFontName, CFontSize, CFontStyle);
-                                    if (SCF.FontFamily.IsStyleAvailable(CFontStyle))
-                                        MainList[MainSelect].font1 = SCF;
-                                    else
-                                    { OutputLog(GetString("Project font error : Missing Font.") + "(" + CFontName + ")"); err = true; }
-                                    break;
-                                case ("DCFontStyle"):
-                                    myReader.Read(); value = myReader.Value;
-                                    CFontStyle = ConvertFontStyle(value);
-                                    Font DCF = new Font(CFontName, CFontSize, CFontStyle);
-
-                                    if (DCF.FontFamily.IsStyleAvailable(CFontStyle))
-                                        MainList[MainSelect].font2 = DCF;
-                                    else
-                                    { OutputLog(GetString("Project font error : Missing Font.") + "(" + CFontName + ")"); err = true; }
-                                    break;
-                                case("DCFontLink"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].DCfontLink = int.Parse(value);
-                                    break;
-                                case("import_font"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (!ImportFntAndTex(Path.Combine(FontPath, value + ".fnt"), value))
-                                    {
-                                        OutputLog(GetString("Project font error : Missing Fallout3 Font file.") + "(" + value + ".fnt)"); err = true;
-                                    }
-                                    break;
-                                case("Glow"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].Glow = int.Parse(value);
-                                    break;
-                                case("GlowColor"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].GlowColor = Color.FromArgb(int.Parse(value));
-                                    break;
-                                case ("Outline"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].Outline = int.Parse(value);
-                                    break;
-                                case ("OutlineColor"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].OutlineColor = Color.FromArgb(int.Parse(value));
-                                    break;
-                                case("FontMaxWidth"):
-                                    myReader.Read(); value = myReader.Value;
-                                    this.MainList[this.MainSelect].fixedFont = true;
-                                    this.MainList[this.MainSelect].FontMaxWidth = int.Parse(value);
-                                    break;
-                                case("FontColor"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].FontColor = Color.FromArgb(int.Parse(value));
-                                    break;
-                                case("LinkINI1"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[0] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[0] = false;
-                                    break;
-                                case ("LinkINI2"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[1] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[1] = false;
-                                    break;
-                                case ("LinkINI3"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[2] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[2] = false;
-                                    break;
-                                case ("LinkINI4"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[3] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[3] = false;
-                                    break;
-                                case ("LinkINI5"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[4] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[4] = false;
-                                    break;
-                                case ("LinkINI6"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[5] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[5] = false;
-                                    break;
-                                case ("LinkINI7"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[6] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[6] = false;
-                                    break;
-                                case ("LinkINI8"):
-                                    myReader.Read(); value = myReader.Value;
-                                    if (value.ToLower() == "true")
-                                        MainList[MainSelect].Fallout3INI[7] = true;
-                                    else
-                                        MainList[MainSelect].Fallout3INI[7] = false;
-                                    break;
-                                case ("FntName"):
-                                    myReader.Read(); value = myReader.Value;
-                                    MainList[MainSelect].name = value;
-                                    break;
-                                case ("LineHeight"):
-                                    myReader.Read(); value = myReader.Value;
-                                    pas[pa].LineHeightFixed = float.Parse(value);
-                                    break;
-                                case("LeftSpacing"):
-                                    HEX=myReader.NamespaceURI;
-                                    myReader.Read(); value = myReader.Value;
-                                    fx = pas[pa][HEX];
-                                    fx.hex = HEX;
-                                    fx.LeftSpaceFixed = float.Parse(value);
-                                    pas[pa][HEX] = fx;
-                                    break;
-                                case ("RightSpacing"):
-                                    HEX = myReader.NamespaceURI;
-                                    myReader.Read(); value = myReader.Value;
-                                    fx = pas[pa][HEX];
-                                    fx.hex = HEX;
-                                    fx.RightSpaceFixed = float.Parse(value);
-                                    pas[pa][HEX] = fx;
-                                    break;
-                                case ("BottomAlign"):
-                                    HEX = myReader.NamespaceURI;
-                                    myReader.Read(); value = myReader.Value;
-                                    fx = pas[pa][HEX];
-                                    fx.hex = HEX;
-                                    fx.BottomAlignFixed = float.Parse(value);
-                                    pas[pa][HEX] = fx;
-                                    break;
-                                case"CharViewHeight":
-                                    HEX = myReader.NamespaceURI;
-                                    myReader.Read(); value = myReader.Value;
-                                    fx = pas[pa][HEX];
-                                    fx.hex = HEX;
-                                    fx.CharViewHeightFixed = float.Parse(value);
-                                    pas[pa][HEX] = fx;
-                                    break;
-                                case "CharViewWidth":
-                                    HEX = myReader.NamespaceURI;
-                                    myReader.Read(); value = myReader.Value;
-                                    fx = pas[pa][HEX];
-                                    fx.hex = HEX;
-                                    fx.CharViewWidthFixed = float.Parse(value);
-                                    pas[pa][HEX] = fx;
-                                    break;
-                            }
-                            break;
-                    }
-                }
-                myReader.Close();
-                SetNowData();
-
-
-
-                MakeFonts(); //製造字元
-
-              if (ChangeSizeX != -1) this.comboBoxSizeX.SelectedIndex = ChangeSizeX;
-                if (ChangeSizeY != -1) this.comboBoxSizeY.SelectedIndex = ChangeSizeY;
-
-                if (DrawFonts()) //繪製
-                {
-                    if (!err)
-                        StatusText = GetString("Project has been opened. Please remember to save font.");
-                    else
-                        StatusText = GetString("Project error : Please refer to the log");
-                }
-                //關聯字型
-                //關聯文字複製
-                foreach (Main m in MainList)
-                {
-                    m.LinkClone();
-                }
-
-                //後置修正
-                foreach (PostAmendment p in pas)
-                {
-                    if (p.IsEmpty) continue;
-                    int id = p.ID;
-                    if (p.LineHeightFixed != 0)
-                        MainList[id].FntFile.Header.LineHeight += p.LineHeightFixed;
-                    foreach (string hex in p.index)
-                    {
-                        FntFixed ff = p[hex];
-                        Fnt_char fnt = (Fnt_char)MainList[id].FntFile.CharCode[hex];
-                        if (fnt == null)
-                        {
-                            OutputLog("Project Load : (" + hex + ") " + GetString("Code does not exist!")); err = true;
-                            continue;
-                        }
-                        if (!fnt.Enable) continue;
-                        fnt.BottomAlign += ff.BottomAlignFixed;
-                        fnt.BottomAlignFixed = ff.BottomAlignFixed;
-                        fnt.charViewHeight += ff.CharViewHeightFixed;
-                        fnt.charViewHeightFixed = ff.CharViewHeightFixed;
-                        fnt.charViewWidth += ff.CharViewWidthFixed;
-                        fnt.charViewWidthFixed = ff.CharViewWidthFixed;
-                        if (MainList[id].fixedFont) continue;
-                        fnt.LeftSpace += ff.LeftSpaceFixed;
-                        fnt.LeftSpaceFixed = ff.LeftSpaceFixed;
-                        fnt.RightSpace += ff.RightSpaceFixed;
-                        fnt.RightSpaceFixed = ff.RightSpaceFixed;
-                    }
-                }
-                //修正等寬字
-                foreach (Main m in MainList)
-                {
-                    m.FixedFont(m.fixedFont, m.FontMaxWidth);
-                }
+                ProjectDocument document = ProjectFileWorkflowService.Load(this.openFileDialog1.FileName);
+                ApplyProjectDocument(document);
             }
             catch (System.Xml.XmlException ee)
             {
@@ -2996,26 +1666,81 @@ namespace DC_Font_Generator
                 StatusText = GetString("file error.");
             }
         }
-        private FontStyle ConvertFontStyle(string fs)
-        {
-            FontStyle FS = FontStyle.Regular;
-            switch (fs)
-            {
-                case("Bold"):
-                    FS = FontStyle.Bold;
-                    break;
-                case("Italic"):
-                    FS = FontStyle.Italic;
-                    break;
-                case ("Strikeout"):
-                    FS = FontStyle.Strikeout;
-                    break;
-                case ("Underline"):
-                    FS = FontStyle.Underline;
-                    break;
 
+        private void ApplyProjectDocument(ProjectDocument document)
+        {
+            Clear();
+
+            this.Encoding_comboBox.SelectedIndex = document.EncodingIndex;
+            this.numericUpDownGap.Value = document.Gap;
+            SetProjectBackgroundColor(document.BackGroundColorArgb);
+            this.textBoxTexName.Text = document.TexFileName;
+            SetProjectArrangeMethod(document.ArrangeMethod);
+            if (document.SizeXIndex != -1) this.comboBoxSizeX.SelectedIndex = document.SizeXIndex;
+            if (document.SizeYIndex != -1) this.comboBoxSizeY.SelectedIndex = document.SizeYIndex;
+
+            toolStripProgressBar1.Visible = true;
+            this.errorProvider1.SetError(this.label7, "");
+            this.StatusText = GetString("Manufacturing fonts...");
+            DateTime startTime = DateTime.Now;
+
+            ProjectOpenWorkflowResult result = ProjectOpenWorkflowService.Open(new ProjectOpenWorkflowRequest
+            {
+                Document = document,
+                FontSections = this.MainList,
+                FontPath = this.FontPath,
+                Encoding = fenc,
+                CharIndex = CharIndex,
+                CreateMain = CreateProjectMainSection,
+                AtlasRequest = CreateFontAtlasRequest(),
+                Progress = CreateFontProgress(),
+                Localize = GetString
+            });
+
+            this.MainSelect = FontSectionStateService.ClampSelectedIndex(this.MainList, result.SelectedMainIndex);
+
+            if (result.AtlasResult == null || !result.AtlasResult.Success)
+            {
+                StatusText = GetString("Font file size exceeds the limit! Can not be processed.");
+                toolStripProgressBar1.Visible = false;
+                this.TexEnable = false;
+                foreach (string log in result.Logs)
+                {
+                    OutputLog(log);
+                }
+                return;
             }
-            return FS;
+
+            BindAtlasResult(result.AtlasResult, startTime);
+            SetNowData();
+
+            foreach (string log in result.Logs)
+            {
+                OutputLog(log);
+            }
+
+            if (result.Status == ProjectOpenWorkflowStatus.Success)
+                StatusText = GetString("Project has been opened. Please remember to save font.");
+            else
+                StatusText = GetString("Project error : Please refer to the log");
+        }
+
+        private Main CreateProjectMainSection(int id)
+        {
+            return FontSectionService.CreateSection(this.MainList, id, this.DealWithTextFLow);
+        }
+
+        private void SetProjectBackgroundColor(int argb)
+        {
+            this.button5.BackColor = ProjectRequestFactory.GetBackgroundColor(argb);
+        }
+
+        private void SetProjectArrangeMethod(int arrangeMethod)
+        {
+            ProjectArrangeSelection selection = ProjectRequestFactory.GetArrangeSelection(arrangeMethod);
+            radioButtonArrangeHeight.Checked = selection.HeightOrdered;
+            radioButtonWidthArrange.Checked = selection.WidthOrdered;
+            radioButtonCodeOrdered.Checked = selection.CodeOrdered;
         }
 
 
@@ -3028,25 +1753,13 @@ namespace DC_Font_Generator
         private void checkBox_SelectAllSC_CheckedChanged(object sender, EventArgs e)
         {
             if (!ready) return;
-            if (MainList[MainSelect].FntFile.CharList.Count<256) return;
-            bool check=((CheckBox)sender).Checked;
-            if (check)
+            GlyphSelectionWorkflowService.SetSingleByteSelection(new GlyphSetSelectionRequest
             {
-                for (int i = 0; i < 256; i++)
-                {
-                    Fnt_char fnt = MainList[MainSelect].FntFile.CharList[i];
-                    if (fnt.Enable && !SelectFnt2.Contains(fnt)) SelectFnt2.Add(fnt);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < 256; i++)
-                {
-                    Fnt_char fnt = MainList[MainSelect].FntFile.CharList[i];
-                    if (fnt.Enable && SelectFnt2.Contains(fnt)) SelectFnt2.Remove(fnt);
-                }
-
-            }
+                FontSections = MainList,
+                SelectedFontIndex = MainSelect,
+                Selection = glyphSelection,
+                Selected = ((CheckBox)sender).Checked
+            });
             MaskReset();
         }
         /// <summary>
@@ -3057,25 +1770,13 @@ namespace DC_Font_Generator
         private void checkBox_SelectAllDC_CheckedChanged(object sender, EventArgs e)
         {
             if (!ready) return;
-            if (MainList[MainSelect].FntFile.CharList.Count < 257) return;
-            bool check = ((CheckBox)sender).Checked;
-            if (check)
+            GlyphSelectionWorkflowService.SetDoubleByteSelection(new GlyphSetSelectionRequest
             {
-                for (int i = 256; i < MainList[MainSelect].FntFile.CharList.Count; i++)
-                {
-                    Fnt_char fnt = MainList[MainSelect].FntFile.CharList[i];
-                    if (fnt.Enable && !SelectFnt2.Contains(fnt)) SelectFnt2.Add(fnt);
-                }
-            }
-            else
-            {
-                for (int i = 256; i < MainList[MainSelect].FntFile.CharList.Count; i++)
-                {
-                    Fnt_char fnt = MainList[MainSelect].FntFile.CharList[i];
-                    if (fnt.Enable && SelectFnt2.Contains(fnt)) SelectFnt2.Remove(fnt);
-                }
-
-            }
+                FontSections = MainList,
+                SelectedFontIndex = MainSelect,
+                Selection = glyphSelection,
+                Selected = ((CheckBox)sender).Checked
+            });
             MaskReset();
         }
 

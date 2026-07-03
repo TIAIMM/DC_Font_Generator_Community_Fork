@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -15,7 +13,7 @@ namespace DC_Font_Generator
         private readonly ListBox styleList = new ListBox();
         private readonly NumericUpDown sizeInput = new NumericUpDown();
         private readonly Panel previewPanel = new BufferedPreviewPanel();
-        private readonly Dictionary<string, FontEntry> fontEntries = new Dictionary<string, FontEntry>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, FontPickerFontEntry> fontEntries = new Dictionary<string, FontPickerFontEntry>(StringComparer.OrdinalIgnoreCase);
         private readonly bool editingDoubleByteFont;
         private readonly bool asciiOnly;
         private readonly int encodingCodePage;
@@ -26,11 +24,9 @@ namespace DC_Font_Generator
         private readonly Color fontColor;
         private readonly Font singleByteFont;
         private readonly Font doubleByteFont;
-        private List<FontEntry> allFontEntries = new List<FontEntry>();
+        private List<FontPickerFontEntry> allFontEntries = new List<FontPickerFontEntry>();
         private Font previewFont;
         private Button okButton;
-        private static readonly object FontCacheLock = new object();
-        private static Task<List<FontEntry>> fontLoadTask;
 
         public FontPickerForm(Font currentFont)
             : this(currentFont, 0, Color.FromArgb(0x80, 0x80, 0x80, 0x80), 0, Color.FromArgb(0xFF, 80, 80, 80), Color.Black)
@@ -90,7 +86,7 @@ namespace DC_Font_Generator
 
         public static void BeginWarmup()
         {
-            EnsureFontLoadTask();
+            FontPickerCatalogService.EnsureFontLoadTask();
         }
 
         protected override void Dispose(bool disposing)
@@ -285,15 +281,15 @@ namespace DC_Font_Generator
 
         private void LoadFonts(Font currentFont)
         {
-            Task<List<FontEntry>> task = EnsureFontLoadTask();
+            Task<List<FontPickerFontEntry>> task = FontPickerCatalogService.EnsureFontLoadTask();
             if (task.IsCompletedSuccessfully)
             {
                 PopulateFontList(task.Result, currentFont.FontFamily.Name);
                 return;
             }
 
-            PopulateFontList(new List<FontEntry> { FontEntry.FromFontFamily(currentFont.FontFamily.Name) }, currentFont.FontFamily.Name);
-            task.ContinueWith(delegate(Task<List<FontEntry>> completedTask)
+            PopulateFontList(new List<FontPickerFontEntry> { FontPickerFontEntry.FromFontFamily(currentFont.FontFamily.Name) }, currentFont.FontFamily.Name);
+            task.ContinueWith(delegate(Task<List<FontPickerFontEntry>> completedTask)
             {
                 if (completedTask.Status != TaskStatus.RanToCompletion || IsDisposed)
                 {
@@ -318,52 +314,30 @@ namespace DC_Font_Generator
             });
         }
 
-        private void PopulateFontList(List<FontEntry> entries, string selectedFontName)
+        private void PopulateFontList(List<FontPickerFontEntry> entries, string selectedFontName)
         {
-            allFontEntries = new List<FontEntry>(entries);
-            if (!ContainsFontEntry(allFontEntries, selectedFontName))
-            {
-                allFontEntries.Insert(0, FontEntry.FromFontFamily(selectedFontName));
-            }
-
+            allFontEntries = FontPickerCatalogService.EnsureSelectedEntry(entries, selectedFontName);
             ApplyFontFilter(selectedFontName);
         }
 
         private void ApplyFontFilter(string selectedFontName)
         {
-            string filter = fontSearch.Text.Trim();
+            FontPickerFilterResult filterResult = FontPickerCatalogService.Filter(
+                allFontEntries,
+                fontSearch.Text,
+                selectedFontName);
+
             fontList.BeginUpdate();
             fontList.Items.Clear();
             fontEntries.Clear();
 
-            foreach (FontEntry entry in allFontEntries)
+            foreach (FontPickerFontEntry entry in filterResult.Entries)
             {
-                if (filter.Length > 0
-                    && !entry.Name.StartsWith(filter, StringComparison.CurrentCultureIgnoreCase))
-                {
-                    continue;
-                }
-
                 fontEntries[entry.Name] = entry;
                 fontList.Items.Add(entry.Name);
             }
 
-            if (filter.Length > 0)
-            {
-                foreach (FontEntry entry in allFontEntries)
-                {
-                    if (entry.Name.StartsWith(filter, StringComparison.CurrentCultureIgnoreCase)
-                        || entry.Name.IndexOf(filter, StringComparison.CurrentCultureIgnoreCase) < 0)
-                    {
-                        continue;
-                    }
-
-                    fontEntries[entry.Name] = entry;
-                    fontList.Items.Add(entry.Name);
-                }
-            }
-
-            if (fontList.Items.Count == 0)
+            if (filterResult.Entries.Count == 0)
             {
                 fontList.EndUpdate();
                 styleList.Items.Clear();
@@ -374,28 +348,9 @@ namespace DC_Font_Generator
                 return;
             }
 
-            int index = fontList.FindStringExact(selectedFontName);
-            if (index < 0)
-            {
-                index = 0;
-            }
-
-            fontList.SelectedIndex = index;
+            fontList.SelectedIndex = filterResult.SelectedIndex;
             fontList.EndUpdate();
             SetOkEnabled(true);
-        }
-
-        private static bool ContainsFontEntry(List<FontEntry> entries, string name)
-        {
-            for (int i = 0; i < entries.Count; i++)
-            {
-                if (string.Equals(entries[i].Name, name, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private void SetOkEnabled(bool enabled)
@@ -416,17 +371,10 @@ namespace DC_Font_Generator
             }
 
             fontList.SelectedIndex = index;
-            decimal size = (decimal)Math.Round(currentFont.Size);
-            if (size < sizeInput.Minimum)
-            {
-                size = sizeInput.Minimum;
-            }
-            else if (size > sizeInput.Maximum)
-            {
-                size = sizeInput.Maximum;
-            }
-
-            sizeInput.Value = size;
+            sizeInput.Value = FontPickerCatalogService.ClampFontSize(
+                currentFont.Size,
+                sizeInput.Minimum,
+                sizeInput.Maximum);
         }
 
         private void UpdateStyleList(FontStyle preferredStyle)
@@ -435,44 +383,15 @@ namespace DC_Font_Generator
             styleList.BeginUpdate();
             styleList.Items.Clear();
 
-            FontEntry entry;
-            if (!fontEntries.TryGetValue(selectedFontName, out entry))
+            FontPickerFontEntry entry = FontPickerCatalogService.GetEntryOrFallback(fontEntries, selectedFontName);
+            FontPickerStyleResult result = FontPickerCatalogService.GetStyles(entry, preferredStyle);
+            foreach (FontPickerStyleItem item in result.Styles)
             {
-                entry = FontEntry.FromFontFamily(selectedFontName);
-                fontEntries[selectedFontName] = entry;
+                styleList.Items.Add(item);
             }
 
-            AddStyleIfAvailable(entry, FontStyle.Regular, "Regular");
-            AddStyleIfAvailable(entry, FontStyle.Bold, "Bold");
-            AddStyleIfAvailable(entry, FontStyle.Italic, "Italic");
-            AddStyleIfAvailable(entry, FontStyle.Bold | FontStyle.Italic, "Bold Italic");
-
-            if (styleList.Items.Count == 0)
-            {
-                styleList.Items.Add(new FontStyleItem("Regular", FontStyle.Regular));
-            }
-
-            int selectedIndex = 0;
-            for (int i = 0; i < styleList.Items.Count; i++)
-            {
-                FontStyleItem item = (FontStyleItem)styleList.Items[i];
-                if (item.Style == preferredStyle)
-                {
-                    selectedIndex = i;
-                    break;
-                }
-            }
-
-            styleList.SelectedIndex = selectedIndex;
+            styleList.SelectedIndex = result.SelectedIndex;
             styleList.EndUpdate();
-        }
-
-        private void AddStyleIfAvailable(FontEntry entry, FontStyle style, string name)
-        {
-            if (entry.IsStyleAvailable(style))
-            {
-                styleList.Items.Add(new FontStyleItem(name, style));
-            }
         }
 
         private void UpdatePreview()
@@ -516,62 +435,32 @@ namespace DC_Font_Generator
             FontStyle style = GetSelectedStyle();
             float size = (float)sizeInput.Value;
 
-            try
-            {
-                Font font = new Font(fontName, size, style, GraphicsUnit.Pixel);
-                if (!IsUsableFont(font))
-                {
-                    font.Dispose();
-                    return null;
-                }
-
-                return font;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static bool IsUsableFont(Font font)
-        {
-            try
-            {
-                using (Bitmap bitmap = new Bitmap(1, 1))
-                using (Graphics graphics = Graphics.FromImage(bitmap))
-                {
-                    font.GetHeight(graphics);
-                }
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            return FontPickerCatalogService.CreateSelectedFont(fontName, style, size);
         }
 
         private void PreviewPanelPaint(object sender, PaintEventArgs e)
         {
-            e.Graphics.Clear(previewPanel.BackColor);
-            e.Graphics.PageUnit = GraphicsUnit.Pixel;
-            e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
-            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
-            e.Graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-
-            if (previewFont == null)
-            {
-                return;
-            }
-
             try
             {
-                DrawGeneratedPreview(e.Graphics);
+                FontPickerPreviewRenderer.Draw(e.Graphics, new FontPickerPreviewRequest
+                {
+                    PreviewFont = previewFont,
+                    SingleByteFont = singleByteFont,
+                    DoubleByteFont = doubleByteFont,
+                    EditingDoubleByteFont = editingDoubleByteFont,
+                    AsciiOnly = asciiOnly,
+                    EncodingCodePage = encodingCodePage,
+                    Glow = glow,
+                    GlowColor = glowColor,
+                    Outline = outline,
+                    OutlineColor = outlineColor,
+                    FontColor = fontColor,
+                    BackColor = previewPanel.BackColor
+                });
             }
             catch
             {
+                e.Graphics.Clear(previewPanel.BackColor);
                 using (StringFormat format = new StringFormat())
                 {
                     format.Alignment = StringAlignment.Center;
@@ -586,197 +475,6 @@ namespace DC_Font_Generator
             }
         }
 
-        private void DrawGeneratedPreview(Graphics graphics)
-        {
-            PreviewText previewText = PreviewText.ForEncoding(encodingCodePage, asciiOnly);
-            Font singleFont = editingDoubleByteFont ? singleByteFont : previewFont;
-            Font doubleFont = editingDoubleByteFont ? previewFont : doubleByteFont;
-
-            using (StringFormat format = new StringFormat())
-            using (SolidBrush fillBrush = new SolidBrush(fontColor))
-            {
-                float y = 10f;
-                int effectShift = glow + outline;
-                float lineHeight = previewText.HasDoubleByteText
-                    ? Math.Max(GetLineHeight(singleFont), GetLineHeight(doubleFont))
-                    : GetLineHeight(singleFont);
-                format.FormatFlags = StringFormatFlags.NoClip;
-                format.Trimming = StringTrimming.None;
-
-                DrawPreviewLine(
-                    graphics,
-                    format,
-                    fillBrush,
-                    y,
-                    new PreviewRun(previewText.SingleByteText, singleFont),
-                    previewText.HasDoubleByteText ? new PreviewRun(previewText.DoubleByteText, doubleFont) : null);
-
-                y += lineHeight;
-
-                if (previewText.HasDoubleByteText)
-                {
-                    DrawPreviewLine(
-                        graphics,
-                        format,
-                        fillBrush,
-                        y,
-                        new PreviewRun("SBCS: " + previewText.SingleByteOnlyText, singleFont));
-                    y += lineHeight;
-
-                    DrawPreviewLine(
-                        graphics,
-                        format,
-                        fillBrush,
-                        y,
-                        new PreviewRun("DBCS: " + previewText.DoubleByteOnlyText, doubleFont));
-                }
-                else
-                {
-                    DrawPreviewLine(
-                        graphics,
-                        format,
-                        fillBrush,
-                        y,
-                        new PreviewRun(previewText.SingleByteOnlyText, singleFont));
-                }
-            }
-        }
-
-        private void DrawPreviewLine(
-            Graphics graphics,
-            StringFormat format,
-            Brush fillBrush,
-            float y,
-            params PreviewRun[] runs)
-        {
-            float x = 10f;
-            int effectShift = glow + outline;
-            for (int i = 0; i < runs.Length; i++)
-            {
-                PreviewRun run = runs[i];
-                if (run == null || string.IsNullOrEmpty(run.Text) || run.Font == null)
-                {
-                    continue;
-                }
-
-                using (GraphicsPath path = new GraphicsPath())
-                {
-                    PointF point = new PointF(x + effectShift + 0.5f, y + effectShift + 0.5f);
-                    path.AddString(
-                        run.Text,
-                        run.Font.FontFamily,
-                        (int)run.Font.Style,
-                        run.Font.Size,
-                        point,
-                        format);
-
-                    DrawGlow(graphics, path);
-                    DrawOutline(graphics, path);
-                    graphics.FillPath(fillBrush, path);
-                }
-
-                x += MeasurePathWidth(run.Font, run.Text, format) + 8f;
-            }
-        }
-
-        private static float MeasurePathWidth(Font font, string text, StringFormat format)
-        {
-            using (GraphicsPath path = new GraphicsPath())
-            {
-                path.AddString(
-                    text,
-                    font.FontFamily,
-                    (int)font.Style,
-                    font.Size,
-                    new PointF(0.5f, 0.5f),
-                    format);
-                RectangleF bounds = path.GetBounds();
-                return bounds.Width;
-            }
-        }
-
-        private void DrawGlow(Graphics graphics, GraphicsPath path)
-        {
-            if (glow <= 0)
-            {
-                return;
-            }
-
-            int size = outline + glow;
-            int glowStep = 0x80 / (glow + 1);
-            int alpha = glowStep;
-            for (int i = 0; i < glow; i++)
-            {
-                using (Pen pen = new Pen(Color.FromArgb(alpha, glowColor.R, glowColor.G, glowColor.B), Math.Max(1, size - i)))
-                {
-                    pen.LineJoin = LineJoin.Round;
-                    graphics.DrawPath(pen, path);
-                }
-
-                if (i >= outline)
-                {
-                    alpha += glowStep;
-                    if (alpha > 0x80)
-                    {
-                        alpha = 0x80;
-                    }
-                }
-            }
-        }
-
-        private void DrawOutline(Graphics graphics, GraphicsPath path)
-        {
-            if (outline <= 0)
-            {
-                return;
-            }
-
-            using (Pen pen = new Pen(outlineColor, outline))
-            {
-                pen.LineJoin = LineJoin.Round;
-                graphics.DrawPath(pen, path);
-            }
-        }
-
-        private static float GetLineHeight(Font font)
-        {
-            FontFamily family = font.FontFamily;
-            int em = family.GetEmHeight(font.Style);
-            return font.Size * family.GetLineSpacing(font.Style) / em;
-        }
-
-        private static Task<List<FontEntry>> EnsureFontLoadTask()
-        {
-            lock (FontCacheLock)
-            {
-                if (fontLoadTask == null)
-                {
-                    fontLoadTask = Task.Run(LoadInstalledFontEntries);
-                }
-
-                return fontLoadTask;
-            }
-        }
-
-        private static List<FontEntry> LoadInstalledFontEntries()
-        {
-            List<FontEntry> entries = new List<FontEntry>();
-            using (InstalledFontCollection fonts = new InstalledFontCollection())
-            {
-                foreach (FontFamily family in fonts.Families)
-                {
-                    FontEntry entry = FontEntry.FromFamily(family);
-                    if (entry.HasAnyStyle)
-                    {
-                        entries.Add(entry);
-                    }
-                }
-            }
-
-            entries.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase));
-            return entries;
-        }
-
         private string GetSelectedFontName()
         {
             if (fontList.SelectedItem == null)
@@ -789,141 +487,12 @@ namespace DC_Font_Generator
 
         private FontStyle GetSelectedStyle()
         {
-            if (styleList.SelectedItem is FontStyleItem item)
+            if (styleList.SelectedItem is FontPickerStyleItem item)
             {
                 return item.Style;
             }
 
             return FontStyle.Regular;
-        }
-
-        private sealed class FontStyleItem
-        {
-            public FontStyleItem(string name, FontStyle style)
-            {
-                Name = name;
-                Style = style;
-            }
-
-            public string Name { get; }
-            public FontStyle Style { get; }
-
-            public override string ToString()
-            {
-                return Name;
-            }
-        }
-
-        private sealed class PreviewRun
-        {
-            public PreviewRun(string text, Font font)
-            {
-                Text = text;
-                Font = font;
-            }
-
-            public string Text { get; }
-            public Font Font { get; }
-        }
-
-        private sealed class PreviewText
-        {
-            private PreviewText(string singleByteText, string singleByteOnlyText, string doubleByteText, string doubleByteOnlyText)
-            {
-                SingleByteText = singleByteText;
-                SingleByteOnlyText = singleByteOnlyText;
-                DoubleByteText = doubleByteText;
-                DoubleByteOnlyText = doubleByteOnlyText;
-            }
-
-            public string SingleByteText { get; }
-            public string SingleByteOnlyText { get; }
-            public string DoubleByteText { get; }
-            public string DoubleByteOnlyText { get; }
-            public bool HasDoubleByteText => !string.IsNullOrEmpty(DoubleByteText);
-
-            public static PreviewText ForEncoding(int codePage, bool asciiOnly)
-            {
-                if (asciiOnly)
-                {
-                    return new PreviewText("Here is example ! HHHHHH", "0123456789 ABC xyz", "", "");
-                }
-
-                switch (codePage)
-                {
-                    case 932:
-                        return new PreviewText("Here is example ! ", "ABC 123 HHHHHH", "\u65E5\u672C\u8A9E\u30AB\u30CA", "\u30C6\u30B9\u30C8\u65E5\u672C\u8A9E");
-                    case 949:
-                        return new PreviewText("Here is example ! ", "ABC 123 HHHHHH", "\uD55C\uAE00\uD14C\uC2A4\uD2B8", "\uAC00\uB098\uB2E4\uB77C\uD55C\uAE00");
-                    case 950:
-                        return new PreviewText("Here is example ! ", "ABC 123 HHHHHH", "\u6E2C\u8A66\u6E2C\u8A66\u7E41\u9AD4", "\u6B63\u9AD4\u4E2D\u6587\u6E2C\u8A66");
-                    case 936:
-                    default:
-                        return new PreviewText("Here is example ! ", "ABC 123 HHHHHH", "\u6D4B\u8BD5\u6D4B\u8BD5\u7B80\u4F53", "\u7B80\u4F53\u4E2D\u6587\u6D4B\u8BD5");
-                }
-            }
-        }
-
-        private sealed class FontEntry
-        {
-            private readonly bool regular;
-            private readonly bool bold;
-            private readonly bool italic;
-            private readonly bool boldItalic;
-
-            private FontEntry(string name, bool regular, bool bold, bool italic, bool boldItalic)
-            {
-                Name = name;
-                this.regular = regular;
-                this.bold = bold;
-                this.italic = italic;
-                this.boldItalic = boldItalic;
-            }
-
-            public string Name { get; }
-            public bool HasAnyStyle => regular || bold || italic || boldItalic;
-
-            public static FontEntry FromFontFamily(string fontName)
-            {
-                try
-                {
-                    using (FontFamily family = new FontFamily(fontName))
-                    {
-                        return FromFamily(family);
-                    }
-                }
-                catch
-                {
-                    return new FontEntry(fontName, true, false, false, false);
-                }
-            }
-
-            public static FontEntry FromFamily(FontFamily family)
-            {
-                return new FontEntry(
-                    family.Name,
-                    family.IsStyleAvailable(FontStyle.Regular),
-                    family.IsStyleAvailable(FontStyle.Bold),
-                    family.IsStyleAvailable(FontStyle.Italic),
-                    family.IsStyleAvailable(FontStyle.Bold | FontStyle.Italic));
-            }
-
-            public bool IsStyleAvailable(FontStyle style)
-            {
-                switch (style)
-                {
-                    case FontStyle.Regular:
-                        return regular;
-                    case FontStyle.Bold:
-                        return bold;
-                    case FontStyle.Italic:
-                        return italic;
-                    case FontStyle.Bold | FontStyle.Italic:
-                        return boldItalic;
-                    default:
-                        return false;
-                }
-            }
         }
 
         private sealed class BufferedPreviewPanel : Panel

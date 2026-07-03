@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 using System.Collections;
 using System.IO;
-using System.Windows.Forms;
 using System.Globalization;
 
 namespace DC_Font_Generator
@@ -15,6 +14,7 @@ namespace DC_Font_Generator
         public Hashtable TempWith = new Hashtable();
         public bool ASCII_Only = false;
         public int count = 0;
+        public string LastError = "";
         private List<string> BandList = new List<string>(); 
         public FontEncoding(Encoding Enc,bool ascii)
         {
@@ -53,7 +53,7 @@ namespace DC_Font_Generator
             }
             catch (Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.Message);
+                LastError = ee.Message;
             }
 
 
@@ -75,7 +75,7 @@ namespace DC_Font_Generator
             }
             catch (Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.Message);
+                LastError = ee.Message;
             }
 
         }
@@ -163,19 +163,11 @@ namespace DC_Font_Generator
         /// 匯入外部編碼
         /// </summary>
         /// <returns></returns>
-        public int ImportEncoding()
+        public int ImportEncoding(string fileName)
         {
-            OpenFileDialog open = new OpenFileDialog();
-            //open.InitialDirectory = @"C:\";
-            open.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
-            open.FilterIndex = 1;
-            open.RestoreDirectory = true;
+            if (!File.Exists(fileName)) return 0;
 
-            if (open.ShowDialog() != DialogResult.OK) return 0;
-
-            if (!File.Exists(open.FileName)) return 0;
-
-            FileStream myFile = File.Open(open.FileName, FileMode.Open, FileAccess.Read);
+            FileStream myFile = File.Open(fileName, FileMode.Open, FileAccess.Read);
             StreamReader br = new StreamReader(myFile); //讀取的文件
             string allFile = br.ReadToEnd();
             br.Close();

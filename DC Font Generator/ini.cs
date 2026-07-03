@@ -15,6 +15,7 @@ namespace INI_RW
         public bool Enable = false;
         public string path;
         public long buffersize = 0;
+        public string LastError = "";
         [DllImport("kernel32")]
         private static extern long WritePrivateProfileString(string section, string key, string val, string filePath);
         [DllImport("kernel32")]
@@ -52,7 +53,7 @@ namespace INI_RW
             }
             catch (Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.Message);
+                LastError = ee.Message;
             }
         }
 
@@ -82,7 +83,7 @@ namespace INI_RW
             }
             catch (Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.Message);
+                LastError = ee.Message;
                 return "";
             }
         }

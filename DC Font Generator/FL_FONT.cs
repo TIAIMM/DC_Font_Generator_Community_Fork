@@ -6,7 +6,6 @@
     using System.Drawing;
     using System.IO;
     using System.Text;
-	using System.Windows.Forms;
 
     public class FL_FONT
     {
@@ -22,6 +21,7 @@
         public int EmptyDC = -1;
         public int EmptySC = -1;
         public float FixedWidth = 0; //等寬字型
+        public string LastError = "";
 
 		private static byte[] HexStringToByteArray(string hex)
 		{
@@ -205,7 +205,7 @@
             }
             catch (Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.Message);
+                LastError = ee.Message;
             }
         }
 
@@ -246,7 +246,7 @@
 			}
 			catch (Exception ee)
 			{
-				MessageBox.Show(ee.Message);
+				LastError = ee.Message;
 			}
 		}
 
@@ -262,7 +262,7 @@
             }
             catch (Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.Message);
+                LastError = ee.Message;
             }
         }
 
@@ -280,7 +280,7 @@
             }
             catch(Exception ee)
             {
-                System.Windows.Forms.MessageBox.Show(ee.ToString());
+                LastError = ee.ToString();
                 return false;
             }
         }
@@ -297,7 +297,7 @@
             this.setBytes(filename, enc,Temp,ID); //讀取
             if (iCharList.Count == 0)
             {
-                System.Windows.Forms.MessageBox.Show("File read failure : " + filename);
+                LastError = "File read failure : " + filename;
                 return;
             }
 

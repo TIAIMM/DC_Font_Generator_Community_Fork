@@ -10,43 +10,30 @@ namespace DC_Font_Generator
 {
     public partial class FontListSelect : Form
     {
-        private List<int> index = new List<int>();
+        private readonly IList<FontLinkCandidate> candidates;
         public int SelectIndex = -1;
-        private List<Main> ml;
-        private int NowID = -1;
         public bool Enable = true;
-        public FontListSelect(List<Main> MainList, int NowID, LanguageData lang)
+        public FontListSelect(IList<FontLinkCandidate> candidates, LanguageData lang)
         {
             InitializeComponent();
+            this.candidates = candidates;
 
             this.Text = lang.GetString("Select Link Font");
 
-            this.NowID = NowID;
-            ml = MainList;
-            int count = 1;
-            
-            
-            foreach (Main m in MainList)
+            foreach (FontLinkCandidate candidate in candidates)
             {
-                if (m.DCfontLink == -1 && count != (NowID+1))
-                {
-                    if (m.name != "")
-                        listBox1.Items.Add(count + ". " + m.name);
-                    else
-                        listBox1.Items.Add(count + ". Font" + count + " (" + m.font2.Name + "," + m.font2.Size + ")");
-                    index.Add(count - 1);
-                }
-                count++;
+                listBox1.Items.Add(candidate.DisplayName);
             }
-            if (index.Count < 1) Enable = false;
+            if (candidates.Count < 1) Enable = false;
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            int select = listBox1.SelectedIndex;
-            SelectIndex = index[select];
-            ml[this.NowID].DCfontLink = SelectIndex;
-            ml[this.NowID].LinkClone();
+            SelectIndex = FontLinkService.ResolveSelectedIndex(candidates, listBox1.SelectedIndex);
+            if (SelectIndex < 0)
+            {
+                return;
+            }
             this.Close();
         }
     }

@@ -1,17 +1,9 @@
-﻿using PictureBoxCtrl;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
-using System.Globalization;
-using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace DC_Font_Generator
 {
@@ -36,7 +28,6 @@ namespace DC_Font_Generator
         public bool fixedFont = false; //等寬字旗標
 
         private Font _Font;
-        private MainForm mainform;
 
         private DrawFont SysDraw = new DrawFont();
         public float FontMaxWidth = 17;
@@ -80,12 +71,11 @@ namespace DC_Font_Generator
 
         #region Constructors
 
-        public Main(MainForm Mainform,List<Main> P,int id)
+        public Main(List<Main> P,int id)
         {
-            this.mainform = Mainform;
             this.parent = P;
             
-            this.ifont1 = Control.DefaultFont;
+            this.ifont1 = SystemFonts.DefaultFont;
             this.ifont2 = this.ifont1;
             this.NowFont = this.ifont1;
             this.iFntFile = new FL_FONT();
@@ -161,15 +151,12 @@ namespace DC_Font_Generator
         /// <summary>
         /// 重繪製
         /// </summary>
-        public bool NewDrawing(FontEncoding enc)
+        public bool NewDrawing(FontEncoding enc, IProgress<FontProgress> progress = null)
         {
             this.iisTextOverFlow = false;
-            this.TextOverFlow(this, new EventArgs());
+            this.TextOverFlow?.Invoke(this, new EventArgs());
 
-            mainform.ProgressBar = 0;
-
-            mainform.ProgressBarMax = enc.Temp.Count;
-
+            ReportProgress(progress, "Manufacturing", 0, enc.Temp.Count);
 
 
 
@@ -184,8 +171,8 @@ namespace DC_Font_Generator
             //製作全文字
             foreach (string str in enc.Temp)
             {
-                mainform.ProgressBarAdd();
                 loop_count++;
+                ReportProgress(progress, "Manufacturing", loop_count + 1, enc.Temp.Count);
 
                 string hex = str.Substring(2, 4);
                 if (projectedCount >= 24322) continue; //已經都跑過了
@@ -245,11 +232,10 @@ namespace DC_Font_Generator
             }
             if (renderCount > 0)
             {
-                mainform.ProgressBarMax = enc.Temp.Count + renderCount;
-                mainform.ProgressBar = enc.Temp.Count;
+                ReportProgress(progress, "Manufacturing", enc.Temp.Count, enc.Temp.Count + renderCount);
             }
 
-            RenderFontBuildItems(buildItems, enc.Temp.Count);
+            RenderFontBuildItems(buildItems, enc.Temp.Count, progress);
             foreach (FontBuildItem item in buildItems)
             {
                 if (item.IsEmpty)
@@ -331,114 +317,6 @@ namespace DC_Font_Generator
             
             
         }
-		/// <summary>
-		/// 製造文字圖像
-		/// </summary>
-		/// <param name="c"></param>
-		/// <param name="font"></param>
-		/// <param name="OriginalRectangleF"></param>
-		/// <returns></returns>
-		public bool DrawToScreen(Bitmap TextImage, ref Rectangle p, ref int LineShift,
-						 Fnt_char fnt, Array2D.List2D<Fnt_char> CharIndex,
-						 int gap, bool Vertical, Graphics graphics)
-		{
-			bool Overflow = false;
-			if (!fnt.Enable) return Overflow;
-
-			// 寻找绘图空间
-			bool AddSpace = false;
-			if (gap == 0 && fnt.IsSpace)
-			{
-				gap = 1;
-				if (Vertical) p.X += 1;
-				else p.Y += 1;
-				AddSpace = true;
-			}
-
-			int width = fnt.FontImage.Width;
-			int height = fnt.FontImage.Height;
-
-			if (Vertical)
-			{
-				if ((p.Y + height + gap) >= TextImage.Height)
-				{
-					p.Y = gap;
-					p.X += LineShift + gap;
-					LineShift = width;
-				}
-				if (p.X + width >= TextImage.Width)
-				{
-					iisTextOverFlow = true;
-					TextOverFlow?.Invoke(this, EventArgs.Empty);
-					return true;
-				}
-			}
-			else
-			{
-				if ((p.X + width + gap) >= TextImage.Width)
-				{
-					p.X = gap;
-					p.Y += LineShift + gap;
-					LineShift = height;
-				}
-				if (p.Y + height >= TextImage.Height)
-				{
-					iisTextOverFlow = true;
-					TextOverFlow?.Invoke(this, EventArgs.Empty);
-					return true;
-				}
-			}
-
-			// 绘制字符图像
-			graphics.DrawImageUnscaledAndClipped(fnt.FontImage,
-				new Rectangle(p.X, p.Y, width, height));
-
-			// 修复后的像素操作 - 使用顺序循环
-			int startX = p.X;
-			int startY = p.Y;
-
-			for (int y = 0; y < height; y++)
-			{
-				int currentY = startY + y;
-				CharIndex.SetRange(startX, currentY, width, fnt);
-			}
-
-			// 设置UV坐标
-			float texWidth = TextImage.Width;
-			float texHeight = TextImage.Height;
-
-			fnt.x1 = startX / texWidth;
-			fnt.y1 = startY / texHeight;
-			fnt.x2 = (startX + width) / texWidth;
-			fnt.y2 = startY / texHeight;
-			fnt.x3 = startX / texWidth;
-			fnt.y3 = (startY + height) / texHeight;
-			fnt.x4 = (startX + width) / texWidth;
-			fnt.y4 = (startY + height) / texHeight;
-
-			// 更新位置
-			if (Vertical)
-			{
-				LineShift = Math.Max(LineShift, width + gap);
-				p.Y += height + gap;
-			}
-			else
-			{
-				LineShift = Math.Max(LineShift, height + gap);
-				p.X += width + gap;
-			}
-
-			if (AddSpace)
-			{
-				if (Vertical) p.Y += 1;
-				else p.X += 1;
-			}
-
-			return Overflow;
-		}
-
-
-
 		private void CreateFont(char c, bool dc, string hex)
         {
             float height;
@@ -541,24 +419,26 @@ namespace DC_Font_Generator
             //{
                 //graphics.DrawRectangle(Pens.Red, p.X, p.Y, ef.Width, ef.Height);
             //}
-            //this.PointFOffset(ref p, p.Width + this.sc_Interval_X, 0f);
-            
             //return true;
 
         }
 
-        private void RenderFontBuildItems(List<FontBuildItem> buildItems, int progressBase)
+        private static void ReportProgress(IProgress<FontProgress> progress, string stage, int value, int maximum)
         {
-            bool hasGlyph = false;
+            progress?.Report(new FontProgress(stage, value, maximum));
+        }
+
+        private void RenderFontBuildItems(List<FontBuildItem> buildItems, int progressBase, IProgress<FontProgress> progress)
+        {
+            int renderTotal = 0;
             foreach (FontBuildItem item in buildItems)
             {
                 if (!item.IsEmpty)
                 {
-                    hasGlyph = true;
-                    break;
+                    renderTotal++;
                 }
             }
-            if (!hasGlyph) return;
+            if (renderTotal == 0) return;
 
             FontRenderSettings settings = CaptureFontRenderSettings();
             int maxParallelism = Math.Max(1, Math.Min(buildItems.Count, Environment.ProcessorCount - 1));
@@ -595,13 +475,12 @@ namespace DC_Font_Generator
 
             while (!renderTask.IsCompleted)
             {
-                mainform.ProgressBar = progressBase + Volatile.Read(ref renderedCount);
+                ReportProgress(progress, "Manufacturing", progressBase + Volatile.Read(ref renderedCount), progressBase + renderTotal);
                 Thread.Sleep(50);
             }
 
             renderTask.GetAwaiter().GetResult();
-            mainform.ProgressBar = progressBase + Volatile.Read(ref renderedCount);
-            mainform.ProgressBarRefresh();
+            ReportProgress(progress, "Manufacturing", progressBase + Volatile.Read(ref renderedCount), progressBase + renderTotal);
         }
 
         private FontRenderSettings CaptureFontRenderSettings()
@@ -802,18 +681,6 @@ namespace DC_Font_Generator
                 || (c >= '\uF900' && c <= '\uFAFF');
         }
 
-        private void PointFOffset(ref Point p, int x, int y)
-        {
-            p.X = p.X + x;
-            p.Y = p.Y + y;
-        }
-
-        private void PointFOffset(ref Rectangle p, int x, int y)
-        {
-            p.X += x;
-            p.Y += y;
-        }
-
         #region Properties
         /// <summary>
         /// 設定字型
@@ -939,70 +806,14 @@ namespace DC_Font_Generator
             }
 
         }
-        public void SaveTex(string path,Bitmap b)
+        public void SaveTex(string path,Bitmap b, IProgress<FontProgress> progress = null)
         {
-            using FileStream output = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024);
-            using BinaryWriter writer = new BinaryWriter(output);
-            writer.Write(b.Width);
-            writer.Write(b.Height);
-            this.mainform.ProgressBarMax = b.Height;
-            this.mainform.ProgressBar = 0;
-            writer.Flush();
-
-            Bitmap source = b;
-            bool disposeSource = false;
-            if (source.PixelFormat != PixelFormat.Format32bppArgb)
-            {
-                source = new Bitmap(b.Width, b.Height, PixelFormat.Format32bppArgb);
-                using (Graphics g = Graphics.FromImage(source))
-                {
-                    g.DrawImageUnscaled(b, 0, 0);
-                }
-                disposeSource = true;
-            }
-
-            Rectangle rect = new Rectangle(0, 0, source.Width, source.Height);
-            BitmapData bmpData = source.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            try
-            {
-                int rowBytes = source.Width * 4;
-                byte[] sourceRow = new byte[rowBytes];
-                byte[] outputRow = new byte[rowBytes];
-
-                for (int y = 0; y < source.Height; y++)
-                {
-                    IntPtr sourcePtr = IntPtr.Add(bmpData.Scan0, y * bmpData.Stride);
-                    Marshal.Copy(sourcePtr, sourceRow, 0, rowBytes);
-
-                    for (int i = 0; i < rowBytes; i += 4)
-                    {
-                        outputRow[i] = sourceRow[i + 2];
-                        outputRow[i + 1] = sourceRow[i + 1];
-                        outputRow[i + 2] = sourceRow[i];
-                        outputRow[i + 3] = sourceRow[i + 3];
-                    }
-
-                    output.Write(outputRow, 0, rowBytes);
-                    if ((y & 0x0F) == 0 || y == source.Height - 1)
-                    {
-                        this.mainform.ProgressBar = y + 1;
-                    }
-                }
-            }
-            finally
-            {
-                source.UnlockBits(bmpData);
-                if (disposeSource)
-                {
-                    source.Dispose();
-                }
-            }
-
+            TextureFileService.SaveTex(path, b, progress);
         }
 
         public void SaveBmp(string path,Bitmap b)
         {
-            b.Save(path, ImageFormat.Png); //save bmp
+            TextureFileService.SaveBmp(path, b);
         }
 
 		#endregion
@@ -1018,194 +829,32 @@ namespace DC_Font_Generator
 		/// <param name="b_tex"></param>
 		/// <param name="fenc"></param>
 		/// <returns></returns>
-		public bool LoadFnt(string path, bool Tex, Array2D.List2D<Fnt_char> CharIndex, out Bitmap b_tex, FontEncoding fenc)
+		public bool LoadFnt(string path, bool Tex, Array2D.List2D<Fnt_char> CharIndex, out Bitmap b_tex, FontEncoding fenc, IProgress<FontProgress> progress = null)
 		{
-			b_tex = new Bitmap(1, 1);
-			bool ok = false;
-			if (fenc.Temp.Count < 256) return ok;
-
-			this.FntFile.load(path, fenc.enc, fenc.Temp, ID);
-			if (!Tex || this.FntFile.Header.TexFileName == null)
-				return false;
-
-			string Dir = Path.GetDirectoryName(path);
-			string tex_path = Path.Combine(Dir, this.FntFile.Header.TexFileName + ".Tex");
-
-			if (!File.Exists(tex_path)) return false;
-
-			try
-			{
-				b_tex = LoadTex(tex_path);
-			}
-			catch
-			{
-				return false;
-			}
-
-			CharIndex.Clear();
-			int black = SysDraw.BackColor.ToArgb();
-			this.mainform.ProgressBarMax = this.iFntFile.CharList.Count;
-			this.mainform.ProgressBar = 0;
-
-			// 使用 LockBits 进行高效的位图访问
-			BitmapData bmpData = b_tex.LockBits(
-				new Rectangle(0, 0, b_tex.Width, b_tex.Height),
-				ImageLockMode.ReadOnly,
-				b_tex.PixelFormat);
-
-			int bytesPerPixel = Image.GetPixelFormatSize(b_tex.PixelFormat) / 8;
-			int byteCount = bmpData.Stride * b_tex.Height;
-			byte[] pixelBuffer = new byte[byteCount];
-
-			Marshal.Copy(bmpData.Scan0, pixelBuffer, 0, byteCount);
-			b_tex.UnlockBits(bmpData);
-
-			int index = 0;
-			foreach (Fnt_char fnt in this.iFntFile.CharList)
-			{
-				if (!fnt.Enable)
-				{
-					index++;
-					continue;
-				}
-
-				if (index % 10 == 0) // 每10个字符更新一次进度
-					this.mainform.ProgressBar = index;
-
-				int px = (int)(fnt.x1 * b_tex.Width);
-				int py = (int)(fnt.y1 * b_tex.Height);
-				int rx = (int)(fnt.x4 * b_tex.Width);
-				int ry = (int)(fnt.y4 * b_tex.Height);
-
-				if (px < 0) px = 0;
-				if (py < 0) py = 0;
-				if (rx > b_tex.Width) rx = b_tex.Width;
-				if (ry > b_tex.Height) ry = b_tex.Height;
-
-				int pw = rx - px;
-				int ph = ry - py;
-
-				if (pw <= 0 || ph <= 0)
-				{
-					fnt.Empty = true;
-					fnt.IsSpace = true;
-					UpdateEmptyIndex(fnt, index);
-					index++;
-					continue;
-				}
-
-				// 创建字符子位图
-				Rectangle rect = new Rectangle(px, py, pw, ph);
-				fnt.SetLazyFontImage(b_tex, rect);
-
-				// 直接处理像素数据而不使用 GetPixel
-				bool notBlack = false;
-				for (int y = py; y < ry; y++)
-				{
-					CharIndex.SetRange(px, y, pw, fnt);
-
-					if (!notBlack)
-					{
-						for (int x = px; x < rx; x++)
-						{
-							// 计算像素在缓存中的位置
-							int offset = (y * bmpData.Stride) + (x * bytesPerPixel);
-
-							// 检查像素值是否非黑色（BGRA格式）
-							if (bytesPerPixel >= 4 &&
-								(pixelBuffer[offset + 3] > 0 ||  // Alpha
-								 pixelBuffer[offset + 2] > 0 ||  // Red
-								 pixelBuffer[offset + 1] > 0 ||  // Green
-								 pixelBuffer[offset] > 0))      // Blue
-							{
-								notBlack = true;
-								break;
-							}
-						}
-					}
-				}
-
-				if (notBlack)
-				{
-					fnt.Empty = false;
-					fnt.IsSpace = (pw == 1 && ph == 1);
-				}
-				else
-				{
-					fnt.Empty = true;
-					fnt.IsSpace = true;
-					UpdateEmptyIndex(fnt, index);
-				}
-
-				index++;
-				this.mainform.ProgressBarAdd();
-			}
-
-			if (this.iFntFile.FixedWidth > 0)
+			FontFileImportResult result = FontFileImportService.LoadFntAndTex(
+				path,
+				Tex,
+				this.FntFile,
+				ID,
+				fenc,
+				CharIndex,
+				progress);
+			b_tex = result.Texture;
+			if (result.FixedFont)
 			{
 				fixedFont = true;
-				this.FontMaxWidth = this.iFntFile.FixedWidth;
+				this.FontMaxWidth = result.FontMaxWidth;
 			}
-
-			ok = true;
-			return ok;
-		}
-
-		private void UpdateEmptyIndex(Fnt_char fnt, int index)
-		{
-			if (fnt.IsDC)
-			{
-				if (this.iFntFile.EmptyDC == -1)
-					this.iFntFile.EmptyDC = index;
-			}
-			else
-			{
-				if (this.iFntFile.EmptySC == -1)
-					this.iFntFile.EmptySC = index;
-			}
+			return result.Success;
 		}
 
 		public Bitmap LoadTex(string path)
 		{
-			using (FileStream input = new FileStream(path, FileMode.Open, FileAccess.Read))
-			using (BinaryReader reader = new BinaryReader(input))
-			{
-				int width = reader.ReadInt32();
-				int height = reader.ReadInt32();
-				int totalPixels = width * height;
-				int totalBytes = totalPixels * 4; // 每个像素4字节 (RGBA)
-
-				// 一次性读取所有像素数据
-				byte[] pixelData = reader.ReadBytes(totalBytes);
-				if (pixelData.Length != totalBytes)
-				{
-					throw new EndOfStreamException("Unexpected end of texture file");
-				}
-
-				Bitmap b = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-				BitmapData bmpData = b.LockBits(
-					new Rectangle(0, 0, width, height),
-					ImageLockMode.WriteOnly,
-					PixelFormat.Format32bppArgb);
-
-				try
-				{
-					// 直接复制像素数据到位图
-					Marshal.Copy(pixelData, 0, bmpData.Scan0, totalBytes);
-				}
-				finally
-				{
-					b.UnlockBits(bmpData);
-				}
-
-				return b;
-			}
+			return TextureFileService.LoadTex(path);
 		}
 		public Bitmap LoadBmp(string path)
         {
-            Bitmap b = (Bitmap)Bitmap.FromFile(path, true);
-            //this.iTextImageSize = this.iTextImage.Size;
-            return b;
+            return TextureFileService.LoadBmp(path);
         }
 
         #endregion

@@ -17,7 +17,6 @@ namespace DC_Font_Generator
         public string Err = "";
         public bool SysFont = false;
         public bool dc = false;
-        public System.Windows.Forms.ComboBox p;
         public int id = 0;
         /// <summary>
         /// SystemFont
@@ -45,24 +44,6 @@ namespace DC_Font_Generator
             intFontPath = @"Textures\Fonts\" + FontName;
 
             check(path,enc);
-        }
-        public FontFile(string path, bool system, System.Windows.Forms.ComboBox cb, int index, Encoding enc)
-        {
-
-            if (system)
-            {
-                FontName = path;
-                Enable = true;
-                SysFont = true;
-            }
-            else
-            {
-                FontName = Path.GetFileName(path);
-                check(path,enc);
-            }
-            intFontPath = @"Textures\Fonts\" + FontName;
-            p = cb;
-            id = index;
         }
         public FontFile(string path, bool system, int index, Encoding enc)
         {
@@ -128,16 +109,6 @@ namespace DC_Font_Generator
                 return true;
             else
                 return false;
-        }
-        public void SetComboBox(System.Windows.Forms.ComboBox cb)
-        {
-            if (SysFont)
-            {
-                p.SelectedIndex = 0;
-                return;
-            }
-
-            cb.SelectedIndex = id;
         }
         /// <summary>
         /// 取得FNT名稱
