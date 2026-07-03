@@ -240,7 +240,14 @@ namespace DC_Font_Generator
             {
                 if (item.IsEmpty)
                 {
-                    this.iFntFile.AddEmpty(item.Hex, ID);
+                    if (IsOriginalSerializedBlankGlyph(item.Hex))
+                    {
+                        this.iFntFile.Add(CreateOriginalSerializedBlankGlyph(item.Hex), item.Hex, ID);
+                    }
+                    else
+                    {
+                        this.iFntFile.AddEmpty(item.Hex, ID);
+                    }
                     continue;
                 }
 
@@ -328,6 +335,12 @@ namespace DC_Font_Generator
 
         private Fnt_char BuildFontChar(char c, bool dc, DrawFont renderer, out float height)
         {
+            if (IsOriginalSerializedBlankGlyph(c))
+            {
+                height = 0;
+                return CreateOriginalSerializedBlankGlyph(c, dc);
+            }
+
             DrawFont.GlyphRenderResult glyph = renderer.RenderGlyph(c);
             bool IsSpace = glyph.IsSpace;
 
@@ -406,6 +419,40 @@ namespace DC_Font_Generator
             }
 
             return fnt;
+        }
+
+        private static bool IsOriginalSerializedBlankGlyph(char c)
+        {
+            return c < 0x20 || c == '\u007F' || c == '\u00A0';
+        }
+
+        private static bool IsOriginalSerializedBlankGlyph(string hex)
+        {
+            return string.Equals(hex, "007F", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hex, "00A0", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Fnt_char CreateOriginalSerializedBlankGlyph(char c, bool dc)
+        {
+            return new Fnt_char
+            {
+                c = c,
+                IsDC = dc,
+                Enable = false,
+                Empty = true,
+                IsSpace = true,
+                LeftSpace = 0f,
+                RightSpace = 2f,
+                charViewWidth = 0f,
+                charViewHeight = 0f,
+                BottomAlign = 0f
+            };
+        }
+
+        private static Fnt_char CreateOriginalSerializedBlankGlyph(string hex)
+        {
+            ushort code = ushort.Parse(hex, System.Globalization.NumberStyles.HexNumber);
+            return CreateOriginalSerializedBlankGlyph((char)code, false);
         }
 
         private void RegisterFontHeight(float height)
@@ -522,6 +569,10 @@ namespace DC_Font_Generator
 
         private void DisposeFontRenderState(FontRenderState renderState)
         {
+            if (renderState.Renderer != null)
+            {
+                renderState.Renderer.Dispose();
+            }
             if (renderState.Font1 != null)
             {
                 renderState.Font1.Dispose();

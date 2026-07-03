@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Text;
+using SkiaSharp;
 
 namespace DC_Font_Generator
 {
-    class DrawFont
+    class DrawFont : IDisposable
     {
         public Font _Font; //目前字型
         private FontFamily fontFamily;
@@ -21,16 +21,7 @@ namespace DC_Font_Generator
         private Color fontColor = Color.FromArgb(0xFF, Color.White);
         public Color OutlineColor = Color.FromArgb(0xFF, Color.FromArgb(80, 80, 80));
         public int OutlineWidth = 0;
-        private Brush brush = new Pen(Color.FromArgb(200, Color.FromArgb(80, 80, 80)), 2f).Brush;
-        private Brush brush2;
-        private int BackGround ;
-        private SolidBrush sfbrush = new SolidBrush(Color.FromArgb(255, 255, 255));
-        private GraphicsPath path = new GraphicsPath();
-        private StringFormat strformat = new StringFormat();
-        private Bitmap CDZ_image;
-        private Graphics CDZ_g;
         public float CDZ_BottomAlign = 0; //CDZ的底部對齊位置
-        private Pen[] GlowPen;
         private int glow = 4;
         private Color glowcolor = Color.FromArgb(0x80, 0x80, 0x80, 0x80);
         public float SpaceWidth = 0; //空白字型的寬度
@@ -38,14 +29,11 @@ namespace DC_Font_Generator
         
         public int DrawMode = 1; //0=無特效 1=反鋸齒
 
-		private GraphicsPath _reusablePath = new GraphicsPath();
-		private PointF _reusablePoint = new PointF(0.5f, 0.5f); // 使用0.5像素偏移
+        private SKTypeface skTypeface;
+        private bool ownsSkTypeface;
 
 		public DrawFont()
         {
-            sfbrush = new SolidBrush(fontColor);
-            brush2 = new Pen(fontColor).Brush;
-            BackGround = BackColor.ToArgb();
             CreateGlow();
         }
         /// <summary>
@@ -53,18 +41,6 @@ namespace DC_Font_Generator
         /// </summary>
         private void CreateGlow()
         {
-            int size = OutlineWidth + glow;
-            int glow_step = 0x80 / (glow + 1);
-            int gs = glow_step;
-            GlowPen = new Pen[glow + OutlineWidth];
-            for (int i = 0; i < glow + OutlineWidth; i++)
-            {
-                GlowPen[i] = new Pen(Color.FromArgb(gs, glowcolor.R, glowcolor.G, glowcolor.B), size - i);
-                GlowPen[i].LineJoin = LineJoin.Round;
-                if (i >= OutlineWidth)
-                    gs += glow_step;
-
-            }
         }
         private void CreateOutline()
         {
@@ -114,8 +90,6 @@ namespace DC_Font_Generator
                 if (fontColor != value)
                 {
                     fontColor = value;
-                    sfbrush = new SolidBrush(fontColor);
-                    brush2 = new Pen(fontColor).Brush;
                 }
             }
             get { return fontColor; }
@@ -153,6 +127,7 @@ namespace DC_Font_Generator
                     // 18.398438 = 16.0 * 2355 / 2048
                     lineSpacingPixel = _Font.Size * lineSpacing / em;
 
+                    CreateSkiaTypeface();
                     CreateDrawingZone();//建立繪字空間
                     CreateSpaceWidth();//建立Space的寬度
                 }
@@ -164,37 +139,7 @@ namespace DC_Font_Generator
         }
         private void CreateDrawingZone()
         {
-			// 释放旧资源
-			if (CDZ_g != null) CDZ_g.Dispose();
-			if (CDZ_image != null) CDZ_image.Dispose();
-
 			int shift = (OutlineWidth * 2) + (glow * 2);
-			CDZ_image = new Bitmap(
-				(int)(lineSpacingPixel + shift * 2 + 1),
-				(int)(lineSpacingPixel + shift * 2 + 1)
-			);
-
-			CDZ_g = Graphics.FromImage(CDZ_image);
-			CDZ_g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-
-			if (DrawMode == 1)
-            {
-                CDZ_g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-                CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-				CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-				CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-                CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-
-			}
-            else
-            {
-				CDZ_g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-				CDZ_g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-				CDZ_g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-				CDZ_g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-				CDZ_g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-			}
-            CDZ_g.Clear(BackColor);
 
 			//建立底部對齊點
 			CDZ_BottomAlign = (shift / 2) + ascentPixel + 0.5f; // 增加0.5像素偏移补偿
@@ -205,36 +150,20 @@ namespace DC_Font_Generator
 		/// </summary>
 		private void CreateSpaceWidth()
 		{
-			// 方法1：使用常规MeasureString（较快但不够精确）
-			SizeF ms = CDZ_g.MeasureString(" ", _Font);
-			float measureWidth = ms.Width;
+            float measureWidth = 0;
+            try
+            {
+                using (SKFont font = CreateTextFont())
+                {
+                    measureWidth = font.MeasureText(" ");
+                }
+            }
+            catch
+            {
+                measureWidth = _Font != null ? _Font.Size / 4f : 1f;
+            }
 
-			// 方法2：使用图形路径获取精确宽度（考虑亚像素偏移）
-			float pathWidth = 0;
-			using (GraphicsPath path = new GraphicsPath())
-			{
-				try
-				{
-					// 添加带亚像素偏移的空格测量
-					path.AddString(" ",
-						fontFamily,
-						(int)_Font.Style,
-						_Font.Size,
-						new PointF(0.5f, 0.5f), // 0.5像素偏移
-						strformat);
-
-					RectangleF bounds = path.GetBounds();
-					pathWidth = bounds.Width;
-				}
-				catch
-				{
-					// 回退到常规测量方法
-					pathWidth = measureWidth;
-				}
-			}
-
-			// 选择最合适的值（优先使用路径测量）
-			SpaceWidth = pathWidth > 0 ? pathWidth : measureWidth;
+			SpaceWidth = measureWidth;
 
 			// 确保最小值（通常空格至少为字号的1/4）
 			if (SpaceWidth < _Font.Size / 4)
@@ -265,88 +194,230 @@ namespace DC_Font_Generator
 
 		public GlyphRenderResult RenderGlyph(char c)
 		{
+            return RenderGlyphSkia(c);
+		}
+
+		private GlyphRenderResult RenderGlyphSkia(char c)
+		{
 			GlyphRenderResult result = new GlyphRenderResult();
 			if (c < 32)
 			{
-				result.IsSpace = true;
-				return result;
+				return CreateSpaceResult(result);
 			}
 
-			try
-			{
-				CDZ_g.Clear(BackColor);
-				int shift = glow + OutlineWidth;
-				string text = c.ToString();
+            string text = c.ToString();
+            int effectShift = glow + OutlineWidth;
+            float originX = effectShift + 0.5f;
+            float baseline = CDZ_BottomAlign;
+            int surfaceSize = Math.Max(1, (int)Math.Ceiling(lineSpacingPixel * 2f + (effectShift * 4f) + 4f));
 
-				_reusablePath.Reset();
-				_reusablePoint.X = shift + 0.5f;
-				_reusablePoint.Y = shift + 0.5f;
-				_reusablePath.AddString(text, fontFamily, (int)_Font.Style, _Font.Size, _reusablePoint, strformat);
+            SKImageInfo imageInfo = new SKImageInfo(surfaceSize, surfaceSize, SKColorType.Bgra8888, SKAlphaType.Premul);
+            SKTypeface glyphTypeface = ResolveTypefaceForCharacter(c, out bool ownsGlyphTypeface);
+            try
+            {
+                using (SKSurface surface = SKSurface.Create(imageInfo))
+                using (SKFont font = CreateTextFont(glyphTypeface))
+                using (SKPaint fillPaint = CreateTextPaint(SKPaintStyle.Fill, FontColor, 0f))
+                using (SKPath glyphPath = GetTextPath(font, text, originX, baseline))
+                {
+                    if (glyphPath == null)
+                    {
+                        return CreateSpaceResult(result);
+                    }
 
-				RectangleF originBounds = _reusablePath.GetBounds();
-				if (originBounds.Width <= 0 || originBounds.Height <= 0)
-				{
-					result.IsSpace = true;
-					result.OriginSize = new Size((int)SpaceWidth, 0);
-					result.RealSpace = SpaceWidth;
-					return result;
-				}
+                    SKRect originBounds = glyphPath.Bounds;
+                    if (originBounds.Width <= 0 || originBounds.Height <= 0)
+                    {
+                        return CreateSpaceResult(result);
+                    }
 
-				result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
-				result.RealSpace = GetPathRealSpace(text, originBounds.Width);
+                    result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
+                    result.RealSpace = GetSkiaPathRealSpace(text, originBounds.Width, originX, baseline, glyphTypeface);
 
-				if (glow > 0)
-				{
-					for (int i = 1; i <= glow; ++i)
-						CDZ_g.DrawPath(GlowPen[i - 1], _reusablePath);
-				}
+                    SKCanvas canvas = surface.Canvas;
+                    canvas.Clear(SkiaBitmapInterop.ToSKColor(BackColor));
 
-				if (OutlineWidth > 0)
-				{
-					using (Pen pen2 = new Pen(OutlineColor, OutlineWidth) { LineJoin = LineJoin.Round })
-						CDZ_g.DrawPath(pen2, _reusablePath);
-				}
+                    DrawSkiaEffects(canvas, glyphPath);
+                    canvas.DrawPath(glyphPath, fillPaint);
+                    canvas.Flush();
 
-				if (DrawMode == 1)
-					CDZ_g.FillPath(sfbrush, _reusablePath);
-				else
-					CDZ_g.DrawString(text, _Font, sfbrush, _reusablePoint);
+                    byte[] pixels = SkiaBitmapInterop.ReadSurfacePixels(surface, surfaceSize, surfaceSize);
+                    Rectangle bounds = SkiaBitmapInterop.FindContentBounds(pixels, surfaceSize, surfaceSize, BackColor);
+                    if (bounds.Width <= 0 || bounds.Height <= 0)
+                    {
+                        return CreateSpaceResult(result);
+                    }
 
-				Rectangle bounds = GetFontGSize(CDZ_image);
-				if (bounds.Width <= 0 || bounds.Height <= 0)
-				{
-					result.IsSpace = true;
-					result.OriginSize = new Size((int)SpaceWidth, 0);
-					result.RealSpace = SpaceWidth;
-					return result;
-				}
-
-				result.Image = cropImage(CDZ_image, bounds);
-				result.BottomAlign = CDZ_BottomAlign - bounds.Y;
-				return result;
-			}
-			finally
-			{
-				_reusablePath.Reset();
-			}
+                    result.Image = SkiaBitmapInterop.CreateBitmapFromBgra(pixels, surfaceSize, bounds);
+                    result.BottomAlign = CDZ_BottomAlign - bounds.Y;
+                    return result;
+                }
+            }
+            finally
+            {
+                if (ownsGlyphTypeface && glyphTypeface != null)
+                {
+                    glyphTypeface.Dispose();
+                }
+            }
 		}
 
-		private float GetPathRealSpace(string text, float originWidth)
-		{
-			using (GraphicsPath doublePath = new GraphicsPath())
-			{
-				doublePath.AddString(
-					text + text,
-					fontFamily,
-					(int)_Font.Style,
-					_Font.Size,
-					_reusablePoint,
-					strformat);
+        private GlyphRenderResult CreateSpaceResult(GlyphRenderResult result)
+        {
+            result.IsSpace = true;
+            result.OriginSize = new Size((int)SpaceWidth, 0);
+            result.RealSpace = SpaceWidth;
+            return result;
+        }
 
-				RectangleF doubleBounds = doublePath.GetBounds();
-				return (doubleBounds.Width - (originWidth * 2)) / 4;
-			}
-		}
+        private void DrawSkiaEffects(SKCanvas canvas, SKPath glyphPath)
+        {
+            if (glow > 0)
+            {
+                int size = OutlineWidth + glow;
+                int glowStep = 0x80 / (glow + 1);
+                int alpha = glowStep;
+                for (int i = 0; i < glow; i++)
+                {
+                    using (SKPaint glowPaint = CreateTextPaint(
+                        SKPaintStyle.Stroke,
+                        Color.FromArgb(alpha, glowcolor.R, glowcolor.G, glowcolor.B),
+                        Math.Max(1, size - i)))
+                    {
+                        canvas.DrawPath(glyphPath, glowPaint);
+                    }
+
+                    if (i >= OutlineWidth)
+                    {
+                        alpha += glowStep;
+                        if (alpha > 0x80)
+                        {
+                            alpha = 0x80;
+                        }
+                    }
+                }
+            }
+
+            if (OutlineWidth > 0)
+            {
+                using (SKPaint outlinePaint = CreateTextPaint(SKPaintStyle.Stroke, OutlineColor, OutlineWidth))
+                {
+                    canvas.DrawPath(glyphPath, outlinePaint);
+                }
+            }
+        }
+
+        private float GetSkiaPathRealSpace(string text, float originWidth, float originX, float baseline, SKTypeface typeface)
+        {
+            using (SKFont font = CreateTextFont(typeface))
+            using (SKPath doublePath = GetTextPath(font, text + text, originX, baseline))
+            {
+                if (doublePath == null)
+                {
+                    return 0f;
+                }
+
+                SKRect doubleBounds = doublePath.Bounds;
+                return (doubleBounds.Width - (originWidth * 2f)) / 4f;
+            }
+        }
+
+        private SKPaint CreateTextPaint(SKPaintStyle style, Color color, float strokeWidth)
+        {
+            SKPaint paint = new SKPaint();
+            paint.IsAntialias = DrawMode == 1;
+            paint.Color = SkiaBitmapInterop.ToSKColor(color);
+            paint.Style = style;
+            paint.StrokeWidth = strokeWidth;
+            paint.StrokeJoin = SKStrokeJoin.Round;
+            return paint;
+        }
+
+        private SKFont CreateTextFont()
+        {
+            return CreateTextFont(skTypeface ?? SKTypeface.Default);
+        }
+
+        private SKFont CreateTextFont(SKTypeface typeface)
+        {
+            return new SKFont(typeface ?? SKTypeface.Default, _Font != null ? _Font.Size : 12f);
+        }
+
+        private static SKPath GetTextPath(SKFont font, string text, float x, float y)
+        {
+            byte[] textBytes = Encoding.Unicode.GetBytes(text);
+            return font.GetTextPath(textBytes, SKTextEncoding.Utf16, new SKPoint(x, y));
+        }
+
+        private SKTypeface ResolveTypefaceForCharacter(char c, out bool ownsResolvedTypeface)
+        {
+            ownsResolvedTypeface = false;
+            int codepoint = c;
+            SKTypeface current = skTypeface ?? SKTypeface.Default;
+            if (current != null && current.ContainsGlyph(codepoint))
+            {
+                return current;
+            }
+
+            SKTypeface fallback = null;
+            if (_Font != null)
+            {
+                SKFontStyleWeight weight = _Font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+                SKFontStyleSlant slant = _Font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+                fallback = SKFontManager.Default.MatchCharacter(
+                    _Font.FontFamily.Name,
+                    weight,
+                    SKFontStyleWidth.Normal,
+                    slant,
+                    new[] { "zh-Hans", "zh-CN", "zh" },
+                    codepoint);
+            }
+
+            if (fallback == null)
+            {
+                fallback = SKFontManager.Default.MatchCharacter(codepoint);
+            }
+
+            if (fallback != null)
+            {
+                ownsResolvedTypeface = true;
+                return fallback;
+            }
+
+            return current;
+        }
+
+        private void CreateSkiaTypeface()
+        {
+            SKTypeface next = null;
+            bool ownsNext = false;
+            if (_Font != null)
+            {
+                SKFontStyleWeight weight = _Font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+                SKFontStyleSlant slant = _Font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+                next = SKTypeface.FromFamilyName(_Font.FontFamily.Name, weight, SKFontStyleWidth.Normal, slant);
+                ownsNext = next != null;
+                if (next == null)
+                {
+                    next = SKTypeface.FromFamilyName(_Font.Name, weight, SKFontStyleWidth.Normal, slant);
+                    ownsNext = next != null;
+                }
+            }
+
+            if (next == null)
+            {
+                next = SKTypeface.Default;
+                ownsNext = false;
+            }
+
+            if (ownsSkTypeface && skTypeface != null)
+            {
+                skTypeface.Dispose();
+            }
+
+            skTypeface = next;
+            ownsSkTypeface = ownsNext;
+        }
 
 		public class GlyphRenderResult
 		{
@@ -364,58 +435,10 @@ namespace DC_Font_Generator
 		/// <returns></returns>
 		public Size GetOriginFontHeight(char c, out SizeF DisplaySize, out float RealSpace)
 		{
-			// 使用临时图像避免修改类字段
-			using (var tempImage = new Bitmap((int)lineSpacingPixel * 2, (int)lineSpacingPixel))
-			{
-				// 创建绘图对象
-				using (var g = Graphics.FromImage(tempImage))
-				{
-					// 配置绘图设置
-					g.CompositingQuality = CompositingQuality.Default;
-					g.InterpolationMode = InterpolationMode.Default;
-					g.PixelOffsetMode = PixelOffsetMode.Default;
-					g.SmoothingMode = SmoothingMode.None;
-					g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-
-					// 绘制单个字符
-					g.Clear(BackColor);
-					g.DrawString(c.ToString(), _Font, brush2, Point.Empty);
-
-					// 获取显示尺寸
-					DisplaySize = g.MeasureString(c.ToString(), _Font);
-
-					// 使用LockBits获取字符边界
-					Rectangle ef1;
-					using (var bmpData1 = new BmpPixelData(tempImage))
-					{
-						ef1 = GetFontBounds(bmpData1);
-					}
-
-					if (ef1.Height == 0 && ef1.Width == 0)
-					{
-						// 空白字符处理
-						ef1.Width = (int)SpaceWidth;
-						RealSpace = SpaceWidth;
-						return new Size(ef1.Width, ef1.Height);
-					}
-
-					// 绘制双字符测量间距
-					g.Clear(BackColor);
-					g.DrawString(c.ToString() + c.ToString(), _Font, brush2, Point.Empty);
-
-					// 使用LockBits获取双字符边界
-					Rectangle realdoublespace;
-					using (var bmpData2 = new BmpPixelData(tempImage))
-					{
-						realdoublespace = GetFontBounds(bmpData2);
-					}
-
-					// 计算实际间距
-					RealSpace = (realdoublespace.Width - (ef1.Width * 2)) / 4;
-
-					return new Size(ef1.Width, ef1.Height);
-				}
-			}
+            GlyphRenderResult glyph = RenderGlyph(c);
+            DisplaySize = glyph.OriginSize;
+            RealSpace = glyph.RealSpace;
+            return glyph.OriginSize;
 		}
 
 		// 统一的边界检测方法
@@ -452,62 +475,14 @@ namespace DC_Font_Generator
 
 		public Bitmap GetOriginFont(char c, out bool IsEmpty)
 		{
-			// 创建临时图像
-			using (var tempImage = new Bitmap((int)lineSpacingPixel, (int)lineSpacingPixel))
-			using (var g = Graphics.FromImage(tempImage))
-			{
-				// 配置绘图设置
-				g.CompositingQuality = CompositingQuality.Default;
-				g.InterpolationMode = InterpolationMode.Default;
-				g.PixelOffsetMode = PixelOffsetMode.Default;
-				g.SmoothingMode = SmoothingMode.None;
-				g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            GlyphRenderResult glyph = RenderGlyph(c);
+            IsEmpty = glyph.IsSpace || glyph.Image == null;
+            if (glyph.Image == null)
+            {
+                return new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+            }
 
-				// 绘制字符
-				g.Clear(BackColor);
-				g.DrawString(c.ToString(), _Font, brush2, Point.Empty);
-
-				// 使用LockBits检查非背景像素
-				IsEmpty = true;
-				var backArgb = BackColor.ToArgb();
-
-				// 使用原始LockBits避免额外封装开销
-				var rect = new Rectangle(0, 0, tempImage.Width, tempImage.Height);
-				var data = tempImage.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-				try
-				{
-					// 直接扫描图像数据
-					int stride = Math.Abs(data.Stride);
-					byte[] pixelData = new byte[stride * tempImage.Height];
-					Marshal.Copy(data.Scan0, pixelData, 0, pixelData.Length);
-
-					// 检查每个像素
-					for (int y = 0; y < tempImage.Height; y++)
-					{
-						int row = y * stride;
-						for (int x = 0; x < tempImage.Width; x++)
-						{
-							int idx = row + x * 4;
-							int argb = pixelData[idx] |
-									   (pixelData[idx + 1] << 8) |
-									   (pixelData[idx + 2] << 16) |
-									   (pixelData[idx + 3] << 24);
-
-							if (argb != backArgb)
-							{
-								IsEmpty = false;
-								return new Bitmap(tempImage); // 返回克隆图像
-							}
-						}
-					}
-				}
-				finally
-				{
-					tempImage.UnlockBits(data);
-				}
-
-				return new Bitmap(tempImage); // 返回克隆图像
-			}
+            return new Bitmap(glyph.Image);
 		}
 
 		/// <summary>
@@ -613,6 +588,16 @@ namespace DC_Font_Generator
 				}
 			}
 		}
+
+        public void Dispose()
+        {
+            if (ownsSkTypeface && skTypeface != null)
+            {
+                skTypeface.Dispose();
+            }
+            skTypeface = null;
+            ownsSkTypeface = false;
+        }
 
 		private class BmpPixelData : IDisposable
 		{

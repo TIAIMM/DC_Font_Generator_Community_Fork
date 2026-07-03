@@ -25,6 +25,7 @@ namespace DC_Font_Generator
 
         public Bitmap TextImage;
         public Bitmap TextImageMask;
+        private Bitmap TextImageSelectionMask;
         public Size TextImageSize = new Size(128, 128);
         public Array2D.List2D<Fnt_char> CharIndex = new Array2D.List2D<Fnt_char>();
         private string ToolTipFormat = "";
@@ -32,6 +33,10 @@ namespace DC_Font_Generator
 
         private bool TexEnable = false;
         private GlyphSelectionState glyphSelection = new GlyphSelectionState();
+        private Fnt_char hoverGlyph;
+        private bool hoverHasGlyph;
+        private int hoverSelectionVersion = -1;
+        private Rectangle hoverFocusBounds = Rectangle.Empty;
         private Bitmap AdjPreview = new Bitmap(207, 96);
         private List<ToolStripMenuItem> tsb = new List<ToolStripMenuItem>(8);
         private string progressStage = "";
@@ -649,6 +654,7 @@ namespace DC_Font_Generator
             toolStripProgressBar1.Visible = true;
 
             StatusText = GetString("Please wait...");
+            DisposeTextImageMasks();
             if (this.TextImage != null) this.TextImage.Dispose();
             ImportedFontResult result = FontImportWorkflowService.Import(new ImportedFontRequest
             {
@@ -864,6 +870,7 @@ namespace DC_Font_Generator
             label_TexSize.Text = ((TexSize)comboBoxSizeX.SelectedItem).MergeSize(result.TextImageSize.Height);
 
             //製作Tex
+            DisposeTextImageMasks();
             this.pictureBox1.Invalidate();
             if (this.TextImage != null) this.TextImage.Dispose();
             this.TextImage = result.TextImage;
@@ -967,6 +974,7 @@ namespace DC_Font_Generator
 
         private void ApplyTextImage(Bitmap image, bool disposeOldImage)
         {
+            DisposeTextImageMasks();
             if (disposeOldImage && this.TextImage != null && !object.ReferenceEquals(this.TextImage, image))
             {
                 this.TextImage.Dispose();
@@ -1002,6 +1010,7 @@ namespace DC_Font_Generator
                 comboBoxSizeX.SelectedIndex = 0;
                 comboBoxSizeY.SelectedIndex = 0;
             }
+            DisposeTextImageMasks();
             TextImage = new Bitmap(128, 128);
             pictureBox1.SetImage = TextImage;
 
@@ -1215,6 +1224,16 @@ namespace DC_Font_Generator
 
         private void pictureBox1_MouseClick(object sender, MouseEventArgs e)
         {
+            if (e.Clicks == 0)
+            {
+                string status = UpdateGlyphHover(e.X, e.Y);
+                if (status != null)
+                {
+                    StatusText = status;
+                }
+                return;
+            }
+
             switch (e.Button)
             {
                 case(MouseButtons.Left):
@@ -1228,6 +1247,16 @@ namespace DC_Font_Generator
                     break;
             }
         }
+
+        private void pictureBox1_MouseMove(object sender, MouseEventArgs e)
+        {
+            string status = UpdateGlyphHover(e.X, e.Y);
+            if (status != null)
+            {
+                StatusText = status;
+            }
+        }
+
         /// <summary>
         /// 滑鼠離開時
         /// </summary>
@@ -1235,7 +1264,40 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void pictureBox1_MouseLeave(object sender, EventArgs e)
         {
+            ResetGlyphHoverCache();
             MouseLeftClick(-1, -1, false, false);
+        }
+
+        private string UpdateGlyphHover(int x, int y)
+        {
+            if (this.pictureBox1.SizeNormal()) return "";
+            GlyphHitResult hit = GlyphSelectionService.HitTest(
+                this.CharIndex,
+                x,
+                y,
+                this.TextImageSize,
+                this.MainList,
+                this.MainSelect);
+
+            Fnt_char glyph = hit.HasGlyph ? hit.EditableGlyph : null;
+            if (hit.HasGlyph == hoverHasGlyph &&
+                object.ReferenceEquals(glyph, hoverGlyph) &&
+                hoverSelectionVersion == glyphSelection.Version)
+            {
+                return null;
+            }
+
+            hoverHasGlyph = hit.HasGlyph;
+            hoverGlyph = glyph;
+            hoverSelectionVersion = glyphSelection.Version;
+            return this.MouseLeftClick(x, y, false, false);
+        }
+
+        private void ResetGlyphHoverCache()
+        {
+            hoverGlyph = null;
+            hoverHasGlyph = false;
+            hoverSelectionVersion = -1;
         }
 
         public string MouseLeftClick(int x, int y,bool selected,bool remove)
@@ -1253,33 +1315,135 @@ namespace DC_Font_Generator
                 Y = y,
                 ToggleSelection = selected,
                 Remove = remove,
+                CreateMask = false,
+                HitTolerance = selected ? 3 : 0,
                 ToolTipFormat = this.ToolTipFormat
             });
 
-            if (this.TextImageMask != null)
+            if (selected && result.Hit != null && result.Hit.HasGlyph)
             {
-                this.TextImageMask.Dispose();
+                ResetGlyphHoverCache();
+                RebuildTextImageSelectionMask();
+            }
+            else
+            {
+                EnsureTextImageMasks();
             }
 
-            this.TextImageMask = result.MaskImage;
-            if (this.TextImageMask != null)
-            {
-                this.pictureBox1.ChangeImage = this.TextImageMask;
-            }
+            UpdateGlyphFocus(result.Hit);
             this.pictureBox1.ToolTip = result.ToolTip;
             return result.StatusText;
         }
-        public void MaskReset()
-        {
-            if (this.TextImageMask != null) this.TextImageMask.Dispose();
-            if (this.TextImage == null) return;
 
-            this.TextImageMask = GlyphInteractionService.CreateMask(
+        private void EnsureTextImageMasks()
+        {
+            if (this.TextImage == null) return;
+            if (this.TextImageSelectionMask == null)
+            {
+                this.TextImageSelectionMask = GlyphInteractionService.CreateMask(
+                    this.TextImage,
+                    this.TextImageSize,
+                    glyphSelection);
+            }
+            if (this.TextImageMask == null && this.TextImageSelectionMask != null)
+            {
+                this.TextImageMask = CloneTextImageMask(this.TextImageSelectionMask);
+                this.pictureBox1.ChangeImage = this.TextImageMask;
+            }
+        }
+
+        private void RebuildTextImageSelectionMask()
+        {
+            hoverFocusBounds = Rectangle.Empty;
+            if (this.TextImageSelectionMask != null)
+            {
+                this.TextImageSelectionMask.Dispose();
+                this.TextImageSelectionMask = null;
+            }
+            if (this.TextImage == null)
+            {
+                ResetTextImageMaskFromSelection();
+                return;
+            }
+
+            this.TextImageSelectionMask = GlyphInteractionService.CreateMask(
                 this.TextImage,
                 this.TextImageSize,
                 glyphSelection);
-            this.pictureBox1.ChangeImage = this.TextImageMask;
+            ResetTextImageMaskFromSelection();
+        }
 
+        private void ResetTextImageMaskFromSelection()
+        {
+            if (this.TextImageMask != null)
+            {
+                this.TextImageMask.Dispose();
+                this.TextImageMask = null;
+            }
+            if (this.TextImageSelectionMask == null) return;
+
+            this.TextImageMask = CloneTextImageMask(this.TextImageSelectionMask);
+            this.pictureBox1.ChangeImage = this.TextImageMask;
+        }
+
+        private void UpdateGlyphFocus(GlyphHitResult hit)
+        {
+            EnsureTextImageMasks();
+            RestoreGlyphFocus();
+            if (this.TextImageMask == null)
+            {
+                return;
+            }
+
+            if (hit != null && hit.HasGlyph)
+            {
+                GlyphOverlayRenderer.DrawFocus(this.TextImageMask, hit);
+                hoverFocusBounds = GlyphOverlayRenderer.GetFocusDirtyBounds(hit, this.TextImageSize);
+            }
+
+            this.pictureBox1.ChangeImage = this.TextImageMask;
+            this.pictureBox1.Refresh();
+        }
+
+        private void RestoreGlyphFocus()
+        {
+            if (hoverFocusBounds.IsEmpty)
+            {
+                return;
+            }
+
+            GlyphOverlayRenderer.RestoreRegion(this.TextImageMask, this.TextImageSelectionMask, hoverFocusBounds);
+            hoverFocusBounds = Rectangle.Empty;
+        }
+
+        private static Bitmap CloneTextImageMask(Bitmap source)
+        {
+            if (source == null) return null;
+            Bitmap clone = new Bitmap(source.Width, source.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            SkiaBitmapInterop.CopyBitmapRegion(source, clone, new Rectangle(0, 0, source.Width, source.Height));
+            return clone;
+        }
+
+        private void DisposeTextImageMasks()
+        {
+            ResetGlyphHoverCache();
+            hoverFocusBounds = Rectangle.Empty;
+            if (this.TextImageMask != null)
+            {
+                this.TextImageMask.Dispose();
+                this.TextImageMask = null;
+            }
+            if (this.TextImageSelectionMask != null)
+            {
+                this.TextImageSelectionMask.Dispose();
+                this.TextImageSelectionMask = null;
+            }
+        }
+
+        public void MaskReset()
+        {
+            ResetGlyphHoverCache();
+            RebuildTextImageSelectionMask();
         }
         #endregion
 

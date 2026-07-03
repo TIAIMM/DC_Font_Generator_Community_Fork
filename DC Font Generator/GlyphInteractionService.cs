@@ -16,12 +16,15 @@ namespace DC_Font_Generator
         public int Y { get; set; }
         public bool ToggleSelection { get; set; }
         public bool Remove { get; set; }
+        public bool CreateMask { get; set; } = true;
+        public int HitTolerance { get; set; }
         public string ToolTipFormat { get; set; }
     }
 
     internal sealed class GlyphInteractionResult
     {
         public bool HasGlyph { get; set; }
+        public GlyphHitResult Hit { get; set; }
         public string StatusText { get; set; } = "";
         public string ToolTip { get; set; } = "";
         public Bitmap MaskImage { get; set; }
@@ -58,29 +61,33 @@ namespace DC_Font_Generator
                 request.Y,
                 request.TextImageSize,
                 request.FontSections,
-                request.SelectedFontIndex);
+                request.SelectedFontIndex,
+                request.HitTolerance);
 
             if (hit.HasGlyph && request.ToggleSelection)
             {
                 request.Selection.Toggle(hit.EditableGlyph, request.Remove);
             }
 
-            Bitmap mask = CreateMask(request.TextImage, request.TextImageSize, request.Selection);
+            Bitmap mask = request.CreateMask
+                ? CreateMask(request.TextImage, request.TextImageSize, request.Selection)
+                : null;
 
             if (!hit.HasGlyph)
             {
-                return new GlyphInteractionResult { MaskImage = mask };
+                return new GlyphInteractionResult { Hit = hit, MaskImage = mask };
             }
 
-            using (Graphics graphics = Graphics.FromImage(mask))
+            if (mask != null)
             {
-                GlyphOverlayRenderer.DrawFocus(graphics, hit);
+                GlyphOverlayRenderer.DrawFocus(mask, hit);
             }
 
             Main selected = request.FontSections[request.SelectedFontIndex];
             return new GlyphInteractionResult
             {
                 HasGlyph = true,
+                Hit = hit,
                 StatusText = string.Format("[{0}] Hex:[{1}]", hit.Character, hit.Hex),
                 ToolTip = GlyphOverlayRenderer.FormatTooltip(
                     request.ToolTipFormat,

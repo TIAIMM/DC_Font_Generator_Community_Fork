@@ -17,27 +17,15 @@ namespace DC_Font_Generator
             ReportProgress(progress, "SavingTex", 0, bitmap.Height);
             writer.Flush();
 
-            Bitmap source = bitmap;
-            bool disposeSource = false;
-            if (source.PixelFormat != PixelFormat.Format32bppArgb)
-            {
-                source = new Bitmap(bitmap.Width, bitmap.Height, PixelFormat.Format32bppArgb);
-                using (Graphics g = Graphics.FromImage(source))
-                {
-                    g.DrawImageUnscaled(bitmap, 0, 0);
-                }
-                disposeSource = true;
-            }
-
-            Rectangle rect = new Rectangle(0, 0, source.Width, source.Height);
-            BitmapData bmpData = source.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            Rectangle rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
+            BitmapData bmpData = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                int rowBytes = source.Width * 4;
+                int rowBytes = bitmap.Width * 4;
                 byte[] sourceRow = new byte[rowBytes];
                 byte[] outputRow = new byte[rowBytes];
 
-                for (int y = 0; y < source.Height; y++)
+                for (int y = 0; y < bitmap.Height; y++)
                 {
                     IntPtr sourcePtr = IntPtr.Add(bmpData.Scan0, y * bmpData.Stride);
                     Marshal.Copy(sourcePtr, sourceRow, 0, rowBytes);
@@ -51,7 +39,7 @@ namespace DC_Font_Generator
                     }
 
                     output.Write(outputRow, 0, rowBytes);
-                    if ((y & 0x0F) == 0 || y == source.Height - 1)
+                    if ((y & 0x0F) == 0 || y == bitmap.Height - 1)
                     {
                         ReportProgress(progress, "SavingTex", y + 1, bitmap.Height);
                     }
@@ -59,11 +47,7 @@ namespace DC_Font_Generator
             }
             finally
             {
-                source.UnlockBits(bmpData);
-                if (disposeSource)
-                {
-                    source.Dispose();
-                }
+                bitmap.UnlockBits(bmpData);
             }
         }
 

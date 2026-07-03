@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Text;
+using SkiaSharp;
 
 namespace DC_Font_Generator
 {
@@ -82,31 +81,35 @@ namespace DC_Font_Generator
                 return new FontAtlasResult { Success = false };
             }
 
-            Bitmap textImage = new Bitmap(bestSize.Width, bestSize.Height);
             Array2D.List2D<Fnt_char> charIndex = new Array2D.List2D<Fnt_char>();
 
-            using (Graphics graphics = Graphics.FromImage(textImage))
+            SKImageInfo imageInfo = new SKImageInfo(bestSize.Width, bestSize.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using (SKSurface surface = SKSurface.Create(imageInfo))
             {
-                ConfigureAtlasGraphics(graphics);
-                ClearAtlas(graphics, request.BackgroundColor);
+                SKCanvas canvas = surface.Canvas;
+                ClearAtlas(canvas, request.BackgroundColor);
 
                 Report(progress, 0, fonts.Count);
                 for (int i = 0; i < fonts.Count; i++)
                 {
-                    DrawFontPlacement(fonts[i], placements[i], textImage, charIndex, graphics);
+                    DrawFontPlacement(fonts[i], placements[i], charIndex, bestSize, canvas);
                     Report(progress, i + 1, fonts.Count);
                 }
-            }
 
-            return new FontAtlasResult
-            {
-                Success = true,
-                TextImageSize = bestSize,
-                SizeXIndex = sizeXIndex,
-                SizeYIndex = sizeYIndex,
-                TextImage = textImage,
-                CharIndex = charIndex
-            };
+                canvas.Flush();
+
+                Bitmap textImage = SkiaBitmapInterop.CreateBitmapFromSurface(surface, bestSize.Width, bestSize.Height);
+
+                return new FontAtlasResult
+                {
+                    Success = true,
+                    TextImageSize = bestSize,
+                    SizeXIndex = sizeXIndex,
+                    SizeYIndex = sizeYIndex,
+                    TextImage = textImage,
+                    CharIndex = charIndex
+                };
+            }
         }
 
         public static bool TryLayoutFonts(List<Fnt_char> fonts, Size size, int gap, bool vertical, List<Rectangle> placements)
@@ -279,41 +282,34 @@ namespace DC_Font_Generator
             }
         }
 
-        private static void ConfigureAtlasGraphics(Graphics graphics)
-        {
-            graphics.PageUnit = GraphicsUnit.Pixel;
-            graphics.CompositingQuality = CompositingQuality.HighQuality;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.SmoothingMode = SmoothingMode.HighQuality;
-            graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        }
-
-        private static void ClearAtlas(Graphics graphics, Color backgroundColor)
+        private static void ClearAtlas(SKCanvas canvas, Color backgroundColor)
         {
             int opaqueBlack = Color.FromArgb(0xFF, Color.Black).ToArgb();
             int transparentBlack = Color.FromArgb(0, Color.Black).ToArgb();
             int background = backgroundColor.ToArgb();
             if (background == opaqueBlack || background == transparentBlack)
             {
-                graphics.Clear(Color.FromArgb(transparentBlack));
+                canvas.Clear(SkiaBitmapInterop.ToSKColor(Color.FromArgb(transparentBlack)));
             }
             else
             {
-                graphics.Clear(Color.FromArgb(background));
+                canvas.Clear(SkiaBitmapInterop.ToSKColor(Color.FromArgb(background)));
             }
         }
 
         private static void DrawFontPlacement(
             Fnt_char fnt,
             Rectangle placement,
-            Bitmap textImage,
             Array2D.List2D<Fnt_char> charIndex,
-            Graphics graphics)
+            Size textImageSize,
+            SKCanvas canvas)
         {
             if (!fnt.Enable || placement.Width <= 0 || placement.Height <= 0) return;
 
-            graphics.DrawImageUnscaledAndClipped(fnt.FontImage, placement);
+            using (SKBitmap glyphBitmap = SkiaBitmapInterop.CreateSKBitmap(fnt.FontImage))
+            {
+                canvas.DrawBitmap(glyphBitmap, placement.X, placement.Y);
+            }
 
             int startX = placement.X;
             int startY = placement.Y;
@@ -326,8 +322,8 @@ namespace DC_Font_Generator
                 charIndex.SetRange(startX, currentY, width, fnt);
             }
 
-            float texWidth = textImage.Width;
-            float texHeight = textImage.Height;
+            float texWidth = textImageSize.Width;
+            float texHeight = textImageSize.Height;
 
             fnt.x1 = startX / texWidth;
             fnt.y1 = startY / texHeight;

@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Text;
 using System.Threading.Tasks;
+using SkiaSharp;
 
 namespace DC_Font_Generator
 {
@@ -254,15 +254,19 @@ namespace DC_Font_Generator
         private static List<FontPickerFontEntry> LoadInstalledFontEntries()
         {
             List<FontPickerFontEntry> entries = new List<FontPickerFontEntry>();
-            using (InstalledFontCollection fonts = new InstalledFontCollection())
+            SKFontManager fontManager = SKFontManager.Default;
+            for (int i = 0; i < fontManager.FontFamilyCount; i++)
             {
-                foreach (FontFamily family in fonts.Families)
+                string familyName = fontManager.GetFamilyName(i);
+                if (string.IsNullOrEmpty(familyName))
                 {
-                    FontPickerFontEntry entry = FontPickerFontEntry.FromFamily(family);
-                    if (entry.HasAnyStyle)
-                    {
-                        entries.Add(entry);
-                    }
+                    continue;
+                }
+
+                FontPickerFontEntry entry = FontPickerFontEntry.FromFontFamily(familyName);
+                if (entry.HasAnyStyle)
+                {
+                    entries.Add(entry);
                 }
             }
 
@@ -292,13 +296,13 @@ namespace DC_Font_Generator
         {
             try
             {
-                using (Bitmap bitmap = new Bitmap(1, 1))
-                using (Graphics graphics = Graphics.FromImage(bitmap))
+                SKFontStyleWeight weight = font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+                SKFontStyleSlant slant = font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+                using (SKTypeface typeface = SKTypeface.FromFamilyName(font.FontFamily.Name, weight, SKFontStyleWidth.Normal, slant)
+                    ?? SKTypeface.FromFamilyName(font.Name, weight, SKFontStyleWidth.Normal, slant))
                 {
-                    font.GetHeight(graphics);
+                    return typeface != null && typeface.GlyphCount > 0;
                 }
-
-                return true;
             }
             catch
             {

@@ -416,7 +416,7 @@
 			pictureBox1.TabIndex = 49;
 			pictureBox1.MouseClick += pictureBox1_MouseClick;
 			pictureBox1.MouseLeave += pictureBox1_MouseLeave;
-			pictureBox1.MouseMove += pictureBox1_MouseClick;
+			pictureBox1.MouseMove += pictureBox1_MouseMove;
 			// 
 			// tableLayoutPanel5
 			// 

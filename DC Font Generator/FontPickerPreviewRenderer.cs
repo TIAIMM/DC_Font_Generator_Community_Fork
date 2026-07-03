@@ -1,7 +1,8 @@
 using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Text;
+using System.Drawing.Imaging;
+using System.Text;
+using SkiaSharp;
 
 namespace DC_Font_Generator
 {
@@ -25,81 +26,75 @@ namespace DC_Font_Generator
     {
         public static void Draw(Graphics graphics, FontPickerPreviewRequest request)
         {
-            graphics.Clear(request.BackColor);
-            ConfigureGraphics(graphics);
-
-            if (request.PreviewFont == null)
+            RectangleF bounds = graphics.VisibleClipBounds;
+            int width = Math.Max(1, (int)Math.Ceiling(bounds.Width));
+            int height = Math.Max(1, (int)Math.Ceiling(bounds.Height));
+            using (Bitmap preview = Render(new Size(width, height), request))
             {
-                return;
+                graphics.DrawImageUnscaled(preview, 0, 0);
+            }
+        }
+
+        public static Bitmap Render(Size size, FontPickerPreviewRequest request)
+        {
+            Bitmap bitmap = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
+            SKImageInfo imageInfo = new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using (SKSurface surface = SKSurface.Create(imageInfo))
+            {
+                SKCanvas canvas = surface.Canvas;
+                canvas.Clear(SkiaBitmapInterop.ToSKColor(request.BackColor));
+
+                if (request.PreviewFont != null)
+                {
+                    DrawPreview(canvas, request);
+                }
+
+                canvas.Flush();
+                SkiaBitmapInterop.CopySurfaceToBitmap(surface, bitmap);
             }
 
+            return bitmap;
+        }
+
+        private static void DrawPreview(SKCanvas canvas, FontPickerPreviewRequest request)
+        {
             PreviewText previewText = PreviewText.ForEncoding(request.EncodingCodePage, request.AsciiOnly);
             Font singleFont = request.EditingDoubleByteFont ? request.SingleByteFont : request.PreviewFont;
             Font doubleFont = request.EditingDoubleByteFont ? request.PreviewFont : request.DoubleByteFont;
 
-            using (StringFormat format = new StringFormat())
-            using (SolidBrush fillBrush = new SolidBrush(request.FontColor))
+            float y = 10f;
+            float lineHeight = previewText.HasDoubleByteText
+                ? Math.Max(GetLineHeight(singleFont), GetLineHeight(doubleFont))
+                : GetLineHeight(singleFont);
+
+            DrawPreviewLine(
+                canvas,
+                request,
+                y,
+                new PreviewRun(previewText.SingleByteText, singleFont),
+                previewText.HasDoubleByteText ? new PreviewRun(previewText.DoubleByteText, doubleFont) : null);
+
+            y += lineHeight;
+
+            if (previewText.HasDoubleByteText)
             {
-                float y = 10f;
-                float lineHeight = previewText.HasDoubleByteText
-                    ? Math.Max(GetLineHeight(singleFont), GetLineHeight(doubleFont))
-                    : GetLineHeight(singleFont);
-                format.FormatFlags = StringFormatFlags.NoClip;
-                format.Trimming = StringTrimming.None;
-
-                DrawPreviewLine(
-                    graphics,
-                    request,
-                    format,
-                    fillBrush,
-                    y,
-                    new PreviewRun(previewText.SingleByteText, singleFont),
-                    previewText.HasDoubleByteText ? new PreviewRun(previewText.DoubleByteText, doubleFont) : null);
-
+                DrawPreviewLine(canvas, request, y, new PreviewRun("SBCS: " + previewText.SingleByteOnlyText, singleFont));
                 y += lineHeight;
-
-                if (previewText.HasDoubleByteText)
-                {
-                    DrawPreviewLine(
-                        graphics,
-                        request,
-                        format,
-                        fillBrush,
-                        y,
-                        new PreviewRun("SBCS: " + previewText.SingleByteOnlyText, singleFont));
-                    y += lineHeight;
-
-                    DrawPreviewLine(
-                        graphics,
-                        request,
-                        format,
-                        fillBrush,
-                        y,
-                        new PreviewRun("DBCS: " + previewText.DoubleByteOnlyText, doubleFont));
-                }
-                else
-                {
-                    DrawPreviewLine(
-                        graphics,
-                        request,
-                        format,
-                        fillBrush,
-                        y,
-                        new PreviewRun(previewText.SingleByteOnlyText, singleFont));
-                }
+                DrawPreviewLine(canvas, request, y, new PreviewRun("DBCS: " + previewText.DoubleByteOnlyText, doubleFont));
+            }
+            else
+            {
+                DrawPreviewLine(canvas, request, y, new PreviewRun(previewText.SingleByteOnlyText, singleFont));
             }
         }
 
         private static void DrawPreviewLine(
-            Graphics graphics,
+            SKCanvas canvas,
             FontPickerPreviewRequest request,
-            StringFormat format,
-            Brush fillBrush,
             float y,
             params PreviewRun[] runs)
         {
             float x = 10f;
-            int effectShift = request.Glow + request.Outline;
             for (int i = 0; i < runs.Length; i++)
             {
                 PreviewRun run = runs[i];
@@ -108,43 +103,75 @@ namespace DC_Font_Generator
                     continue;
                 }
 
-                using (GraphicsPath path = new GraphicsPath())
-                {
-                    PointF point = new PointF(x + effectShift + 0.5f, y + effectShift + 0.5f);
-                    path.AddString(
-                        run.Text,
-                        run.Font.FontFamily,
-                        (int)run.Font.Style,
-                        run.Font.Size,
-                        point,
-                        format);
-
-                    DrawGlow(graphics, request, path);
-                    DrawOutline(graphics, request, path);
-                    graphics.FillPath(fillBrush, path);
-                }
-
-                x += MeasurePathWidth(run.Font, run.Text, format) + 8f;
+                DrawTextRun(canvas, request, run.Font, run.Text, x, y);
+                x += MeasureTextWidth(run.Font, run.Text) + 8f;
             }
         }
 
-        private static float MeasurePathWidth(Font font, string text, StringFormat format)
+        private static void DrawTextRun(SKCanvas canvas, FontPickerPreviewRequest request, Font font, string text, float x, float y)
         {
-            using (GraphicsPath path = new GraphicsPath())
+            int effectShift = request.Glow + request.Outline;
+            float currentX = x + effectShift + 0.5f;
+            float baseline = y + effectShift + GetAscent(font) + 0.5f;
+
+            foreach (char c in text)
             {
-                path.AddString(
-                    text,
-                    font.FontFamily,
-                    (int)font.Style,
-                    font.Size,
-                    new PointF(0.5f, 0.5f),
-                    format);
-                RectangleF bounds = path.GetBounds();
-                return bounds.Width;
+                SKTypeface typeface = ResolveTypefaceForCharacter(font, c, out bool ownsTypeface);
+                try
+                {
+                    using (SKFont skFont = new SKFont(typeface, font.Size))
+                    using (SKPath path = GetTextPath(skFont, c.ToString(), currentX, baseline))
+                    {
+                        if (path != null && path.Bounds.Width > 0 && path.Bounds.Height > 0)
+                        {
+                            DrawGlow(canvas, request, path);
+                            DrawOutline(canvas, request, path);
+                            using (SKPaint fill = CreateFillPaint(request.FontColor))
+                            {
+                                canvas.DrawPath(path, fill);
+                            }
+                        }
+
+                        float advance = skFont.MeasureText(c.ToString());
+                        currentX += advance > 0 ? advance : path?.Bounds.Width ?? 0f;
+                    }
+                }
+                finally
+                {
+                    if (ownsTypeface && typeface != null)
+                    {
+                        typeface.Dispose();
+                    }
+                }
             }
         }
 
-        private static void DrawGlow(Graphics graphics, FontPickerPreviewRequest request, GraphicsPath path)
+        private static float MeasureTextWidth(Font font, string text)
+        {
+            float width = 0f;
+            foreach (char c in text)
+            {
+                SKTypeface typeface = ResolveTypefaceForCharacter(font, c, out bool ownsTypeface);
+                try
+                {
+                    using (SKFont skFont = new SKFont(typeface, font.Size))
+                    {
+                        width += skFont.MeasureText(c.ToString());
+                    }
+                }
+                finally
+                {
+                    if (ownsTypeface && typeface != null)
+                    {
+                        typeface.Dispose();
+                    }
+                }
+            }
+
+            return width;
+        }
+
+        private static void DrawGlow(SKCanvas canvas, FontPickerPreviewRequest request, SKPath path)
         {
             if (request.Glow <= 0)
             {
@@ -156,10 +183,11 @@ namespace DC_Font_Generator
             int alpha = glowStep;
             for (int i = 0; i < request.Glow; i++)
             {
-                using (Pen pen = new Pen(Color.FromArgb(alpha, request.GlowColor.R, request.GlowColor.G, request.GlowColor.B), Math.Max(1, size - i)))
+                using (SKPaint paint = CreateStrokePaint(
+                    Color.FromArgb(alpha, request.GlowColor.R, request.GlowColor.G, request.GlowColor.B),
+                    Math.Max(1, size - i)))
                 {
-                    pen.LineJoin = LineJoin.Round;
-                    graphics.DrawPath(pen, path);
+                    canvas.DrawPath(path, paint);
                 }
 
                 if (i >= request.Outline)
@@ -173,35 +201,108 @@ namespace DC_Font_Generator
             }
         }
 
-        private static void DrawOutline(Graphics graphics, FontPickerPreviewRequest request, GraphicsPath path)
+        private static void DrawOutline(SKCanvas canvas, FontPickerPreviewRequest request, SKPath path)
         {
             if (request.Outline <= 0)
             {
                 return;
             }
 
-            using (Pen pen = new Pen(request.OutlineColor, request.Outline))
+            using (SKPaint paint = CreateStrokePaint(request.OutlineColor, request.Outline))
             {
-                pen.LineJoin = LineJoin.Round;
-                graphics.DrawPath(pen, path);
+                canvas.DrawPath(path, paint);
             }
+        }
+
+        private static SKPaint CreateFillPaint(Color color)
+        {
+            return new SKPaint
+            {
+                IsAntialias = true,
+                Color = SkiaBitmapInterop.ToSKColor(color),
+                Style = SKPaintStyle.Fill
+            };
+        }
+
+        private static SKPaint CreateStrokePaint(Color color, float width)
+        {
+            return new SKPaint
+            {
+                IsAntialias = true,
+                Color = SkiaBitmapInterop.ToSKColor(color),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = width,
+                StrokeJoin = SKStrokeJoin.Round
+            };
+        }
+
+        private static SKPath GetTextPath(SKFont font, string text, float x, float y)
+        {
+            byte[] textBytes = Encoding.Unicode.GetBytes(text);
+            return font.GetTextPath(textBytes, SKTextEncoding.Utf16, new SKPoint(x, y));
+        }
+
+        private static SKTypeface ResolveTypefaceForCharacter(Font font, char c, out bool ownsTypeface)
+        {
+            ownsTypeface = false;
+            SKFontStyleWeight weight = font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            SKFontStyleSlant slant = font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+
+            SKTypeface typeface = SKTypeface.FromFamilyName(font.FontFamily.Name, weight, SKFontStyleWidth.Normal, slant)
+                ?? SKTypeface.FromFamilyName(font.Name, weight, SKFontStyleWidth.Normal, slant);
+            ownsTypeface = typeface != null;
+
+            if (typeface != null && typeface.ContainsGlyph(c))
+            {
+                return typeface;
+            }
+
+            if (typeface != null)
+            {
+                typeface.Dispose();
+                ownsTypeface = false;
+            }
+
+            SKTypeface fallback = SKFontManager.Default.MatchCharacter(
+                font.FontFamily.Name,
+                weight,
+                SKFontStyleWidth.Normal,
+                slant,
+                new[] { "zh-Hans", "zh-CN", "zh", "ja", "ko" },
+                c);
+
+            if (fallback == null)
+            {
+                fallback = SKFontManager.Default.MatchCharacter(c);
+            }
+
+            if (fallback != null)
+            {
+                ownsTypeface = true;
+                return fallback;
+            }
+
+            ownsTypeface = false;
+            return SKTypeface.Default;
         }
 
         private static float GetLineHeight(Font font)
         {
+            if (font == null)
+            {
+                return 0f;
+            }
+
             FontFamily family = font.FontFamily;
             int em = family.GetEmHeight(font.Style);
             return font.Size * family.GetLineSpacing(font.Style) / em;
         }
 
-        private static void ConfigureGraphics(Graphics graphics)
+        private static float GetAscent(Font font)
         {
-            graphics.PageUnit = GraphicsUnit.Pixel;
-            graphics.CompositingQuality = CompositingQuality.HighQuality;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.SmoothingMode = SmoothingMode.HighQuality;
-            graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            FontFamily family = font.FontFamily;
+            int em = family.GetEmHeight(font.Style);
+            return font.Size * family.GetCellAscent(font.Style) / em;
         }
 
         private sealed class PreviewRun

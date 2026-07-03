@@ -461,17 +461,6 @@ namespace DC_Font_Generator
             catch
             {
                 e.Graphics.Clear(previewPanel.BackColor);
-                using (StringFormat format = new StringFormat())
-                {
-                    format.Alignment = StringAlignment.Center;
-                    format.LineAlignment = StringAlignment.Center;
-                    e.Graphics.DrawString(
-                        "Preview unavailable",
-                        Font,
-                        Brushes.Black,
-                        previewPanel.ClientRectangle,
-                        format);
-                }
             }
         }
 
