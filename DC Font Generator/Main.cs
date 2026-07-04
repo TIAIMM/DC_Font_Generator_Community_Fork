@@ -15,8 +15,8 @@ namespace DC_Font_Generator
         public int ID = 0;
         public string name = ""; //fnt名稱
         private FL_FONT iFntFile;
-        private Font ifont1;
-        private Font ifont2;
+        private FontDescriptor _font1Descriptor;
+        private FontDescriptor _font2Descriptor;
         private bool iisTextOverFlow;
 
         public string ImportFont1name = "";
@@ -28,7 +28,7 @@ namespace DC_Font_Generator
         public bool SkipASCII = false; //忽略ASCII的輸出
         public bool fixedFont = false; //等寬字旗標
 
-        private Font _Font;
+        private FontDescriptor _nowFontDescriptor;
 
         private DrawFont SysDraw = new DrawFont();
         public float FontMaxWidth = 17;
@@ -65,9 +65,9 @@ namespace DC_Font_Generator
         private sealed class FontRenderState
         {
             public DrawFont Renderer;
-            public Font Font1;
-            public Font Font2;
-            public Font ActiveFont;
+            public FontDescriptor Font1;
+            public FontDescriptor Font2;
+            public FontDescriptor ActiveFont;
         }
 
 
@@ -77,9 +77,9 @@ namespace DC_Font_Generator
         {
             this.parent = P;
             
-            this.ifont1 = SystemFonts.DefaultFont;
-            this.ifont2 = this.ifont1;
-            this.NowFont = this.ifont1;
+            this._font1Descriptor = new FontDescriptor(SystemFonts.DefaultFont.FontFamily.Name, SystemFonts.DefaultFont.Size);
+            this._font2Descriptor = this._font1Descriptor;
+            this.NowFont = this._font1Descriptor;
             this.iFntFile = new FL_FONT();
             this.iisTextOverFlow = false;
 
@@ -201,7 +201,7 @@ namespace DC_Font_Generator
                     continue;
                 }
 
-                Font itemFont;
+                FontDescriptor itemFont;
                 if (dc)
                 {
                     itemFont = this.font2;
@@ -258,8 +258,8 @@ namespace DC_Font_Generator
             if (fixedFont && ImportFont1name == "" && ImportFont2name == "")
             {
                 FixedFont(fixedFont, this.FontMaxWidth);
-				float lineHeight1 = this.font1.Height;
-				float lineHeight2 = this.font2.Height;
+				float lineHeight1 = this.font1.GetLineSpacing();
+				float lineHeight2 = this.font2.GetLineSpacing();
 				this.iFntFile.Header.fBaseLine = Math.Max(lineHeight1, lineHeight2);
 			}
             else if (ImportFont1name == "" && ImportFont2name == "")
@@ -270,12 +270,13 @@ namespace DC_Font_Generator
 				//this.iFntFile.Header.fBaseLine = (float)FontMaxHeight * 1.3f;
 				//登記行高
 
-				float lineHeight1 = this.font1.Height;
-				float lineHeight2 = this.font2.Height;
+				float lineHeight1 = this.font1.GetLineSpacing();
+				float lineHeight2 = this.font2.GetLineSpacing();
 				this.iFntFile.Header.fBaseLine = Math.Max(lineHeight1, lineHeight2);
 
-			}
+            }
             NormalizeBaselines();
+            EnsureGeneratedBaseLineContainsGlyphs();
             return true;
         }
         /// <summary>
@@ -383,12 +384,9 @@ namespace DC_Font_Generator
                 fnt.fSpacing = 0;
                 if (!this.fixedFont && !IsSpace)
                 {
-                    float layoutAdvance = glyph.OriginSize.Width;
-                    if (glyph.RealSpace > 0)
-                    {
-                        layoutAdvance += glyph.RealSpace * 2f;
-                    }
-
+                    float layoutAdvance = glyph.LayoutAdvance > 0f
+                        ? glyph.LayoutAdvance
+                        : glyph.OriginSize.Width + Math.Max(0f, glyph.RealSpace * 2f);
                     fnt.fSpacing = layoutAdvance - fnt.fWidth;
                 }
                 else if (glyph.RealSpace > 0)
@@ -505,7 +503,7 @@ namespace DC_Font_Generator
                         FontBuildItem item = buildItems[i];
                         if (!item.IsEmpty)
                         {
-                            Font selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
+                        FontDescriptor selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
                             if (renderState.ActiveFont != selectedFont)
                             {
                                 renderState.Renderer.FontData = selectedFont;
@@ -594,7 +592,7 @@ namespace DC_Font_Generator
             {
                 using (DrawFont renderer = CreateDrawFontRenderer(benchmarkSettings))
                 {
-                    Font activeFont = null;
+                    FontDescriptor activeFont = null;
                     for (int i = 0; i < buildItems.Count && sampleCount < 64; i++)
                     {
                         FontBuildItem item = buildItems[i];
@@ -603,7 +601,7 @@ namespace DC_Font_Generator
                             continue;
                         }
 
-                        Font selectedFont = item.UseFont2 ? this.font2 : this.font1;
+                        FontDescriptor selectedFont = item.UseFont2 ? this.font2 : this.font1;
                         if (activeFont != selectedFont)
                         {
                             renderer.FontData = selectedFont;
@@ -633,8 +631,8 @@ namespace DC_Font_Generator
             return new FontRenderState
             {
                 Renderer = CreateDrawFontRenderer(settings),
-                Font1 = (Font)this.font1.Clone(),
-                Font2 = (Font)this.font2.Clone()
+                Font1 = this.font1,
+                Font2 = this.font2
             };
         }
 
@@ -657,14 +655,6 @@ namespace DC_Font_Generator
             if (renderState.Renderer != null)
             {
                 renderState.Renderer.Dispose();
-            }
-            if (renderState.Font1 != null)
-            {
-                renderState.Font1.Dispose();
-            }
-            if (renderState.Font2 != null)
-            {
-                renderState.Font2.Dispose();
             }
         }
 
@@ -715,6 +705,33 @@ namespace DC_Font_Generator
                 }
 
                 fnt.fTopEdge += doubleByteShift;
+            }
+        }
+
+        private void EnsureGeneratedBaseLineContainsGlyphs()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "")
+            {
+                return;
+            }
+
+            float maxTopEdge = 0f;
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!fnt.Enable || fnt.IsSpace)
+                {
+                    continue;
+                }
+
+                if (fnt.fTopEdge > maxTopEdge)
+                {
+                    maxTopEdge = fnt.fTopEdge;
+                }
+            }
+
+            if (maxTopEdge > this.iFntFile.Header.fBaseLine)
+            {
+                this.iFntFile.Header.fBaseLine = (float)Math.Ceiling(maxTopEdge);
             }
         }
 
@@ -821,21 +838,21 @@ namespace DC_Font_Generator
         /// <summary>
         /// 設定字型
         /// </summary>
-        private Font NowFont
+        private FontDescriptor NowFont
         {
             set
             {
-                if (_Font != value)
+                if (_nowFontDescriptor != value)
                 {
-                    _Font = value;
-                    SysDraw.StyleDescriptor = (_Font == font1) ? font1StyleDescriptor :
-                                             (_Font == font2) ? font2StyleDescriptor : null;
-                    SysDraw.FontData = value;
+                    _nowFontDescriptor = value;
+                    SysDraw.StyleDescriptor = (_nowFontDescriptor == font1) ? font1StyleDescriptor :
+                                             (_nowFontDescriptor == font2) ? font2StyleDescriptor : null;
+                    SysDraw.FontData = _nowFontDescriptor;
                 }
             }
             get
             {
-                return _Font;
+                return _nowFontDescriptor;
             }
         }
 
@@ -895,30 +912,30 @@ namespace DC_Font_Generator
             }
         }
 
-        public Font font1
+        public FontDescriptor font1
         {
             get
             {
-                return this.ifont1;
+                return this._font1Descriptor;
             }
             set
             {
-                this.ifont1 = value;
+                this._font1Descriptor = value;
             }
         }
 
         public FontStyleDescriptor font1StyleDescriptor;
         public FontStyleDescriptor font2StyleDescriptor;
 
-        public Font font2
+        public FontDescriptor font2
         {
             get
             {
-                return this.ifont2;
+                return this._font2Descriptor;
             }
             set
             {
-                this.ifont2 = value;
+                this._font2Descriptor = value;
             }
         }
 

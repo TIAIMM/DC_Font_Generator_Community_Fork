@@ -20,8 +20,8 @@ namespace DC_Font_Generator
         public Color GlowColor { get; set; }
         public Color OutlineColor { get; set; }
         public Color FontColor { get; set; }
-        public Font SingleByteFont { get; set; }
-        public Font DoubleByteFont { get; set; }
+        public FontDescriptor SingleByteFont { get; set; }
+        public FontDescriptor DoubleByteFont { get; set; }
         public string SingleByteFontText { get; set; }
         public string DoubleByteFontText { get; set; }
         public string FntName { get; set; }
@@ -45,9 +45,9 @@ namespace DC_Font_Generator
 
     internal sealed class FontSectionPickerState
     {
-        public Font CurrentFont { get; set; }
-        public Font SingleByteFont { get; set; }
-        public Font DoubleByteFont { get; set; }
+        public FontDescriptor CurrentFont { get; set; }
+        public FontDescriptor SingleByteFont { get; set; }
+        public FontDescriptor DoubleByteFont { get; set; }
         public bool EditingDoubleByteFont { get; set; }
         public bool AsciiOnly { get; set; }
         public int EncodingCodePage { get; set; }
@@ -115,17 +115,17 @@ namespace DC_Font_Generator
             };
         }
 
-        public static Font GetCurrentFont(Main section, bool doubleByteFont)
+        public static FontDescriptor GetCurrentFont(Main section, bool doubleByteFont)
         {
             return doubleByteFont ? section.font2 : section.font1;
         }
 
-        public static void ApplySelectedFont(IList<Main> sections, int selectedIndex, bool doubleByteFont, Font font, FontStyleDescriptor descriptor = null)
+        public static void ApplySelectedFont(IList<Main> sections, int selectedIndex, bool doubleByteFont, FontDescriptor font, FontStyleDescriptor descriptor = null)
         {
             ApplySelectedFont(GetSection(sections, selectedIndex), doubleByteFont, font, descriptor);
         }
 
-        public static void ApplySelectedFont(Main section, bool doubleByteFont, Font font)
+        public static void ApplySelectedFont(Main section, bool doubleByteFont, FontDescriptor font)
         {
             if (doubleByteFont)
             {
@@ -142,7 +142,7 @@ namespace DC_Font_Generator
             section.Clear();
         }
 
-        public static void ApplySelectedFont(Main section, bool doubleByteFont, Font font, FontStyleDescriptor descriptor)
+        public static void ApplySelectedFont(Main section, bool doubleByteFont, FontDescriptor font, FontStyleDescriptor descriptor)
         {
             if (doubleByteFont)
             {
@@ -306,14 +306,14 @@ namespace DC_Font_Generator
             return sections[selectedIndex];
         }
 
-        private static string GetFontText(string importName, Font font)
+        private static string GetFontText(string importName, FontDescriptor font)
         {
             if (importName != "")
             {
                 return importName;
             }
 
-            return font.Name + "," + font.Size;
+            return font.FamilyName + "," + font.SizePixels;
         }
 
         private static void ApplyIniState(IList<Main> sections, int selectedIndex, FontSectionViewState state)

@@ -287,7 +287,7 @@ namespace DC_Font_Generator
 
                 string name = section.name != ""
                     ? (i + 1) + ". " + section.name
-                    : (i + 1) + ". Font" + (i + 1) + " (" + section.font2.Name + "," + section.font2.Size + ")";
+                    : (i + 1) + ". Font" + (i + 1) + " (" + section.font2.FamilyName + "," + section.font2.SizePixels + ")";
                 candidates.Add(new FontLinkCandidate { Index = i, DisplayName = name });
             }
 
@@ -392,7 +392,7 @@ namespace DC_Font_Generator
             }
 
             int deletedId = sections[selectedIndex].ID;
-            Font deletedDoubleByteFont = sections[selectedIndex].font2;
+            FontDescriptor deletedDoubleByteFont = sections[selectedIndex].font2;
             sections.RemoveAt(selectedIndex);
 
             foreach (Main section in sections)

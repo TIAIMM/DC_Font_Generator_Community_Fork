@@ -9,9 +9,8 @@ namespace DC_Font_Generator
 {
     class DrawFont : IDisposable
     {
-        public Font _Font; //目前字型
+        public FontDescriptor Font; //目前字型
         public FontStyleDescriptor StyleDescriptor;
-        private FontFamily fontFamily;
         public float ascentPixel = 0; //目前字型上升值
         public float descentPixel = 0; //目前字型下降值
         public float lineSpacingPixel = 0;//目前字型行距
@@ -112,45 +111,31 @@ namespace DC_Font_Generator
         /// <summary>
         /// 設定現在使用的字型
         /// </summary>
-        public Font FontData
+        public FontDescriptor FontData
         {
             set
             {
-                if (_Font != value)
+                if (!ReferenceEquals(Font, value))
                 {
-                    _Font = value;
-                    fontFamily = _Font.FontFamily;
-
-                    int ascent;             // font family ascent in design units
-                    int descent;            // font family descent in design units
-                    int lineSpacing;        // font family line spacing in design units
-
-                    int em = fontFamily.GetEmHeight(_Font.Style);
-
-                    ascent = fontFamily.GetCellAscent(_Font.Style); //上升
-                    // 14.484375 = 16.0 * 1854 / 2048
-                    ascentPixel = _Font.Size * ascent / em; //實際上升值
-
-                    // Display the descent in design units and pixels.
-                    descent = fontFamily.GetCellDescent(_Font.Style);
-                    // 3.390625 = 16.0 * 434 / 2048
-                    descentPixel = _Font.Size * descent / em;
-
-
-                    // Display the line spacing in design units and pixels.
-                    lineSpacing = fontFamily.GetLineSpacing(_Font.Style); //行距
-                    // 18.398438 = 16.0 * 2355 / 2048
-                    lineSpacingPixel = _Font.Size * lineSpacing / em;
-
-                    CreateSkiaTypeface();
-                    CreateDrawingZone();//建立繪字空間
-                    CreateSpaceWidth();//建立Space的寬度
+                    Font = value;
+                    using (SKTypeface typeface = value?.CreateTypeface())
+                    {
+                        if (typeface != null)
+                        {
+                            using (SKFont skFont = new SKFont(typeface, value.SizePixels))
+                            {
+                                skFont.GetFontMetrics(out SKFontMetrics metrics);
+                                ascentPixel = -metrics.Ascent;
+                                descentPixel = metrics.Descent;
+                                lineSpacingPixel = -metrics.Ascent + metrics.Descent + metrics.Leading;
+                            }
+                        }
+                        else { ascentPixel = value.SizePixels; descentPixel = 0; lineSpacingPixel = value.SizePixels * 1.2f; }
+                    }
+                    CreateSkiaTypeface(); CreateDrawingZone(); CreateSpaceWidth();
                 }
             }
-            get
-            {
-                return _Font;
-            }
+            get { return Font; }
         }
         private void CreateDrawingZone()
         {
@@ -176,15 +161,15 @@ namespace DC_Font_Generator
             }
             catch
             {
-                measureWidth = _Font != null ? _Font.Size / 4f : 1f;
+                measureWidth = Font != null ? Font.SizePixels / 4f : 1f;
             }
 
 			SpaceWidth = measureWidth;
 
 			// 确保最小值（通常空格至少为字号的1/4）
-			if (SpaceWidth < _Font.Size / 4)
+			if (Font != null && SpaceWidth < Font.SizePixels / 4)
 			{
-				SpaceWidth = _Font.Size / 4;
+				SpaceWidth = Font.SizePixels / 4;
 			}
 
 			// 添加上限约束（不超过行间距的1/3）
@@ -246,6 +231,7 @@ namespace DC_Font_Generator
                     }
 
                     result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
+                    result.LayoutAdvance = MeasureLayoutAdvance(font, text, originBounds.Width);
                     result.RealSpace = GetSkiaPathRealSpace(font, text, originBounds.Width, originX, baseline);
 
                     SKCanvas canvas = GetGlyphRenderContext().PrepareCanvas(surfaceSize, surfaceSize, BackColor);
@@ -278,8 +264,20 @@ namespace DC_Font_Generator
         {
             result.IsSpace = true;
             result.OriginSize = new Size((int)SpaceWidth, 0);
+            result.LayoutAdvance = SpaceWidth;
             result.RealSpace = SpaceWidth;
             return result;
+        }
+
+        private static float MeasureLayoutAdvance(SKFont font, string text, float fallbackWidth)
+        {
+            float advance = font.MeasureText(text);
+            if (float.IsNaN(advance) || float.IsInfinity(advance) || advance <= 0f)
+            {
+                advance = fallbackWidth;
+            }
+
+            return advance;
         }
 
         private void DrawSkiaEffects(SKCanvas canvas, SKPath glyphPath)
@@ -351,7 +349,7 @@ namespace DC_Font_Generator
 
         private SKFont CreateTextFont(SKTypeface typeface)
         {
-            return new SKFont(typeface ?? SKTypeface.Default, _Font != null ? _Font.Size : 12f);
+            return new SKFont(typeface ?? SKTypeface.Default, Font != null ? Font.SizePixels : 12f);
         }
 
         private static SKPath GetTextPath(SKFont font, string text, float x, float y)
@@ -370,13 +368,13 @@ namespace DC_Font_Generator
             }
 
             SKTypeface fallback = null;
-            if (_Font != null)
+            if (Font != null)
             {
                 int weight, width;
                 SKFontStyleSlant slant;
                 GetStyleValues(out weight, out width, out slant);
                 fallback = SKFontManager.Default.MatchCharacter(
-                    _Font.FontFamily.Name,
+                    Font.FamilyName,
                     weight,
                     width,
                     slant,
@@ -402,16 +400,16 @@ namespace DC_Font_Generator
         {
             SKTypeface next = null;
             bool ownsNext = false;
-            if (_Font != null)
+            if (Font != null)
             {
                 int weight, width;
                 SKFontStyleSlant slant;
                 GetStyleValues(out weight, out width, out slant);
-                next = SKTypeface.FromFamilyName(_Font.FontFamily.Name, weight, width, slant);
+                next = SKTypeface.FromFamilyName(Font.FamilyName, weight, width, slant);
                 ownsNext = next != null;
                 if (next == null)
                 {
-                    next = SKTypeface.FromFamilyName(_Font.Name, weight, width, slant);
+                    next = SKTypeface.FromFamilyName(Font.FamilyName, weight, width, slant);
                     ownsNext = next != null;
                 }
             }
@@ -442,9 +440,9 @@ namespace DC_Font_Generator
             }
             else
             {
-                weight = _Font != null && _Font.Bold ? 700 : 400;
-                width = (int)SKFontStyleWidth.Normal;
-                slant = _Font != null && _Font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+                weight = Font != null ? Font.Weight : 400;
+                width = Font != null ? Font.Width : (int)SKFontStyleWidth.Normal;
+                slant = Font != null ? Font.Slant : SKFontStyleSlant.Upright;
             }
         }
 
@@ -485,6 +483,7 @@ namespace DC_Font_Generator
 		{
 			public Bitmap Image;
 			public Size OriginSize;
+            public float LayoutAdvance;
 			public float RealSpace;
 			public float fTopEdge;
 			public bool IsSpace;

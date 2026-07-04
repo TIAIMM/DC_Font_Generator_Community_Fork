@@ -222,11 +222,11 @@ namespace DC_Font_Generator
 
             if (singleByteFont)
             {
-                main.font1 = font;
+                main.font1 = FontDescriptor.FromGdiFont(font);
             }
             else
             {
-                main.font2 = font;
+                main.font2 = FontDescriptor.FromGdiFont(font);
             }
 
             return true;

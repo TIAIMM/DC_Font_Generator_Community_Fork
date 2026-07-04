@@ -105,6 +105,50 @@ namespace DC_Font_Generator
         }
     }
 
+    public sealed class FontDescriptor
+    {
+        public FontDescriptor(string familyName, float sizePixels,
+            int weight = 400, int width = 5, SKFontStyleSlant slant = SKFontStyleSlant.Upright)
+        {
+            FamilyName = familyName; SizePixels = sizePixels;
+            Weight = weight; Width = width; Slant = slant;
+        }
+        public string FamilyName { get; }
+        public float SizePixels { get; }
+        public int Weight { get; }
+        public int Width { get; }
+        public SKFontStyleSlant Slant { get; }
+        public SKFontStyle ToSKFontStyle() => new SKFontStyle(Weight, Width, Slant);
+        public SKTypeface CreateTypeface()
+        {
+            return SKTypeface.FromFamilyName(FamilyName, Weight, Width, Slant)
+                ?? SKTypeface.FromFamilyName(FamilyName);
+        }
+        public float GetLineSpacing()
+        {
+            using (SKTypeface tf = CreateTypeface())
+            using (SKFont skFont = new SKFont(tf ?? SKTypeface.Default, SizePixels))
+            {
+                skFont.GetFontMetrics(out SKFontMetrics metrics);
+                return -metrics.Ascent + metrics.Descent + metrics.Leading;
+            }
+        }
+        public System.Drawing.Font ToGdiFont()
+        {
+            FontStyle gdiStyle = FontStyle.Regular;
+            if (Weight >= 600) gdiStyle |= FontStyle.Bold;
+            if (Slant != SKFontStyleSlant.Upright) gdiStyle |= FontStyle.Italic;
+            return new System.Drawing.Font(FamilyName, SizePixels, gdiStyle, GraphicsUnit.Pixel);
+        }
+        public static FontDescriptor FromGdiFont(System.Drawing.Font f, FontStyleDescriptor d = null)
+        {
+            if (d != null) return new FontDescriptor(f.FontFamily.Name, f.Size, d.Weight, d.Width, d.Slant);
+            return new FontDescriptor(f.FontFamily.Name, f.Size,
+                f.Bold ? 700 : 400, 5,
+                f.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright);
+        }
+    }
+
     internal sealed class FontPickerFontEntry
     {
         private FontPickerFontEntry(string name, List<FontStyleDescriptor> styles)
@@ -367,34 +411,12 @@ namespace DC_Font_Generator
             return value;
         }
 
-        public static Font CreateSelectedFont(string fontName, FontStyleDescriptor descriptor, float size)
+        public static FontDescriptor CreateSelectedFont(string fontName, FontStyleDescriptor descriptor, float size)
         {
-            try
-            {
-                // Map descriptor to closest GDI+ FontStyle so font.Bold/Italic/Style are meaningful fallbacks.
-                // SkiaSharp weight/width/slant from the descriptor are used for actual rendering.
-                FontStyle gdiStyle = FontStyle.Regular;
-                if (descriptor != null)
-                {
-                    if (descriptor.Weight >= 700 || descriptor.Weight >= 600)
-                        gdiStyle |= FontStyle.Bold;
-                    if (descriptor.Slant != SKFontStyleSlant.Upright)
-                        gdiStyle |= FontStyle.Italic;
-                }
-
-                Font font = new Font(fontName, size, gdiStyle, GraphicsUnit.Pixel);
-                if (!IsUsableFont(font))
-                {
-                    font.Dispose();
-                    return null;
-                }
-
-                return font;
-            }
-            catch
-            {
-                return null;
-            }
+            return new FontDescriptor(fontName, size,
+                descriptor?.Weight ?? 400,
+                descriptor?.Width ?? 5,
+                descriptor?.Slant ?? SKFontStyleSlant.Upright);
         }
 
         internal static SKTypeface CreateTypefaceFromDescriptor(string familyName, FontStyleDescriptor descriptor)
@@ -407,19 +429,25 @@ namespace DC_Font_Generator
                 ?? SKTypeface.FromFamilyName(familyName);
         }
 
-        public static Font CreateDisplayFont(Font selectedFont, float maximumSize)
+        public static System.Drawing.Font CreateDisplayFont(FontDescriptor selectedFont, float maximumSize)
         {
             if (selectedFont == null)
             {
                 return null;
             }
 
-            if (selectedFont.Size <= maximumSize)
+            if (selectedFont.SizePixels <= maximumSize)
             {
-                return selectedFont;
+                return selectedFont.ToGdiFont();
             }
 
-            return new Font(selectedFont.FontFamily, maximumSize, selectedFont.Style, GraphicsUnit.Pixel);
+            FontDescriptor scaled = new FontDescriptor(
+                selectedFont.FamilyName,
+                maximumSize,
+                selectedFont.Weight,
+                selectedFont.Width,
+                selectedFont.Slant);
+            return scaled.ToGdiFont();
         }
 
         private static List<FontPickerFontEntry> LoadInstalledFontEntries()

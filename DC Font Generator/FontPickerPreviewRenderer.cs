@@ -8,10 +8,10 @@ namespace DC_Font_Generator
 {
     internal sealed class FontPickerPreviewRequest
     {
-        public Font PreviewFont { get; set; }
+        public FontDescriptor PreviewFont { get; set; }
         public FontStyleDescriptor PreviewFontStyleDescriptor { get; set; }
-        public Font SingleByteFont { get; set; }
-        public Font DoubleByteFont { get; set; }
+        public FontDescriptor SingleByteFont { get; set; }
+        public FontDescriptor DoubleByteFont { get; set; }
         public bool EditingDoubleByteFont { get; set; }
         public bool AsciiOnly { get; set; }
         public int EncodingCodePage { get; set; }
@@ -60,8 +60,8 @@ namespace DC_Font_Generator
         private static void DrawPreview(SKCanvas canvas, FontPickerPreviewRequest request)
         {
             PreviewText previewText = PreviewText.ForEncoding(request.EncodingCodePage, request.AsciiOnly);
-            Font singleFont = request.EditingDoubleByteFont ? request.SingleByteFont : request.PreviewFont;
-            Font doubleFont = request.EditingDoubleByteFont ? request.PreviewFont : request.DoubleByteFont;
+            FontDescriptor singleFont = request.EditingDoubleByteFont ? request.SingleByteFont : request.PreviewFont;
+            FontDescriptor doubleFont = request.EditingDoubleByteFont ? request.PreviewFont : request.DoubleByteFont;
 
             float y = 10f;
             float lineHeight = previewText.HasDoubleByteText
@@ -109,7 +109,7 @@ namespace DC_Font_Generator
             }
         }
 
-        private static void DrawTextRun(SKCanvas canvas, FontPickerPreviewRequest request, Font font, string text, float x, float y)
+        private static void DrawTextRun(SKCanvas canvas, FontPickerPreviewRequest request, FontDescriptor font, string text, float x, float y)
         {
             int effectShift = request.Glow + request.Outline;
             float currentX = x + effectShift + 0.5f;
@@ -122,7 +122,7 @@ namespace DC_Font_Generator
                 SKTypeface typeface = ResolveTypefaceForCharacter(font, fontDescriptor, c, out bool ownsTypeface);
                 try
                 {
-                    using (SKFont skFont = new SKFont(typeface, font.Size))
+                    using (SKFont skFont = new SKFont(typeface, font.SizePixels))
                     using (SKPath path = GetTextPath(skFont, c.ToString(), currentX, baseline))
                     {
                         if (path != null && path.Bounds.Width > 0 && path.Bounds.Height > 0)
@@ -149,7 +149,7 @@ namespace DC_Font_Generator
             }
         }
 
-        private static float MeasureTextWidth(Font font, FontStyleDescriptor descriptor, string text)
+        private static float MeasureTextWidth(FontDescriptor font, FontStyleDescriptor descriptor, string text)
         {
             float width = 0f;
             foreach (char c in text)
@@ -157,7 +157,7 @@ namespace DC_Font_Generator
                 SKTypeface typeface = ResolveTypefaceForCharacter(font, descriptor, c, out bool ownsTypeface);
                 try
                 {
-                    using (SKFont skFont = new SKFont(typeface, font.Size))
+                    using (SKFont skFont = new SKFont(typeface, font.SizePixels))
                     {
                         width += skFont.MeasureText(c.ToString());
                     }
@@ -245,15 +245,15 @@ namespace DC_Font_Generator
             return font.GetTextPath(textBytes, SKTextEncoding.Utf16, new SKPoint(x, y));
         }
 
-        private static SKTypeface ResolveTypefaceForCharacter(Font font, FontStyleDescriptor descriptor, char c, out bool ownsTypeface)
+        private static SKTypeface ResolveTypefaceForCharacter(FontDescriptor font, FontStyleDescriptor descriptor, char c, out bool ownsTypeface)
         {
             ownsTypeface = false;
             int weight, width;
             SKFontStyleSlant slant;
             GetStyleValues(font, descriptor, out weight, out width, out slant);
 
-            SKTypeface typeface = SKTypeface.FromFamilyName(font.FontFamily.Name, weight, width, slant)
-                ?? SKTypeface.FromFamilyName(font.Name, weight, width, slant);
+            SKTypeface typeface = SKTypeface.FromFamilyName(font.FamilyName, weight, width, slant)
+                ?? SKTypeface.FromFamilyName(font.FamilyName, weight, width, slant);
             ownsTypeface = typeface != null;
 
             if (typeface != null && typeface.ContainsGlyph(c))
@@ -268,7 +268,7 @@ namespace DC_Font_Generator
             }
 
             SKTypeface fallback = SKFontManager.Default.MatchCharacter(
-                font.FontFamily.Name,
+                font.FamilyName,
                 weight,
                 width,
                 slant,
@@ -290,7 +290,7 @@ namespace DC_Font_Generator
             return SKTypeface.Default;
         }
 
-        private static void GetStyleValues(Font font, FontStyleDescriptor descriptor, out int weight, out int width, out SKFontStyleSlant slant)
+        private static void GetStyleValues(FontDescriptor font, FontStyleDescriptor descriptor, out int weight, out int width, out SKFontStyleSlant slant)
         {
             if (descriptor != null)
             {
@@ -300,41 +300,47 @@ namespace DC_Font_Generator
             }
             else
             {
-                weight = font != null && font.Bold ? 700 : 400;
-                width = (int)SKFontStyleWidth.Normal;
-                slant = font != null && font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+                weight = font != null ? font.Weight : 400;
+                width = font != null ? font.Width : (int)SKFontStyleWidth.Normal;
+                slant = font != null ? font.Slant : SKFontStyleSlant.Upright;
             }
         }
 
-        private static float GetLineHeight(Font font)
+        private static float GetLineHeight(FontDescriptor font)
         {
             if (font == null)
             {
                 return 0f;
             }
 
-            FontFamily family = font.FontFamily;
-            int em = family.GetEmHeight(font.Style);
-            return font.Size * family.GetLineSpacing(font.Style) / em;
+            return font.GetLineSpacing();
         }
 
-        private static float GetAscent(Font font)
+        private static float GetAscent(FontDescriptor font)
         {
-            FontFamily family = font.FontFamily;
-            int em = family.GetEmHeight(font.Style);
-            return font.Size * family.GetCellAscent(font.Style) / em;
+            if (font == null)
+            {
+                return 0f;
+            }
+
+            using (SKTypeface tf = font.CreateTypeface())
+            using (SKFont skFont = new SKFont(tf ?? SKTypeface.Default, font.SizePixels))
+            {
+                skFont.GetFontMetrics(out SKFontMetrics metrics);
+                return -metrics.Ascent;
+            }
         }
 
         private sealed class PreviewRun
         {
-            public PreviewRun(string text, Font font)
+            public PreviewRun(string text, FontDescriptor font)
             {
                 Text = text;
                 Font = font;
             }
 
             public string Text { get; }
-            public Font Font { get; }
+            public FontDescriptor Font { get; }
         }
 
         private sealed class PreviewText

@@ -305,10 +305,10 @@ namespace DC_Font_Generator
             button_Outline.BackColor = state.OutlineColor;
             buttonFontColor.BackColor = state.FontColor;
 
-            label2.Font = state.SingleByteFont;
+            label2.Font = state.SingleByteFont.ToGdiFont();
             label2.Text = state.SingleByteFontText;
             label4.Text = state.DoubleByteFontText;
-            label4.Font = state.DoubleByteFont;
+            label4.Font = state.DoubleByteFont.ToGdiFont();
 
             this.textBoxFntName.Text = state.FntName;
             this.labelFnt.Text = state.FontLabel;
@@ -525,14 +525,14 @@ namespace DC_Font_Generator
                 {
                     if (picker.ShowDialog(this) == DialogResult.OK)
                     {
-                        Font font = (Font)picker.SelectedFont.Clone();
+                        FontDescriptor font = picker.SelectedFont;
                         string styleLabel = picker.SelectedFontStyleDescriptor != null
-                            ? picker.SelectedFontStyleDescriptor.Name : font.Style.ToString();
-                        ((Label)sender).Text = font.Name + "," + font.Size + "," + styleLabel;
+                            ? picker.SelectedFontStyleDescriptor.Name : FontStyleDescriptor.StyleNameFromValues(font.Weight, font.Slant);
+                        ((Label)sender).Text = font.FamilyName + "," + font.SizePixels + "," + styleLabel;
                         FontSectionStateService.ApplySelectedFont(this.MainList, MainSelect, editingDoubleByteFont, font, picker.SelectedFontStyleDescriptor);
                         this.button1.Enabled = false;
 
-                        ((Label)sender).Font = FontPickerCatalogService.CreateDisplayFont(font, 28f);
+                        ((Label)sender).Font = font.ToGdiFont();
                     }
                 }
             }

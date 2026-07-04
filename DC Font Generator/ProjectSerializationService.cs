@@ -189,9 +189,9 @@ namespace DC_Font_Generator
             writer.WriteStartElement("font", index.ToString());
             if (main.ImportFont1name == "")
             {
-                writer.WriteElementString("SCFontName", main.font1.FontFamily.Name);
-                writer.WriteElementString("SCFontSize", main.font1.Size.ToString());
-                writer.WriteElementString("SCFontStyle", main.font1.Style.ToString());
+                writer.WriteElementString("SCFontName", main.font1.FamilyName);
+                writer.WriteElementString("SCFontSize", main.font1.SizePixels.ToString());
+                writer.WriteElementString("SCFontStyle", main.font1.ToGdiFont().Style.ToString());
             }
             else
             {
@@ -206,9 +206,9 @@ namespace DC_Font_Generator
                 }
                 else if (encodingIndex != 0)
                 {
-                    writer.WriteElementString("DCFontName", main.font2.FontFamily.Name);
-                    writer.WriteElementString("DCFontSize", main.font2.Size.ToString());
-                    writer.WriteElementString("DCFontStyle", main.font2.Style.ToString());
+                    writer.WriteElementString("DCFontName", main.font2.FamilyName);
+                    writer.WriteElementString("DCFontSize", main.font2.SizePixels.ToString());
+                    writer.WriteElementString("DCFontStyle", main.font2.ToGdiFont().Style.ToString());
                 }
             }
 

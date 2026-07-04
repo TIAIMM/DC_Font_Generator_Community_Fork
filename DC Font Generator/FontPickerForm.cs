@@ -22,26 +22,26 @@ namespace DC_Font_Generator
         private readonly int outline;
         private readonly Color outlineColor;
         private readonly Color fontColor;
-        private readonly Font singleByteFont;
-        private readonly Font doubleByteFont;
+        private readonly FontDescriptor singleByteFont;
+        private readonly FontDescriptor doubleByteFont;
         private List<FontPickerFontEntry> allFontEntries = new List<FontPickerFontEntry>();
-        private Font previewFont;
+        private FontDescriptor previewFont;
         private Button okButton;
 
-        public FontPickerForm(Font currentFont)
+        public FontPickerForm(FontDescriptor currentFont)
             : this(currentFont, 0, Color.FromArgb(0x80, 0x80, 0x80, 0x80), 0, Color.FromArgb(0xFF, 80, 80, 80), Color.Black)
         {
         }
 
-        public FontPickerForm(Font currentFont, int glow, Color glowColor, int outline, Color outlineColor, Color fontColor)
+        public FontPickerForm(FontDescriptor currentFont, int glow, Color glowColor, int outline, Color outlineColor, Color fontColor)
             : this(currentFont, currentFont, currentFont, false, true, 0, glow, glowColor, outline, outlineColor, fontColor)
         {
         }
 
         public FontPickerForm(
-            Font currentFont,
-            Font singleByteFont,
-            Font doubleByteFont,
+            FontDescriptor currentFont,
+            FontDescriptor singleByteFont,
+            FontDescriptor doubleByteFont,
             bool editingDoubleByteFont,
             bool asciiOnly,
             int encodingCodePage,
@@ -55,17 +55,9 @@ namespace DC_Font_Generator
             {
                 throw new ArgumentNullException(nameof(currentFont));
             }
-            if (singleByteFont == null)
-            {
-                throw new ArgumentNullException(nameof(singleByteFont));
-            }
-            if (doubleByteFont == null)
-            {
-                throw new ArgumentNullException(nameof(doubleByteFont));
-            }
 
-            this.singleByteFont = (Font)singleByteFont.Clone();
-            this.doubleByteFont = (Font)doubleByteFont.Clone();
+            this.singleByteFont = singleByteFont;
+            this.doubleByteFont = doubleByteFont;
             this.editingDoubleByteFont = editingDoubleByteFont;
             this.asciiOnly = asciiOnly;
             this.encodingCodePage = encodingCodePage;
@@ -74,15 +66,15 @@ namespace DC_Font_Generator
             this.outline = Math.Max(0, outline);
             this.outlineColor = outlineColor;
             this.fontColor = fontColor;
-            SelectedFont = (Font)currentFont.Clone();
+            SelectedFont = currentFont;
             InitializeComponent();
             LoadFonts(currentFont);
             SelectCurrentFont(currentFont);
-            UpdateStyleList(FontStyleDescriptor.FromLegacyFontStyle(currentFont.Style));
+            UpdateStyleList(MakeStyleDescriptorFromFont(currentFont));
             UpdatePreview();
         }
 
-        public Font SelectedFont { get; private set; }
+        public FontDescriptor SelectedFont { get; private set; }
         public FontStyleDescriptor SelectedFontStyleDescriptor { get; private set; }
 
         public static void BeginWarmup()
@@ -94,10 +86,8 @@ namespace DC_Font_Generator
         {
             if (disposing)
             {
-                SelectedFont?.Dispose();
-                previewFont?.Dispose();
-                singleByteFont?.Dispose();
-                doubleByteFont?.Dispose();
+                SelectedFont = null;
+                previewFont = null;
             }
 
             base.Dispose(disposing);
@@ -286,16 +276,16 @@ namespace DC_Font_Generator
             };
         }
 
-        private void LoadFonts(Font currentFont)
+        private void LoadFonts(FontDescriptor currentFont)
         {
             Task<List<FontPickerFontEntry>> task = FontPickerCatalogService.EnsureFontLoadTask();
             if (task.IsCompletedSuccessfully)
             {
-                PopulateFontList(task.Result, currentFont.FontFamily.Name);
+                PopulateFontList(task.Result, currentFont.FamilyName);
                 return;
             }
 
-            PopulateFontList(new List<FontPickerFontEntry> { FontPickerFontEntry.FromFontFamily(currentFont.FontFamily.Name) }, currentFont.FontFamily.Name);
+            PopulateFontList(new List<FontPickerFontEntry> { FontPickerFontEntry.FromFontFamily(currentFont.FamilyName) }, currentFont.FamilyName);
             task.ContinueWith(delegate(Task<List<FontPickerFontEntry>> completedTask)
             {
                 if (completedTask.Status != TaskStatus.RanToCompletion || IsDisposed)
@@ -348,7 +338,6 @@ namespace DC_Font_Generator
             {
                 fontList.EndUpdate();
                 styleList.Items.Clear();
-                previewFont?.Dispose();
                 previewFont = null;
                 previewPanel.Invalidate();
                 SetOkEnabled(false);
@@ -368,20 +357,21 @@ namespace DC_Font_Generator
             }
         }
 
-        private void SelectCurrentFont(Font currentFont)
+        private void SelectCurrentFont(FontDescriptor currentFont)
         {
-            int index = fontList.FindStringExact(currentFont.FontFamily.Name);
+            int index = fontList.FindStringExact(currentFont.FamilyName);
             if (index < 0)
             {
-                fontList.Items.Insert(0, currentFont.FontFamily.Name);
+                fontList.Items.Insert(0, currentFont.FamilyName);
                 index = 0;
             }
 
             fontList.SelectedIndex = index;
             sizeInput.Value = FontPickerCatalogService.ClampFontSize(
-                currentFont.Size,
+                currentFont.SizePixels,
                 sizeInput.Minimum,
                 sizeInput.Maximum);
+            UpdateStyleList(MakeStyleDescriptorFromFont(currentFont));
         }
 
         private void UpdateStyleList(FontStyleDescriptor preferredDescriptor)
@@ -408,36 +398,32 @@ namespace DC_Font_Generator
                 return;
             }
 
-            Font font = CreateSelectedFont();
+            FontDescriptor font = CreateSelectedFont();
             if (font == null)
             {
-                previewFont?.Dispose();
                 previewFont = null;
                 previewPanel.Invalidate();
                 return;
             }
 
-            Font oldFont = previewFont;
             previewFont = font;
-            oldFont?.Dispose();
             previewPanel.Invalidate();
         }
 
         private void ApplySelectedFont()
         {
-            Font font = CreateSelectedFont();
+            FontDescriptor font = CreateSelectedFont();
             if (font == null)
             {
                 DialogResult = DialogResult.None;
                 return;
             }
 
-            SelectedFont.Dispose();
             SelectedFont = font;
             SelectedFontStyleDescriptor = GetSelectedStyleDescriptor();
         }
 
-        private Font CreateSelectedFont()
+        private FontDescriptor CreateSelectedFont()
         {
             string fontName = GetSelectedFontName();
             FontStyleDescriptor descriptor = GetSelectedStyleDescriptor();
@@ -477,10 +463,19 @@ namespace DC_Font_Generator
         {
             if (fontList.SelectedItem == null)
             {
-                return Font.FontFamily.Name;
+                return SelectedFont?.FamilyName ?? "Arial";
             }
 
             return fontList.SelectedItem.ToString();
+        }
+
+        private static FontStyleDescriptor MakeStyleDescriptorFromFont(FontDescriptor font)
+        {
+            return new FontStyleDescriptor(
+                FontStyleDescriptor.StyleNameFromValues(font.Weight, font.Slant),
+                font.Weight,
+                font.Width,
+                font.Slant);
         }
 
         private FontStyleDescriptor GetSelectedStyleDescriptor()
