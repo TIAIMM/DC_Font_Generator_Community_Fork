@@ -78,11 +78,12 @@ namespace DC_Font_Generator
             InitializeComponent();
             LoadFonts(currentFont);
             SelectCurrentFont(currentFont);
-            UpdateStyleList(currentFont.Style);
+            UpdateStyleList(FontStyleDescriptor.FromLegacyFontStyle(currentFont.Style));
             UpdatePreview();
         }
 
         public Font SelectedFont { get; private set; }
+        public FontStyleDescriptor SelectedFontStyleDescriptor { get; private set; }
 
         public static void BeginWarmup()
         {
@@ -169,7 +170,7 @@ namespace DC_Font_Generator
             fontList.IntegralHeight = false;
             fontList.SelectedIndexChanged += delegate
             {
-                UpdateStyleList(GetSelectedStyle());
+                UpdateStyleList(GetSelectedStyleDescriptor());
                 UpdatePreview();
             };
             panel.Controls.Add(fontList, 0, 2);
@@ -205,6 +206,12 @@ namespace DC_Font_Generator
             sizeInput.Increment = 1;
             sizeInput.Dock = DockStyle.Top;
             sizeInput.ValueChanged += delegate { UpdatePreview(); };
+            sizeInput.PreviewKeyDown += delegate { BeginInvoke((Action)UpdatePreview); };
+            // Subscribe to the inner TextBox for real-time preview on manual typing
+            if (sizeInput.Controls.Count > 1 && sizeInput.Controls[1] is TextBox innerBox)
+            {
+                innerBox.TextChanged += delegate { UpdatePreview(); };
+            }
             panel.Controls.Add(sizeInput, 0, 1);
 
             return panel;
@@ -303,7 +310,7 @@ namespace DC_Font_Generator
                         if (!IsDisposed)
                         {
                             PopulateFontList(completedTask.Result, GetSelectedFontName());
-                            UpdateStyleList(GetSelectedStyle());
+                            UpdateStyleList(GetSelectedStyleDescriptor());
                             UpdatePreview();
                         }
                     });
@@ -377,14 +384,14 @@ namespace DC_Font_Generator
                 sizeInput.Maximum);
         }
 
-        private void UpdateStyleList(FontStyle preferredStyle)
+        private void UpdateStyleList(FontStyleDescriptor preferredDescriptor)
         {
             string selectedFontName = GetSelectedFontName();
             styleList.BeginUpdate();
             styleList.Items.Clear();
 
             FontPickerFontEntry entry = FontPickerCatalogService.GetEntryOrFallback(fontEntries, selectedFontName);
-            FontPickerStyleResult result = FontPickerCatalogService.GetStyles(entry, preferredStyle);
+            FontPickerStyleResult result = FontPickerCatalogService.GetStyles(entry, preferredDescriptor);
             foreach (FontPickerStyleItem item in result.Styles)
             {
                 styleList.Items.Add(item);
@@ -427,15 +434,16 @@ namespace DC_Font_Generator
 
             SelectedFont.Dispose();
             SelectedFont = font;
+            SelectedFontStyleDescriptor = GetSelectedStyleDescriptor();
         }
 
         private Font CreateSelectedFont()
         {
             string fontName = GetSelectedFontName();
-            FontStyle style = GetSelectedStyle();
+            FontStyleDescriptor descriptor = GetSelectedStyleDescriptor();
             float size = (float)sizeInput.Value;
 
-            return FontPickerCatalogService.CreateSelectedFont(fontName, style, size);
+            return FontPickerCatalogService.CreateSelectedFont(fontName, descriptor, size);
         }
 
         private void PreviewPanelPaint(object sender, PaintEventArgs e)
@@ -445,6 +453,7 @@ namespace DC_Font_Generator
                 FontPickerPreviewRenderer.Draw(e.Graphics, new FontPickerPreviewRequest
                 {
                     PreviewFont = previewFont,
+                    PreviewFontStyleDescriptor = GetSelectedStyleDescriptor(),
                     SingleByteFont = singleByteFont,
                     DoubleByteFont = doubleByteFont,
                     EditingDoubleByteFont = editingDoubleByteFont,
@@ -474,14 +483,14 @@ namespace DC_Font_Generator
             return fontList.SelectedItem.ToString();
         }
 
-        private FontStyle GetSelectedStyle()
+        private FontStyleDescriptor GetSelectedStyleDescriptor()
         {
             if (styleList.SelectedItem is FontPickerStyleItem item)
             {
-                return item.Style;
+                return item.Descriptor;
             }
 
-            return FontStyle.Regular;
+            return FontStyleDescriptor.FromLegacyFontStyle(FontStyle.Regular);
         }
 
         private sealed class BufferedPreviewPanel : Panel

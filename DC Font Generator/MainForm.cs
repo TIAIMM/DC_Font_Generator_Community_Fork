@@ -526,8 +526,10 @@ namespace DC_Font_Generator
                     if (picker.ShowDialog(this) == DialogResult.OK)
                     {
                         Font font = (Font)picker.SelectedFont.Clone();
-                        ((Label)sender).Text = font.Name + "," + font.Size + "," + font.Height;
-                        FontSectionStateService.ApplySelectedFont(this.MainList, MainSelect, editingDoubleByteFont, font);
+                        string styleLabel = picker.SelectedFontStyleDescriptor != null
+                            ? picker.SelectedFontStyleDescriptor.Name : font.Style.ToString();
+                        ((Label)sender).Text = font.Name + "," + font.Size + "," + styleLabel;
+                        FontSectionStateService.ApplySelectedFont(this.MainList, MainSelect, editingDoubleByteFont, font, picker.SelectedFontStyleDescriptor);
                         this.button1.Enabled = false;
 
                         ((Label)sender).Font = FontPickerCatalogService.CreateDisplayFont(font, 28f);

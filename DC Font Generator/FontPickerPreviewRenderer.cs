@@ -9,6 +9,7 @@ namespace DC_Font_Generator
     internal sealed class FontPickerPreviewRequest
     {
         public Font PreviewFont { get; set; }
+        public FontStyleDescriptor PreviewFontStyleDescriptor { get; set; }
         public Font SingleByteFont { get; set; }
         public Font DoubleByteFont { get; set; }
         public bool EditingDoubleByteFont { get; set; }
@@ -104,7 +105,7 @@ namespace DC_Font_Generator
                 }
 
                 DrawTextRun(canvas, request, run.Font, run.Text, x, y);
-                x += MeasureTextWidth(run.Font, run.Text) + 8f;
+                x += MeasureTextWidth(run.Font, null, run.Text) + 8f;
             }
         }
 
@@ -116,7 +117,9 @@ namespace DC_Font_Generator
 
             foreach (char c in text)
             {
-                SKTypeface typeface = ResolveTypefaceForCharacter(font, c, out bool ownsTypeface);
+                FontStyleDescriptor fontDescriptor = ReferenceEquals(font, request.PreviewFont)
+                    ? request.PreviewFontStyleDescriptor : null;
+                SKTypeface typeface = ResolveTypefaceForCharacter(font, fontDescriptor, c, out bool ownsTypeface);
                 try
                 {
                     using (SKFont skFont = new SKFont(typeface, font.Size))
@@ -146,12 +149,12 @@ namespace DC_Font_Generator
             }
         }
 
-        private static float MeasureTextWidth(Font font, string text)
+        private static float MeasureTextWidth(Font font, FontStyleDescriptor descriptor, string text)
         {
             float width = 0f;
             foreach (char c in text)
             {
-                SKTypeface typeface = ResolveTypefaceForCharacter(font, c, out bool ownsTypeface);
+                SKTypeface typeface = ResolveTypefaceForCharacter(font, descriptor, c, out bool ownsTypeface);
                 try
                 {
                     using (SKFont skFont = new SKFont(typeface, font.Size))
@@ -242,14 +245,15 @@ namespace DC_Font_Generator
             return font.GetTextPath(textBytes, SKTextEncoding.Utf16, new SKPoint(x, y));
         }
 
-        private static SKTypeface ResolveTypefaceForCharacter(Font font, char c, out bool ownsTypeface)
+        private static SKTypeface ResolveTypefaceForCharacter(Font font, FontStyleDescriptor descriptor, char c, out bool ownsTypeface)
         {
             ownsTypeface = false;
-            SKFontStyleWeight weight = font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
-            SKFontStyleSlant slant = font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+            int weight, width;
+            SKFontStyleSlant slant;
+            GetStyleValues(font, descriptor, out weight, out width, out slant);
 
-            SKTypeface typeface = SKTypeface.FromFamilyName(font.FontFamily.Name, weight, SKFontStyleWidth.Normal, slant)
-                ?? SKTypeface.FromFamilyName(font.Name, weight, SKFontStyleWidth.Normal, slant);
+            SKTypeface typeface = SKTypeface.FromFamilyName(font.FontFamily.Name, weight, width, slant)
+                ?? SKTypeface.FromFamilyName(font.Name, weight, width, slant);
             ownsTypeface = typeface != null;
 
             if (typeface != null && typeface.ContainsGlyph(c))
@@ -266,7 +270,7 @@ namespace DC_Font_Generator
             SKTypeface fallback = SKFontManager.Default.MatchCharacter(
                 font.FontFamily.Name,
                 weight,
-                SKFontStyleWidth.Normal,
+                width,
                 slant,
                 new[] { "zh-Hans", "zh-CN", "zh", "ja", "ko" },
                 c);
@@ -284,6 +288,22 @@ namespace DC_Font_Generator
 
             ownsTypeface = false;
             return SKTypeface.Default;
+        }
+
+        private static void GetStyleValues(Font font, FontStyleDescriptor descriptor, out int weight, out int width, out SKFontStyleSlant slant)
+        {
+            if (descriptor != null)
+            {
+                weight = descriptor.Weight;
+                width = descriptor.Width;
+                slant = descriptor.Slant;
+            }
+            else
+            {
+                weight = font != null && font.Bold ? 700 : 400;
+                width = (int)SKFontStyleWidth.Normal;
+                slant = font != null && font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+            }
         }
 
         private static float GetLineHeight(Font font)

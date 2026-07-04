@@ -120,9 +120,9 @@ namespace DC_Font_Generator
             return doubleByteFont ? section.font2 : section.font1;
         }
 
-        public static void ApplySelectedFont(IList<Main> sections, int selectedIndex, bool doubleByteFont, Font font)
+        public static void ApplySelectedFont(IList<Main> sections, int selectedIndex, bool doubleByteFont, Font font, FontStyleDescriptor descriptor = null)
         {
-            ApplySelectedFont(GetSection(sections, selectedIndex), doubleByteFont, font);
+            ApplySelectedFont(GetSection(sections, selectedIndex), doubleByteFont, font, descriptor);
         }
 
         public static void ApplySelectedFont(Main section, bool doubleByteFont, Font font)
@@ -140,6 +140,20 @@ namespace DC_Font_Generator
             }
 
             section.Clear();
+        }
+
+        public static void ApplySelectedFont(Main section, bool doubleByteFont, Font font, FontStyleDescriptor descriptor)
+        {
+            if (doubleByteFont)
+            {
+                section.font2StyleDescriptor = descriptor;
+            }
+            else
+            {
+                section.font1StyleDescriptor = descriptor;
+            }
+
+            ApplySelectedFont(section, doubleByteFont, font);
         }
 
         public static void ApplyNumericChange(IList<Main> sections, int selectedIndex, string tag, float value, bool clear)

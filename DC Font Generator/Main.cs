@@ -828,6 +828,8 @@ namespace DC_Font_Generator
                 if (_Font != value)
                 {
                     _Font = value;
+                    SysDraw.StyleDescriptor = (_Font == font1) ? font1StyleDescriptor :
+                                             (_Font == font2) ? font2StyleDescriptor : null;
                     SysDraw.FontData = value;
                 }
             }
@@ -904,6 +906,9 @@ namespace DC_Font_Generator
                 this.ifont1 = value;
             }
         }
+
+        public FontStyleDescriptor font1StyleDescriptor;
+        public FontStyleDescriptor font2StyleDescriptor;
 
         public Font font2
         {

@@ -10,6 +10,7 @@ namespace DC_Font_Generator
     class DrawFont : IDisposable
     {
         public Font _Font; //目前字型
+        public FontStyleDescriptor StyleDescriptor;
         private FontFamily fontFamily;
         public float ascentPixel = 0; //目前字型上升值
         public float descentPixel = 0; //目前字型下降值
@@ -371,12 +372,13 @@ namespace DC_Font_Generator
             SKTypeface fallback = null;
             if (_Font != null)
             {
-                SKFontStyleWeight weight = _Font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
-                SKFontStyleSlant slant = _Font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+                int weight, width;
+                SKFontStyleSlant slant;
+                GetStyleValues(out weight, out width, out slant);
                 fallback = SKFontManager.Default.MatchCharacter(
                     _Font.FontFamily.Name,
                     weight,
-                    SKFontStyleWidth.Normal,
+                    width,
                     slant,
                     new[] { "zh-Hans", "zh-CN", "zh" },
                     codepoint);
@@ -402,13 +404,14 @@ namespace DC_Font_Generator
             bool ownsNext = false;
             if (_Font != null)
             {
-                SKFontStyleWeight weight = _Font.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
-                SKFontStyleSlant slant = _Font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
-                next = SKTypeface.FromFamilyName(_Font.FontFamily.Name, weight, SKFontStyleWidth.Normal, slant);
+                int weight, width;
+                SKFontStyleSlant slant;
+                GetStyleValues(out weight, out width, out slant);
+                next = SKTypeface.FromFamilyName(_Font.FontFamily.Name, weight, width, slant);
                 ownsNext = next != null;
                 if (next == null)
                 {
-                    next = SKTypeface.FromFamilyName(_Font.Name, weight, SKFontStyleWidth.Normal, slant);
+                    next = SKTypeface.FromFamilyName(_Font.Name, weight, width, slant);
                     ownsNext = next != null;
                 }
             }
@@ -427,6 +430,22 @@ namespace DC_Font_Generator
             skTypeface = next;
             ownsSkTypeface = ownsNext;
             ResetGlyphRenderContext();
+        }
+
+        private void GetStyleValues(out int weight, out int width, out SKFontStyleSlant slant)
+        {
+            if (StyleDescriptor != null)
+            {
+                weight = StyleDescriptor.Weight;
+                width = StyleDescriptor.Width;
+                slant = StyleDescriptor.Slant;
+            }
+            else
+            {
+                weight = _Font != null && _Font.Bold ? 700 : 400;
+                width = (int)SKFontStyleWidth.Normal;
+                slant = _Font != null && _Font.Italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright;
+            }
         }
 
         private GlyphRenderContext GetGlyphRenderContext()
