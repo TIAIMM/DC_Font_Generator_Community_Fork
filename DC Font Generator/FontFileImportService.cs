@@ -40,7 +40,13 @@ namespace DC_Font_Generator
             fontFile.load(path, fontEncoding.enc, fontEncoding.Temp, id);
             loadFntWatch.Stop();
             result.PerformanceStats.Add("LoadFnt", loadFntWatch.Elapsed);
-            if (!loadTex || fontFile.Header.TexFileName == null)
+            if (!loadTex)
+            {
+                result.Success = true;
+                return result;
+            }
+
+            if (string.IsNullOrEmpty(fontFile.Header.TexFileName))
             {
                 return result;
             }

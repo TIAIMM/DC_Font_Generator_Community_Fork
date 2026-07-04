@@ -555,20 +555,20 @@ namespace DC_Font_Generator
                 float lineHeight = main.FntFile.Header.fBaseLine;
                 PointF point = new PointF(0, 0);
                 char[] chars = text.ToCharArray();
-                Fnt_char lastFnt = main.FntFile.GetFntFromChar(' ');
                 int linePoint = (int)lineHeight;
 
                 for (int i = 0; i < chars.Length; i++)
                 {
-                    point.X += lastFnt.fWidth + lastFnt.fSpacing;
                     Fnt_char fnt = main.FntFile.GetFntFromChar(chars[i]);
-                    point.X += fnt.fLeadingEdge;
-                    if (point.X > target.Width)
+                    float drawX = point.X + fnt.fLeadingEdge;
+                    if (drawX + fnt.fWidth > target.Width && point.X > 0)
                     {
                         point.X = 0;
                         linePoint += (int)lineHeight;
+                        drawX = fnt.fLeadingEdge;
                     }
 
+                    point.X = drawX;
                     point.Y = linePoint - fnt.fTopEdge;
                     if (point.Y > target.Height) break;
 
@@ -596,7 +596,7 @@ namespace DC_Font_Generator
                             point.Y + fnt.fHeight);
                         canvas.DrawBitmap(glyphBitmap, destination);
                     }
-                    lastFnt = fnt;
+                    point.X += fnt.fWidth + fnt.fSpacing;
                 }
 
                 canvas.Flush();
