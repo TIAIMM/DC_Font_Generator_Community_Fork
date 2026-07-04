@@ -32,10 +32,16 @@ namespace DC_Font_Generator
         public bool LeftSpacing { get; set; }
         public bool RightSpacing { get; set; }
         public bool LineSpacing { get; set; }
-        public bool BottomAlign { get; set; }
+        public bool TopEdge { get; set; }
         public bool Scale { get; set; }
         public string Command { get; set; }
         public float Increment { get; set; }
+
+        public bool BottomAlign
+        {
+            get { return TopEdge; }
+            set { TopEdge = value; }
+        }
     }
 
     internal sealed class GlyphAdjustmentWorkflowResult
@@ -136,7 +142,7 @@ namespace DC_Font_Generator
             if (request.LeftSpacing && !request.FixedFont) return GlyphAdjustmentTarget.LeftSpacing;
             if (request.RightSpacing && !request.FixedFont) return GlyphAdjustmentTarget.RightSpacing;
             if (request.LineSpacing) return GlyphAdjustmentTarget.LineSpacing;
-            if (request.BottomAlign) return GlyphAdjustmentTarget.BottomAlign;
+            if (request.TopEdge) return GlyphAdjustmentTarget.TopEdge;
             if (request.Scale) return GlyphAdjustmentTarget.Scale;
             return GlyphAdjustmentTarget.None;
         }

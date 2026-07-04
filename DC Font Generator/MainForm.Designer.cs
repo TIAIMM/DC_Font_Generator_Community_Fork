@@ -1018,7 +1018,7 @@
 			radioButton_LeftSpacing.TabIndex = 0;
 			radioButton_LeftSpacing.TabStop = true;
 			radioButton_LeftSpacing.Tag = "LS";
-			radioButton_LeftSpacing.Text = "Left Spacing";
+			radioButton_LeftSpacing.Text = "Leading Edge";
 			radioButton_LeftSpacing.UseVisualStyleBackColor = true;
 			radioButton_LeftSpacing.CheckedChanged += FunctionChange_CheckedChanged;
 			radioButton_LeftSpacing.TextChanged += FunctionChange_CheckedChanged;
@@ -1034,7 +1034,7 @@
 			radioButton_BottomAlign.TabIndex = 2;
 			radioButton_BottomAlign.TabStop = true;
 			radioButton_BottomAlign.Tag = "BA";
-			radioButton_BottomAlign.Text = "Bottom Align";
+			radioButton_BottomAlign.Text = "Top Edge";
 			radioButton_BottomAlign.UseVisualStyleBackColor = true;
 			radioButton_BottomAlign.CheckedChanged += FunctionChange_CheckedChanged;
 			radioButton_BottomAlign.TextChanged += FunctionChange_CheckedChanged;
@@ -1050,7 +1050,7 @@
 			radioButtonLineSpacing.TabIndex = 1;
 			radioButtonLineSpacing.TabStop = true;
 			radioButtonLineSpacing.Tag = "LineS";
-			radioButtonLineSpacing.Text = "Line Spacing";
+			radioButtonLineSpacing.Text = "Base Line";
 			radioButtonLineSpacing.UseVisualStyleBackColor = true;
 			radioButtonLineSpacing.CheckedChanged += FunctionChange_CheckedChanged;
 			radioButtonLineSpacing.TextChanged += FunctionChange_CheckedChanged;
@@ -1066,7 +1066,7 @@
 			radioButton_RightSpacing.TabIndex = 4;
 			radioButton_RightSpacing.TabStop = true;
 			radioButton_RightSpacing.Tag = "RS";
-			radioButton_RightSpacing.Text = "Right Spacing";
+			radioButton_RightSpacing.Text = "Spacing";
 			radioButton_RightSpacing.UseVisualStyleBackColor = true;
 			radioButton_RightSpacing.CheckedChanged += FunctionChange_CheckedChanged;
 			radioButton_RightSpacing.TextChanged += FunctionChange_CheckedChanged;

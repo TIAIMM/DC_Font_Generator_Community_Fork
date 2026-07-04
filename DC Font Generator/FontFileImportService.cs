@@ -108,10 +108,10 @@ namespace DC_Font_Generator
                         ReportProgress(progress, index, fontFile.CharList.Count);
                     }
 
-                    int px = (int)(fnt.x1 * texture.Width);
-                    int py = (int)(fnt.y1 * texture.Height);
-                    int rx = (int)(fnt.x4 * texture.Width);
-                    int ry = (int)(fnt.y4 * texture.Height);
+                    int px = (int)(fnt.pMapping[0].fU * texture.Width);
+                    int py = (int)(fnt.pMapping[0].fV * texture.Height);
+                    int rx = (int)(fnt.pMapping[3].fU * texture.Width);
+                    int ry = (int)(fnt.pMapping[3].fV * texture.Height);
 
                     if (px < 0) px = 0;
                     if (py < 0) py = 0;

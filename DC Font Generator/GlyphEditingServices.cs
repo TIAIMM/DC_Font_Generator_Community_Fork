@@ -12,7 +12,7 @@ namespace DC_Font_Generator
         LeftSpacing,
         RightSpacing,
         LineSpacing,
-        BottomAlign,
+        TopEdge,
         Scale
     }
 
@@ -270,10 +270,10 @@ namespace DC_Font_Generator
                 }
             }
 
-            float rx = atlasGlyph.x1 * textImageSize.Width;
-            float ry = atlasGlyph.y1 * textImageSize.Height;
-            float bx = atlasGlyph.x4 * textImageSize.Width;
-            float by = atlasGlyph.y4 * textImageSize.Height;
+            float rx = atlasGlyph.pMapping[0].fU * textImageSize.Width;
+            float ry = atlasGlyph.pMapping[0].fV * textImageSize.Height;
+            float bx = atlasGlyph.pMapping[3].fU * textImageSize.Width;
+            float by = atlasGlyph.pMapping[3].fV * textImageSize.Height;
 
             return new GlyphHitResult
             {
@@ -338,8 +338,8 @@ namespace DC_Font_Generator
 
             if (target == GlyphAdjustmentTarget.LineSpacing)
             {
-                main.FntFile.Header.LineHeight += delta;
-                main.FntFile.Header.LineHeightFixed += delta;
+                main.FntFile.Header.fBaseLine += delta;
+                main.FntFile.Header.fBaseLineFixed += delta;
                 return true;
             }
 
@@ -358,22 +358,22 @@ namespace DC_Font_Generator
 
         public static void Restore(Main main, IList<Fnt_char> fonts)
         {
-            main.FntFile.Header.LineHeight -= main.FntFile.Header.LineHeightFixed;
-            main.FntFile.Header.LineHeightFixed = 0;
+            main.FntFile.Header.fBaseLine -= main.FntFile.Header.fBaseLineFixed;
+            main.FntFile.Header.fBaseLineFixed = 0;
 
             foreach (Fnt_char fnt in fonts)
             {
                 if (!fnt.Enable) continue;
-                fnt.LeftSpace -= fnt.LeftSpaceFixed;
-                fnt.LeftSpaceFixed = 0;
-                fnt.RightSpace -= fnt.RightSpaceFixed;
-                fnt.RightSpaceFixed = 0;
-                fnt.BottomAlign -= fnt.BottomAlignFixed;
-                fnt.BottomAlignFixed = 0;
-                fnt.charViewHeight -= fnt.charViewHeightFixed;
-                fnt.charViewHeightFixed = 0;
-                fnt.charViewWidth -= fnt.charViewWidthFixed;
-                fnt.charViewWidthFixed = 0;
+                fnt.fLeadingEdge -= fnt.fLeadingEdgeFixed;
+                fnt.fLeadingEdgeFixed = 0;
+                fnt.fSpacing -= fnt.fSpacingFixed;
+                fnt.fSpacingFixed = 0;
+                fnt.fTopEdge -= fnt.fTopEdgeFixed;
+                fnt.fTopEdgeFixed = 0;
+                fnt.fHeight -= fnt.fHeightFixed;
+                fnt.fHeightFixed = 0;
+                fnt.fWidth -= fnt.fWidthFixed;
+                fnt.fWidthFixed = 0;
             }
         }
 
@@ -382,26 +382,26 @@ namespace DC_Font_Generator
             switch (target)
             {
                 case GlyphAdjustmentTarget.LeftSpacing:
-                    fnt.LeftSpace += delta;
-                    fnt.LeftSpaceFixed += delta;
+                    fnt.fLeadingEdge += delta;
+                    fnt.fLeadingEdgeFixed += delta;
                     break;
                 case GlyphAdjustmentTarget.RightSpacing:
-                    fnt.RightSpace += delta;
-                    fnt.RightSpaceFixed += delta;
+                    fnt.fSpacing += delta;
+                    fnt.fSpacingFixed += delta;
                     break;
-                case GlyphAdjustmentTarget.BottomAlign:
-                    fnt.BottomAlign += delta;
-                    fnt.BottomAlignFixed += delta;
+                case GlyphAdjustmentTarget.TopEdge:
+                    fnt.fTopEdge += delta;
+                    fnt.fTopEdgeFixed += delta;
                     break;
                 case GlyphAdjustmentTarget.Scale:
-                    if (fnt.charViewHeight + delta > 0 && fnt.charViewWidth + delta > 0)
+                    if (fnt.fHeight + delta > 0 && fnt.fWidth + delta > 0)
                     {
-                        fnt.charViewHeight += delta;
-                        fnt.charViewWidth += delta;
-                        fnt.charViewHeightFixed += delta;
-                        fnt.charViewWidthFixed += delta;
-                        fnt.BottomAlign += delta;
-                        fnt.BottomAlignFixed += delta;
+                        fnt.fHeight += delta;
+                        fnt.fWidth += delta;
+                        fnt.fHeightFixed += delta;
+                        fnt.fWidthFixed += delta;
+                        fnt.fTopEdge += delta;
+                        fnt.fTopEdgeFixed += delta;
                     }
                     break;
             }
@@ -458,7 +458,7 @@ namespace DC_Font_Generator
                         new SKRect(hit.Bounds.X, hit.Bounds.Y, hit.Bounds.Right, hit.Bounds.Bottom),
                         red);
 
-                    float baselineY = hit.Bounds.Y + hit.EditableGlyph.BottomAlign;
+                    float baselineY = hit.Bounds.Y + hit.EditableGlyph.fTopEdge;
                     canvas.DrawLine(hit.Bounds.X + 1, baselineY, hit.Bounds.Right - 1, baselineY, yellow);
                 });
             }
@@ -467,7 +467,7 @@ namespace DC_Font_Generator
         public static Rectangle GetFocusDirtyBounds(GlyphHitResult hit, Size textImageSize)
         {
             if (!hit.HasGlyph) return Rectangle.Empty;
-            float baselineY = hit.Bounds.Y + hit.EditableGlyph.BottomAlign;
+            float baselineY = hit.Bounds.Y + hit.EditableGlyph.fTopEdge;
             int left = (int)Math.Floor(hit.Bounds.Left - 2);
             int top = (int)Math.Floor(Math.Min(hit.Bounds.Top, baselineY) - 2);
             int right = (int)Math.Ceiling(hit.Bounds.Right + 2);
@@ -494,13 +494,13 @@ namespace DC_Font_Generator
                 format,
                 hit.Character,
                 hit.Hex,
-                hit.EditableGlyph.charViewWidth,
-                hit.EditableGlyph.charViewHeight,
+                hit.EditableGlyph.fWidth,
+                hit.EditableGlyph.fHeight,
                 lineHeight,
                 lineHeightFixed,
-                hit.EditableGlyph.BottomAlign,
-                hit.EditableGlyph.LeftSpace,
-                hit.EditableGlyph.RightSpace,
+                hit.EditableGlyph.fTopEdge,
+                hit.EditableGlyph.fLeadingEdge,
+                hit.EditableGlyph.fSpacing,
                 hit.Bounds.Width,
                 hit.Bounds.Height,
                 hit.EditableGlyph.ID);
@@ -508,10 +508,10 @@ namespace DC_Font_Generator
 
         private static void DrawGlyphRectangle(SKCanvas canvas, SKPaint paint, Fnt_char fnt, Size textImageSize, bool removed)
         {
-            float rx = fnt.x1 * textImageSize.Width;
-            float ry = fnt.y1 * textImageSize.Height;
-            float bx = fnt.x4 * textImageSize.Width;
-            float by = fnt.y4 * textImageSize.Height;
+            float rx = fnt.pMapping[0].fU * textImageSize.Width;
+            float ry = fnt.pMapping[0].fV * textImageSize.Height;
+            float bx = fnt.pMapping[3].fU * textImageSize.Width;
+            float by = fnt.pMapping[3].fV * textImageSize.Height;
 
             if (removed)
             {
@@ -552,7 +552,7 @@ namespace DC_Font_Generator
                     return;
                 }
 
-                float lineHeight = main.FntFile.Header.LineHeight;
+                float lineHeight = main.FntFile.Header.fBaseLine;
                 PointF point = new PointF(0, 0);
                 char[] chars = text.ToCharArray();
                 Fnt_char lastFnt = main.FntFile.GetFntFromChar(' ');
@@ -560,16 +560,16 @@ namespace DC_Font_Generator
 
                 for (int i = 0; i < chars.Length; i++)
                 {
-                    point.X += lastFnt.charViewWidth + lastFnt.RightSpace;
+                    point.X += lastFnt.fWidth + lastFnt.fSpacing;
                     Fnt_char fnt = main.FntFile.GetFntFromChar(chars[i]);
-                    point.X += fnt.LeftSpace;
+                    point.X += fnt.fLeadingEdge;
                     if (point.X > target.Width)
                     {
                         point.X = 0;
                         linePoint += (int)lineHeight;
                     }
 
-                    point.Y = linePoint - fnt.BottomAlign;
+                    point.Y = linePoint - fnt.fTopEdge;
                     if (point.Y > target.Height) break;
 
                     Bitmap fontImage;
@@ -585,15 +585,15 @@ namespace DC_Font_Generator
                     }
 
                     if (point.X < 0) point.X = 0;
-                    if (point.Y < lineHeight - fnt.BottomAlign) point.Y = lineHeight - fnt.BottomAlign;
+                    if (point.Y < lineHeight - fnt.fTopEdge) point.Y = lineHeight - fnt.fTopEdge;
                     if (point.Y < 0) point.Y = 0;
                     using (SKBitmap glyphBitmap = SkiaBitmapInterop.CreateSKBitmap(fontImage))
                     {
                         SKRect destination = new SKRect(
                             point.X,
                             point.Y,
-                            point.X + fnt.charViewWidth,
-                            point.Y + fnt.charViewHeight);
+                            point.X + fnt.fWidth,
+                            point.Y + fnt.fHeight);
                         canvas.DrawBitmap(glyphBitmap, destination);
                     }
                     lastFnt = fnt;

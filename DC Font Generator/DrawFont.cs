@@ -203,7 +203,7 @@ namespace DC_Font_Generator
 		public Bitmap DrawingFont(char c, out float BottomAlign)
 		{
 			GlyphRenderResult glyph = RenderGlyph(c);
-			BottomAlign = glyph.BottomAlign;
+			BottomAlign = glyph.fTopEdge;
 			return glyph.Image ?? new Bitmap(1, 1);
 		}
 
@@ -260,7 +260,7 @@ namespace DC_Font_Generator
                     }
 
                     result.Image = SkiaBitmapInterop.CreateBitmapFromBgra(pixels, surfaceSize, bounds);
-                    result.BottomAlign = CDZ_BottomAlign - bounds.Y;
+                    result.fTopEdge = CDZ_BottomAlign - bounds.Y;
                     return result;
                 }
             }
@@ -467,8 +467,14 @@ namespace DC_Font_Generator
 			public Bitmap Image;
 			public Size OriginSize;
 			public float RealSpace;
-			public float BottomAlign;
+			public float fTopEdge;
 			public bool IsSpace;
+
+            public float BottomAlign
+            {
+                get { return fTopEdge; }
+                set { fTopEdge = value; }
+            }
 		}
 
 		/// <summary>

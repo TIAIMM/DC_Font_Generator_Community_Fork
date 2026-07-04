@@ -92,8 +92,8 @@ namespace DC_Font_Generator
                 ToolTip = GlyphOverlayRenderer.FormatTooltip(
                     request.ToolTipFormat,
                     hit,
-                    selected.FntFile.Header.LineHeight,
-                    selected.FntFile.Header.LineHeightFixed),
+                    selected.FntFile.Header.fBaseLine,
+                    selected.FntFile.Header.fBaseLineFixed),
                 MaskImage = mask
             };
         }

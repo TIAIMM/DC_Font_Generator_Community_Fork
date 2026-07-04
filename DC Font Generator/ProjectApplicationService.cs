@@ -73,9 +73,9 @@ namespace DC_Font_Generator
                 }
 
                 Main main = fontSections[id];
-                if (amendment.LineHeightFixed != 0)
+                if (amendment.fBaseLineFixed != 0)
                 {
-                    main.FntFile.Header.LineHeight += amendment.LineHeightFixed;
+                    main.FntFile.Header.fBaseLine += amendment.fBaseLineFixed;
                 }
 
                 foreach (string hex in amendment.index)
@@ -90,17 +90,17 @@ namespace DC_Font_Generator
                     }
 
                     if (!fnt.Enable) continue;
-                    fnt.BottomAlign += fixedValue.BottomAlignFixed;
-                    fnt.BottomAlignFixed = fixedValue.BottomAlignFixed;
-                    fnt.charViewHeight += fixedValue.CharViewHeightFixed;
-                    fnt.charViewHeightFixed = fixedValue.CharViewHeightFixed;
-                    fnt.charViewWidth += fixedValue.CharViewWidthFixed;
-                    fnt.charViewWidthFixed = fixedValue.CharViewWidthFixed;
+                    fnt.fTopEdge += fixedValue.fTopEdgeFixed;
+                    fnt.fTopEdgeFixed = fixedValue.fTopEdgeFixed;
+                    fnt.fHeight += fixedValue.fHeightFixed;
+                    fnt.fHeightFixed = fixedValue.fHeightFixed;
+                    fnt.fWidth += fixedValue.fWidthFixed;
+                    fnt.fWidthFixed = fixedValue.fWidthFixed;
                     if (main.fixedFont) continue;
-                    fnt.LeftSpace += fixedValue.LeftSpaceFixed;
-                    fnt.LeftSpaceFixed = fixedValue.LeftSpaceFixed;
-                    fnt.RightSpace += fixedValue.RightSpaceFixed;
-                    fnt.RightSpaceFixed = fixedValue.RightSpaceFixed;
+                    fnt.fLeadingEdge += fixedValue.fLeadingEdgeFixed;
+                    fnt.fLeadingEdgeFixed = fixedValue.fLeadingEdgeFixed;
+                    fnt.fSpacing += fixedValue.fSpacingFixed;
+                    fnt.fSpacingFixed = fixedValue.fSpacingFixed;
                 }
             }
 

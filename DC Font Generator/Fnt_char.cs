@@ -13,34 +13,34 @@ namespace DC_Font_Generator
     {
         public const int SerializedSize = 56;
 
+        // Matches tNVSE / Fallout FontLetter: iTextureIndex, UVMap[4], fWidth, fHeight, fLeadingEdge, fSpacing, fTopEdge.
+        public struct UVMap
+        {
+            public float fU;
+            public float fV;
+        }
+
         [DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")]
         private static extern void CopyMemory(IntPtr dest, IntPtr src, uint length);
 
         public int ID = 0; //所屬的上層編號
-        private float iBottomAlign;
-        private float icharViewHeight;
-        private float icharViewWidth;
-        private static float iConstant_0 = 0;
-        private float iLeftSpace;
-        private float iRightSpace;
-        private float ix1;
-        private float ix2;
-        private float ix3;
-        private float ix4;
-        private float iy1;
-        private float iy2;
-        private float iy3;
-        private float iy4;
+        private int textureIndex;
+        private readonly UVMap[] uvMapping = new UVMap[4];
+        private float width;
+        private float height;
+        private float leadingEdge;
+        private float spacing;
+        private float topEdge;
         public bool Empty = false;
         private bool iEnable = true;
         public bool IsSpace = false;
         public char c;
         public bool IsDC = false;
-        public float LeftSpaceFixed = 0; //曾經修正過的底部對齊
-        public float RightSpaceFixed = 0; //曾經修正過的底部對齊
-        public float BottomAlignFixed = 0; //曾經修正過的底部對齊
-        public float charViewHeightFixed = 0;
-        public float charViewWidthFixed = 0;
+        public float fLeadingEdgeFixed = 0;
+        public float fSpacingFixed = 0;
+        public float fTopEdgeFixed = 0;
+        public float fHeightFixed = 0;
+        public float fWidthFixed = 0;
         private Bitmap image;
         private Bitmap lazySourceImage;
         private Rectangle lazySourceRect;
@@ -81,20 +81,20 @@ namespace DC_Font_Generator
         {
             if (bytes.Length < SerializedSize) throw new ArgumentException("Fnt_char record buffer is too small.", nameof(bytes));
 
-            WriteSingle(bytes, 0, iConstant_0);
-            WriteSingle(bytes, 4, this.ix1);
-            WriteSingle(bytes, 8, this.iy1);
-            WriteSingle(bytes, 12, this.ix2);
-            WriteSingle(bytes, 16, this.iy2);
-            WriteSingle(bytes, 20, this.ix3);
-            WriteSingle(bytes, 24, this.iy3);
-            WriteSingle(bytes, 28, this.ix4);
-            WriteSingle(bytes, 32, this.iy4);
-            WriteSingle(bytes, 36, this.icharViewWidth);
-            WriteSingle(bytes, 40, this.icharViewHeight);
-            WriteSingle(bytes, 44, this.iLeftSpace);
-            WriteSingle(bytes, 48, this.iRightSpace);
-            WriteSingle(bytes, 52, this.iBottomAlign);
+            WriteInt32(bytes, 0, this.textureIndex);
+            WriteSingle(bytes, 4, this.uvMapping[0].fU);
+            WriteSingle(bytes, 8, this.uvMapping[0].fV);
+            WriteSingle(bytes, 12, this.uvMapping[1].fU);
+            WriteSingle(bytes, 16, this.uvMapping[1].fV);
+            WriteSingle(bytes, 20, this.uvMapping[2].fU);
+            WriteSingle(bytes, 24, this.uvMapping[2].fV);
+            WriteSingle(bytes, 28, this.uvMapping[3].fU);
+            WriteSingle(bytes, 32, this.uvMapping[3].fV);
+            WriteSingle(bytes, 36, this.width);
+            WriteSingle(bytes, 40, this.height);
+            WriteSingle(bytes, 44, this.leadingEdge);
+            WriteSingle(bytes, 48, this.spacing);
+            WriteSingle(bytes, 52, this.topEdge);
         }
         public void setBytes(BinaryReader reader)
         {
@@ -106,21 +106,29 @@ namespace DC_Font_Generator
         {
             if (bytes.Length < SerializedSize) throw new ArgumentException("Fnt_char record buffer is too small.", nameof(bytes));
 
-            iConstant_0 = ReadSingle(bytes, 0);
-            this.ix1 = ReadSingle(bytes, 4);
-            this.iy1 = ReadSingle(bytes, 8);
-            this.ix2 = ReadSingle(bytes, 12);
-            this.iy2 = ReadSingle(bytes, 16);
-            this.ix3 = ReadSingle(bytes, 20);
-            this.iy3 = ReadSingle(bytes, 24);
-            this.ix4 = ReadSingle(bytes, 28);
-            this.iy4 = ReadSingle(bytes, 32);
-            this.icharViewWidth = ReadSingle(bytes, 36);
-            this.icharViewHeight = ReadSingle(bytes, 40);
-            this.iLeftSpace = ReadSingle(bytes, 44);
-            this.iRightSpace = ReadSingle(bytes, 48);
-            this.iBottomAlign = ReadSingle(bytes, 52);
-            if (this.icharViewHeight + this.iBottomAlign + this.icharViewWidth + this.iLeftSpace + this.iRightSpace == 0) Enable = false;
+            this.textureIndex = ReadInt32(bytes, 0);
+            this.uvMapping[0].fU = ReadSingle(bytes, 4);
+            this.uvMapping[0].fV = ReadSingle(bytes, 8);
+            this.uvMapping[1].fU = ReadSingle(bytes, 12);
+            this.uvMapping[1].fV = ReadSingle(bytes, 16);
+            this.uvMapping[2].fU = ReadSingle(bytes, 20);
+            this.uvMapping[2].fV = ReadSingle(bytes, 24);
+            this.uvMapping[3].fU = ReadSingle(bytes, 28);
+            this.uvMapping[3].fV = ReadSingle(bytes, 32);
+            this.width = ReadSingle(bytes, 36);
+            this.height = ReadSingle(bytes, 40);
+            this.leadingEdge = ReadSingle(bytes, 44);
+            this.spacing = ReadSingle(bytes, 48);
+            this.topEdge = ReadSingle(bytes, 52);
+            if (this.height + this.topEdge + this.width + this.leadingEdge + this.spacing == 0) Enable = false;
+        }
+        private static void WriteInt32(Span<byte> bytes, int offset, int value)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(bytes.Slice(offset, sizeof(int)), value);
+        }
+        private static int ReadInt32(ReadOnlySpan<byte> bytes, int offset)
+        {
+            return BinaryPrimitives.ReadInt32LittleEndian(bytes.Slice(offset, sizeof(int)));
         }
         private static void WriteSingle(Span<byte> bytes, int offset, float value)
         {
@@ -189,75 +197,116 @@ namespace DC_Font_Generator
 
             return cropped;
         }
+        public int iTextureIndex
+        {
+            get { return this.textureIndex; }
+            set { this.textureIndex = value; }
+        }
+
+        public UVMap[] pMapping
+        {
+            get { return this.uvMapping; }
+        }
+
+        public float fWidth
+        {
+            get { return this.width; }
+            set { this.width = value; }
+        }
+
+        public float fHeight
+        {
+            get { return this.height; }
+            set { this.height = value; }
+        }
+
+        public float fLeadingEdge
+        {
+            get { return this.leadingEdge; }
+            set { this.leadingEdge = value; }
+        }
+
+        public float fSpacing
+        {
+            get { return this.spacing; }
+            set { this.spacing = value; }
+        }
+
+        public float fTopEdge
+        {
+            get { return this.topEdge; }
+            set { this.topEdge = value; }
+        }
+
         public float BottomAlign
         {
-            get
-            {
-                return this.iBottomAlign;
-            }
-            set
-            {
-                this.iBottomAlign = value;
-            }
+            get { return this.fTopEdge; }
+            set { this.fTopEdge = value; }
         }
 
         public float charViewHeight
         {
-            get
-            {
-                return this.icharViewHeight;
-            }
-            set
-            {
-                this.icharViewHeight = value;
-            }
+            get { return this.fHeight; }
+            set { this.fHeight = value; }
         }
 
         public float charViewWidth
         {
-            get
-            {
-                return this.icharViewWidth;
-            }
-            set
-            {
-                this.icharViewWidth = value;
-            }
+            get { return this.fWidth; }
+            set { this.fWidth = value; }
         }
 
         public float LeftSpace
         {
-            get
-            {
-                return this.iLeftSpace;
-            }
-            set
-            {
-                this.iLeftSpace = value;
-            }
+            get { return this.fLeadingEdge; }
+            set { this.fLeadingEdge = value; }
         }
 
         public float RightSpace
         {
-            get
-            {
-                return this.iRightSpace;
-            }
-            set
-            {
-                this.iRightSpace = value;
-            }
+            get { return this.fSpacing; }
+            set { this.fSpacing = value; }
+        }
+
+        public float LeftSpaceFixed
+        {
+            get { return this.fLeadingEdgeFixed; }
+            set { this.fLeadingEdgeFixed = value; }
+        }
+
+        public float RightSpaceFixed
+        {
+            get { return this.fSpacingFixed; }
+            set { this.fSpacingFixed = value; }
+        }
+
+        public float BottomAlignFixed
+        {
+            get { return this.fTopEdgeFixed; }
+            set { this.fTopEdgeFixed = value; }
+        }
+
+        public float charViewHeightFixed
+        {
+            get { return this.fHeightFixed; }
+            set { this.fHeightFixed = value; }
+        }
+
+        public float charViewWidthFixed
+        {
+            get { return this.fWidthFixed; }
+            set { this.fWidthFixed = value; }
         }
 
         public float x1
         {
             get
             {
-                return this.ix1;
+                return this.uvMapping[0].fU;
             }
             set
             {
-                this.ix1 = value;
+                this.uvMapping[0].fU = value;
             }
         }
 
@@ -265,11 +314,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.ix2;
+                return this.uvMapping[1].fU;
             }
             set
             {
-                this.ix2 = value;
+                this.uvMapping[1].fU = value;
             }
         }
 
@@ -277,11 +326,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.ix3;
+                return this.uvMapping[2].fU;
             }
             set
             {
-                this.ix3 = value;
+                this.uvMapping[2].fU = value;
             }
         }
 
@@ -289,11 +338,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.ix4;
+                return this.uvMapping[3].fU;
             }
             set
             {
-                this.ix4 = value;
+                this.uvMapping[3].fU = value;
             }
         }
 
@@ -301,11 +350,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.iy1;
+                return this.uvMapping[0].fV;
             }
             set
             {
-                this.iy1 = value;
+                this.uvMapping[0].fV = value;
             }
         }
 
@@ -313,11 +362,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.iy2;
+                return this.uvMapping[1].fV;
             }
             set
             {
-                this.iy2 = value;
+                this.uvMapping[1].fV = value;
             }
         }
 
@@ -325,11 +374,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.iy3;
+                return this.uvMapping[2].fV;
             }
             set
             {
-                this.iy3 = value;
+                this.uvMapping[2].fV = value;
             }
         }
 
@@ -337,11 +386,11 @@ namespace DC_Font_Generator
         {
             get
             {
-                return this.iy4;
+                return this.uvMapping[3].fV;
             }
             set
             {
-                this.iy4 = value;
+                this.uvMapping[3].fV = value;
             }
         }
 

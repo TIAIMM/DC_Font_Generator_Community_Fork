@@ -253,14 +253,20 @@ namespace DC_Font_Generator
     {
         public int ID = 0;
         private Hashtable FntFixeds = new Hashtable();
-        private float LineHeight = 0;
+        private float baseLine = 0;
         public bool IsEmpty = true;
         public List<string> index = new List<string>();
 
+        public float fBaseLineFixed
+        {
+            get { return baseLine; }
+            set { baseLine = value; IsEmpty = false; }
+        }
+
         public float LineHeightFixed
         {
-            get { return LineHeight; }
-            set { LineHeight = value; IsEmpty = false; }
+            get { return fBaseLineFixed; }
+            set { fBaseLineFixed = value; }
         }
         public FntFixed this[string hex]
         {
@@ -286,10 +292,40 @@ namespace DC_Font_Generator
     public class FntFixed
     {
         public string hex = "";
-        public float LeftSpaceFixed = 0; //曾經修正過的底部對齊
-        public float RightSpaceFixed = 0; //曾經修正過的底部對齊
-        public float BottomAlignFixed = 0; //曾經修正過的底部對齊
-        public float CharViewHeightFixed = 0;
-        public float CharViewWidthFixed = 0;
+        public float fLeadingEdgeFixed = 0;
+        public float fSpacingFixed = 0;
+        public float fTopEdgeFixed = 0;
+        public float fHeightFixed = 0;
+        public float fWidthFixed = 0;
+
+        public float LeftSpaceFixed
+        {
+            get { return fLeadingEdgeFixed; }
+            set { fLeadingEdgeFixed = value; }
+        }
+
+        public float RightSpaceFixed
+        {
+            get { return fSpacingFixed; }
+            set { fSpacingFixed = value; }
+        }
+
+        public float BottomAlignFixed
+        {
+            get { return fTopEdgeFixed; }
+            set { fTopEdgeFixed = value; }
+        }
+
+        public float CharViewHeightFixed
+        {
+            get { return fHeightFixed; }
+            set { fHeightFixed = value; }
+        }
+
+        public float CharViewWidthFixed
+        {
+            get { return fWidthFixed; }
+            set { fWidthFixed = value; }
+        }
     }
 }

@@ -223,7 +223,7 @@ namespace DC_Font_Generator
                 writer.WriteElementString("LinkINI" + (i + 1), main.Fallout3INI[i].ToString());
             }
 
-            writer.WriteElementString("LineHeight", main.FntFile.Header.LineHeightFixed.ToString());
+            writer.WriteElementString("LineHeight", main.FntFile.Header.fBaseLineFixed.ToString());
             if (main.fixedFont)
             {
                 writer.WriteElementString("FontMaxWidth", main.FontMaxWidth.ToString());
@@ -233,16 +233,16 @@ namespace DC_Font_Generator
             foreach (Fnt_char fnt in main.FntFile.CharList)
             {
                 if (!fnt.Enable) continue;
-                if (fnt.LeftSpaceFixed != 0)
-                    writer.WriteElementString("LeftSpacing", fnt.HEX, fnt.LeftSpaceFixed.ToString());
-                if (fnt.RightSpaceFixed != 0)
-                    writer.WriteElementString("RightSpacing", fnt.HEX, fnt.RightSpaceFixed.ToString());
-                if (fnt.BottomAlignFixed != 0)
-                    writer.WriteElementString("BottomAlign", fnt.HEX, fnt.BottomAlignFixed.ToString());
-                if (fnt.charViewHeightFixed != 0)
-                    writer.WriteElementString("CharViewHeight", fnt.HEX, fnt.charViewHeightFixed.ToString());
-                if (fnt.charViewWidthFixed != 0)
-                    writer.WriteElementString("CharViewWidth", fnt.HEX, fnt.charViewWidthFixed.ToString());
+                if (fnt.fLeadingEdgeFixed != 0)
+                    writer.WriteElementString("LeftSpacing", fnt.HEX, fnt.fLeadingEdgeFixed.ToString());
+                if (fnt.fSpacingFixed != 0)
+                    writer.WriteElementString("RightSpacing", fnt.HEX, fnt.fSpacingFixed.ToString());
+                if (fnt.fTopEdgeFixed != 0)
+                    writer.WriteElementString("BottomAlign", fnt.HEX, fnt.fTopEdgeFixed.ToString());
+                if (fnt.fHeightFixed != 0)
+                    writer.WriteElementString("CharViewHeight", fnt.HEX, fnt.fHeightFixed.ToString());
+                if (fnt.fWidthFixed != 0)
+                    writer.WriteElementString("CharViewWidth", fnt.HEX, fnt.fWidthFixed.ToString());
             }
             writer.WriteEndElement();
             writer.WriteEndElement();
@@ -320,14 +320,14 @@ namespace DC_Font_Generator
                     currentFont.HasFntName = true;
                     break;
                 case "LineHeight":
-                    currentAmendment.LineHeightFixed = ReadFloat(reader);
+                    currentAmendment.fBaseLineFixed = ReadFloat(reader);
                     break;
                 case "LeftSpacing":
                     hex = reader.NamespaceURI;
                     value = ReadString(reader);
                     fixedValue = currentAmendment[hex];
                     fixedValue.hex = hex;
-                    fixedValue.LeftSpaceFixed = float.Parse(value);
+                    fixedValue.fLeadingEdgeFixed = float.Parse(value);
                     currentAmendment[hex] = fixedValue;
                     break;
                 case "RightSpacing":
@@ -335,7 +335,7 @@ namespace DC_Font_Generator
                     value = ReadString(reader);
                     fixedValue = currentAmendment[hex];
                     fixedValue.hex = hex;
-                    fixedValue.RightSpaceFixed = float.Parse(value);
+                    fixedValue.fSpacingFixed = float.Parse(value);
                     currentAmendment[hex] = fixedValue;
                     break;
                 case "BottomAlign":
@@ -343,7 +343,7 @@ namespace DC_Font_Generator
                     value = ReadString(reader);
                     fixedValue = currentAmendment[hex];
                     fixedValue.hex = hex;
-                    fixedValue.BottomAlignFixed = float.Parse(value);
+                    fixedValue.fTopEdgeFixed = float.Parse(value);
                     currentAmendment[hex] = fixedValue;
                     break;
                 case "CharViewHeight":
@@ -351,7 +351,7 @@ namespace DC_Font_Generator
                     value = ReadString(reader);
                     fixedValue = currentAmendment[hex];
                     fixedValue.hex = hex;
-                    fixedValue.CharViewHeightFixed = float.Parse(value);
+                    fixedValue.fHeightFixed = float.Parse(value);
                     currentAmendment[hex] = fixedValue;
                     break;
                 case "CharViewWidth":
@@ -359,7 +359,7 @@ namespace DC_Font_Generator
                     value = ReadString(reader);
                     fixedValue = currentAmendment[hex];
                     fixedValue.hex = hex;
-                    fixedValue.CharViewWidthFixed = float.Parse(value);
+                    fixedValue.fWidthFixed = float.Parse(value);
                     currentAmendment[hex] = fixedValue;
                     break;
                 default:

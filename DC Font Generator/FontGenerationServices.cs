@@ -149,8 +149,8 @@ namespace DC_Font_Generator
                     addSpace = true;
                 }
 
-                int width = Math.Max(0, (int)fnt.charViewWidth);
-                int height = Math.Max(0, (int)fnt.charViewHeight);
+                int width = Math.Max(0, (int)fnt.fWidth);
+                int height = Math.Max(0, (int)fnt.fHeight);
 
                 if (vertical)
                 {
@@ -332,14 +332,15 @@ namespace DC_Font_Generator
             float texWidth = textImageSize.Width;
             float texHeight = textImageSize.Height;
 
-            fnt.x1 = startX / texWidth;
-            fnt.y1 = startY / texHeight;
-            fnt.x2 = (startX + width) / texWidth;
-            fnt.y2 = startY / texHeight;
-            fnt.x3 = startX / texWidth;
-            fnt.y3 = (startY + height) / texHeight;
-            fnt.x4 = (startX + width) / texWidth;
-            fnt.y4 = (startY + height) / texHeight;
+            fnt.iTextureIndex = 0;
+            fnt.pMapping[0].fU = startX / texWidth;
+            fnt.pMapping[0].fV = startY / texHeight;
+            fnt.pMapping[1].fU = (startX + width) / texWidth;
+            fnt.pMapping[1].fV = startY / texHeight;
+            fnt.pMapping[2].fU = startX / texWidth;
+            fnt.pMapping[2].fV = (startY + height) / texHeight;
+            fnt.pMapping[3].fU = (startX + width) / texWidth;
+            fnt.pMapping[3].fV = (startY + height) / texHeight;
         }
 
         private static void Report(IProgress<FontProgress> progress, int value, int maximum)

@@ -186,13 +186,13 @@ namespace DC_Font_Generator
             buttonOpenFNT.Text = GetString("Open");
             buttonClear.Text = GetString("Clear");
 
-            this.ToolTipFormat = "[{0}] Hex:[{1}]\n" + GetString("View Width") +
-                ": {2}\n" + GetString("View Height") +
-				": {3}\n" + GetString("Line Height") +
-				": {4}\n" + GetString("Line Height Fixed") +
-				": {5}\n" + GetString("Bottom Align") +
-                ": {6}\n" + GetString("Left Space") +
-                ": {7}\n" + GetString("Right Space") +
+            this.ToolTipFormat = "[{0}] Hex:[{1}]\n" + GetString("Width") +
+                ": {2}\n" + GetString("Height") +
+				": {3}\n" + GetString("Base Line") +
+				": {4}\n" + GetString("Base Line Fixed") +
+				": {5}\n" + GetString("Top Edge") +
+                ": {6}\n" + GetString("Leading Edge") +
+                ": {7}\n" + GetString("Spacing") +
                 ": {8}\n" + GetString("Image Width") +
                 ": {9}\n" + GetString("Image Height")+
                 ": {10}\nFont{11}";
@@ -202,10 +202,10 @@ namespace DC_Font_Generator
             buttonLink.Text = GetString("Link Font");
             groupBox6.Text = GetString("Function");
             groupBox7.Text = GetString("Select");
-            radioButton_LeftSpacing.Text = GetString("Left Spacing");
-            radioButton_RightSpacing.Text = GetString("Right Spacing");
-            radioButtonLineSpacing.Text = GetString("Line Spacing");
-            radioButton_BottomAlign.Text = GetString("Bottom Align");
+            radioButton_LeftSpacing.Text = GetString("Leading Edge");
+            radioButton_RightSpacing.Text = GetString("Spacing");
+            radioButtonLineSpacing.Text = GetString("Base Line");
+            radioButton_BottomAlign.Text = GetString("Top Edge");
             checkBox_SelectAllSC.Text = GetString("Select Single Byte Character Set");
             checkBox_SelectAllDC.Text = GetString("Select Double Byte Character Set");
             label26.Text = GetString("From");
@@ -1713,7 +1713,7 @@ namespace DC_Font_Generator
                 LeftSpacing = radioButton_LeftSpacing.Checked,
                 RightSpacing = radioButton_RightSpacing.Checked,
                 LineSpacing = radioButtonLineSpacing.Checked,
-                BottomAlign = radioButton_BottomAlign.Checked,
+                TopEdge = radioButton_BottomAlign.Checked,
                 Scale = radioButtonScale.Checked,
                 Command = ((Button)sender).Tag.ToString(),
                 Increment = (float)numericUpDown_Increment.Value

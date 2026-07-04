@@ -109,28 +109,25 @@ namespace DC_Font_Generator
                 tf.Enable = sf.Enable;
                 if (sf.Enable)
                 {
-                    tf.BottomAlign = sf.BottomAlign;
-                    tf.BottomAlignFixed = sf.BottomAlignFixed;
+                    tf.fTopEdge = sf.fTopEdge;
+                    tf.fTopEdgeFixed = sf.fTopEdgeFixed;
                     
-                    tf.charViewHeight = sf.charViewHeight;
-                    tf.charViewHeightFixed = sf.charViewHeightFixed;
-                    tf.charViewWidth = sf.charViewWidth;
-                    tf.charViewWidthFixed = sf.charViewWidthFixed;
+                    tf.fHeight = sf.fHeight;
+                    tf.fHeightFixed = sf.fHeightFixed;
+                    tf.fWidth = sf.fWidth;
+                    tf.fWidthFixed = sf.fWidthFixed;
                     tf.Empty = sf.Empty;
                     tf.FixedWidth = sf.FixedWidth;
                     tf.IsSpace = sf.IsSpace;
-                    tf.LeftSpace = sf.LeftSpace;
-                    tf.LeftSpaceFixed = sf.LeftSpaceFixed;
-                    tf.RightSpace = sf.RightSpace;
-                    tf.RightSpaceFixed = sf.RightSpaceFixed;
-                    tf.x1 = sf.x1;
-                    tf.x2 = sf.x2;
-                    tf.x3 = sf.x3;
-                    tf.x4 = sf.x4;
-                    tf.y1 = sf.y1;
-                    tf.y2 = sf.y2;
-                    tf.y3 = sf.y3;
-                    tf.y4 = sf.y4;
+                    tf.fLeadingEdge = sf.fLeadingEdge;
+                    tf.fLeadingEdgeFixed = sf.fLeadingEdgeFixed;
+                    tf.fSpacing = sf.fSpacing;
+                    tf.fSpacingFixed = sf.fSpacingFixed;
+                    tf.iTextureIndex = sf.iTextureIndex;
+                    for (int mappingIndex = 0; mappingIndex < tf.pMapping.Length; mappingIndex++)
+                    {
+                        tf.pMapping[mappingIndex] = sf.pMapping[mappingIndex];
+                    }
                     
                 }
 
@@ -263,19 +260,19 @@ namespace DC_Font_Generator
                 FixedFont(fixedFont, this.FontMaxWidth);
 				float lineHeight1 = this.font1.Height;
 				float lineHeight2 = this.font2.Height;
-				this.iFntFile.Header.LineHeight = Math.Max(lineHeight1, lineHeight2);
+				this.iFntFile.Header.fBaseLine = Math.Max(lineHeight1, lineHeight2);
 			}
             else if (ImportFont1name == "" && ImportFont2name == "")
             {
 
-				//this.iFntFile.Header.LineHeight = SysDraw.lineSpacingPixel;
+				//this.iFntFile.Header.fBaseLine = SysDraw.lineSpacingPixel;
 
-				//this.iFntFile.Header.LineHeight = (float)FontMaxHeight * 1.3f;
+				//this.iFntFile.Header.fBaseLine = (float)FontMaxHeight * 1.3f;
 				//登記行高
 
 				float lineHeight1 = this.font1.Height;
 				float lineHeight2 = this.font2.Height;
-				this.iFntFile.Header.LineHeight = Math.Max(lineHeight1, lineHeight2);
+				this.iFntFile.Header.fBaseLine = Math.Max(lineHeight1, lineHeight2);
 
 			}
             NormalizeBaselines();
@@ -300,24 +297,24 @@ namespace DC_Font_Generator
                     //if (SkipASCII && !fnt.IsDC) continue;
                     //if (fnt.FixedWidth == FontMaxWidth) continue; //已經處理過
 
-                    if (FontMaxWidth > fnt.charViewWidth)
+                    if (FontMaxWidth > fnt.fWidth)
                     {
-                        float shift = ((float)FontMaxWidth - fnt.charViewWidth) / 2f;
+                        float shift = ((float)FontMaxWidth - fnt.fWidth) / 2f;
 
-                        fnt.LeftSpace = shift; fnt.LeftSpaceFixed = 0;
-                        fnt.RightSpace = shift; fnt.RightSpaceFixed = 0;
+                        fnt.fLeadingEdge = shift; fnt.fLeadingEdgeFixed = 0;
+                        fnt.fSpacing = shift; fnt.fSpacingFixed = 0;
                     }
-                    else if (fnt.charViewWidth > FontMaxWidth)
+                    else if (fnt.fWidth > FontMaxWidth)
                     {
-                        float shift = (fnt.charViewWidth - (float)FontMaxWidth) / 2f;
+                        float shift = (fnt.fWidth - (float)FontMaxWidth) / 2f;
 
-                        fnt.LeftSpace = -shift; fnt.LeftSpaceFixed = 0;
-                        fnt.RightSpace = -shift; fnt.RightSpaceFixed = 0;
+                        fnt.fLeadingEdge = -shift; fnt.fLeadingEdgeFixed = 0;
+                        fnt.fSpacing = -shift; fnt.fSpacingFixed = 0;
                     }
                     else
                     {
-                        fnt.LeftSpace = 0; fnt.LeftSpaceFixed = 0;
-                        fnt.RightSpace = 0; fnt.RightSpaceFixed = 0;
+                        fnt.fLeadingEdge = 0; fnt.fLeadingEdgeFixed = 0;
+                        fnt.fSpacing = 0; fnt.fSpacingFixed = 0;
                     }
                     fnt.FixedWidth = FontMaxWidth;
                 }
@@ -378,12 +375,12 @@ namespace DC_Font_Generator
                 //ef.Width += this.sc_i右下角.X;
                 //ef.Height += this.sc_i右下角.Y;
 
-                fnt.BottomAlign = glyph.BottomAlign;
-                fnt.charViewHeight = (float)ViewSize.Height;  //顯示高度
-                fnt.charViewWidth = (float)ViewSize.Width;      //顯示寬度
+                fnt.fTopEdge = glyph.fTopEdge;
+                fnt.fHeight = (float)ViewSize.Height;  //顯示高度
+                fnt.fWidth = (float)ViewSize.Width;      //顯示寬度
 
-                fnt.LeftSpace = 0;
-                fnt.RightSpace = 0;
+                fnt.fLeadingEdge = 0;
+                fnt.fSpacing = 0;
                 if (!this.fixedFont && !IsSpace)
                 {
                     float layoutAdvance = glyph.OriginSize.Width;
@@ -392,32 +389,32 @@ namespace DC_Font_Generator
                         layoutAdvance += glyph.RealSpace * 2f;
                     }
 
-                    fnt.RightSpace = layoutAdvance - fnt.charViewWidth;
+                    fnt.fSpacing = layoutAdvance - fnt.fWidth;
                 }
                 else if (glyph.RealSpace > 0)
                 {
-                    fnt.LeftSpace = glyph.RealSpace;
-                    fnt.RightSpace = glyph.RealSpace;
+                    fnt.fLeadingEdge = glyph.RealSpace;
+                    fnt.fSpacing = glyph.RealSpace;
                 }
                 /*
                 if (SysDraw.Glow > 0)
                 {
                     float shift = ((float)ef.Width - DisplaySize.Width) / 4;
-                    fnt.LeftSpace = shift;
-                    fnt.RightSpace = shift;
+                    fnt.fLeadingEdge = shift;
+                    fnt.fSpacing = shift;
                 }
                 */
 
                 if (IsSpace)
                 {
-                    fnt.LeftSpace = 0;
-                    fnt.RightSpace = fnt.charViewWidth;
-                    fnt.charViewHeight = 1f;
-                    fnt.charViewWidth = 1f;
+                    fnt.fLeadingEdge = 0;
+                    fnt.fSpacing = fnt.fWidth;
+                    fnt.fHeight = 1f;
+                    fnt.fWidth = 1f;
                     fnt.Empty = true;
                     fnt.IsSpace = true;
                 }
-                height = fnt.charViewHeight;
+                height = fnt.fHeight;
             }
 
             return fnt;
@@ -459,7 +456,7 @@ namespace DC_Font_Generator
 
         private void RegisterFontHeight(float height)
         {
-            //this.iFntFile.Header.LineHeight = (this.iFntFile.Header.LineHeight < Height) ? Height : this.iFntFile.Header.LineHeight;
+            //this.iFntFile.Header.fBaseLine = (this.iFntFile.Header.fBaseLine < Height) ? Height : this.iFntFile.Header.fBaseLine;
 
             
             //if (ef.Width > FontMaxWidth) FontMaxWidth = ef.Width; //登記最大寬度
@@ -683,8 +680,8 @@ namespace DC_Font_Generator
                 if (!fnt.Enable) continue;
                 if (SkipASCII && !fnt.IsDC) continue;
                 if (sc_only && fnt.IsDC) continue;
-                fnt.BottomAlign += shift;
-                fnt.BottomAlignFixed += shift;
+                fnt.fTopEdge += shift;
+                fnt.fTopEdgeFixed += shift;
             }
 
         }
@@ -717,7 +714,7 @@ namespace DC_Font_Generator
                     continue;
                 }
 
-                fnt.BottomAlign += doubleByteShift;
+                fnt.fTopEdge += doubleByteShift;
             }
         }
 
@@ -760,7 +757,7 @@ namespace DC_Font_Generator
         private bool TryGetMedianVisualCenter(bool isDC, bool preferFullHeight, bool cjkOnly, out float center)
         {
             List<float> centers = new List<float>();
-            float minHeight = this.iFntFile.Header.LineHeight * 0.5f;
+            float minHeight = this.iFntFile.Header.fBaseLine * 0.5f;
 
             foreach (Fnt_char fnt in this.iFntFile.CharList)
             {
@@ -769,7 +766,7 @@ namespace DC_Font_Generator
                     continue;
                 }
 
-                if (preferFullHeight && fnt.charViewHeight < minHeight)
+                if (preferFullHeight && fnt.fHeight < minHeight)
                 {
                     continue;
                 }
@@ -787,7 +784,7 @@ namespace DC_Font_Generator
 
         private float GetVisualCenter(Fnt_char fnt)
         {
-            return this.iFntFile.Header.LineHeight - fnt.BottomAlign + (fnt.charViewHeight / 2f);
+            return this.iFntFile.Header.fBaseLine - fnt.fTopEdge + (fnt.fHeight / 2f);
         }
 
         private static bool TryGetMedian(List<float> values, out float median)
@@ -809,8 +806,8 @@ namespace DC_Font_Generator
                 && !fnt.Empty
                 && !fnt.IsSpace
                 && fnt.IsDC == isDC
-                && fnt.charViewWidth > 0
-                && fnt.charViewHeight > 0;
+                && fnt.fWidth > 0
+                && fnt.fHeight > 0;
         }
 
         private static bool IsCjkIdeograph(char c)
@@ -1020,7 +1017,7 @@ namespace DC_Font_Generator
             //按照圖形高度排序
             public int Compare(Fnt_char x, Fnt_char y)
             {
-                return y.charViewHeight.CompareTo(x.charViewHeight);
+                return y.fHeight.CompareTo(x.fHeight);
             }
         }
         public class Fnt_char_Width : IComparer<Fnt_char>
@@ -1028,7 +1025,7 @@ namespace DC_Font_Generator
             //按照圖形寬度排序
             public int Compare(Fnt_char x, Fnt_char y)
             {
-                return y.charViewWidth.CompareTo(x.charViewWidth);
+                return y.fWidth.CompareTo(x.fWidth);
             }
         }
 

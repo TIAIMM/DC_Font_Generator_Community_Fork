@@ -8,10 +8,11 @@
     {
         public const int SerializedSize = 0x128;
 
-        private static int iConstant_0 = 1;
-        private static int iConstant_1 = 1;
-        private float iLineHeight;
-        public float LineHeightFixed = 0; //曾經修過的行高
+        // Matches the FontData prefix: fBaseLine, iTextureCount, then TextureFile data.
+        private int textureCount = 1;
+        private int textureType = 1;
+        private float baseLine;
+        public float fBaseLineFixed = 0;
         private char[] iTexFileName = new char[0x11c];
 
         public byte[] getBytes(Encoding enc)
@@ -25,29 +26,90 @@
         }
         public void WriteTo(BinaryWriter writer)
         {
-            writer.Write(this.iLineHeight);
-            writer.Write(iConstant_0);
-            writer.Write(iConstant_1);
+            writer.Write(this.baseLine);
+            writer.Write(textureCount);
+            writer.Write(textureType);
             writer.Write(this.iTexFileName);
         }
         public void setBytes(BinaryReader reader)
         {
-            this.iLineHeight=reader.ReadSingle();
-            iConstant_0=reader.ReadInt32();
-            iConstant_1=reader.ReadInt32();
+            this.baseLine=reader.ReadSingle();
+            textureCount=reader.ReadInt32();
+            textureType=reader.ReadInt32();
             this.iTexFileName = reader.ReadChars(0x11c);
 
         }
 
+        public float fBaseLine
+        {
+            get
+            {
+                return this.baseLine;
+            }
+            set
+            {
+                this.baseLine = value;
+            }
+        }
+
+        public int iTextureCount
+        {
+            get
+            {
+                return textureCount;
+            }
+            set
+            {
+                textureCount = value;
+            }
+        }
+
+        public int iTextureType
+        {
+            get
+            {
+                return textureType;
+            }
+            set
+            {
+                textureType = value;
+            }
+        }
+
+        public int TextureCount
+        {
+            get { return this.iTextureCount; }
+            set { this.iTextureCount = value; }
+        }
+
+        public int TextureType
+        {
+            get { return this.iTextureType; }
+            set { this.iTextureType = value; }
+        }
+
+        public float LineHeightFixed
+        {
+            get
+            {
+                return this.fBaseLineFixed;
+            }
+            set
+            {
+                this.fBaseLineFixed = value;
+            }
+        }
+
+        // Compatibility alias for old project/UI code. The .fnt header field is FontData::fBaseLine.
         public float LineHeight
         {
             get
             {
-                return this.iLineHeight;
+                return this.fBaseLine;
             }
             set
             {
-                this.iLineHeight = value;
+                this.fBaseLine = value;
             }
         }
 

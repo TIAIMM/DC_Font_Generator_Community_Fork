@@ -1,4 +1,4 @@
-﻿namespace DC_Font_Generator
+namespace DC_Font_Generator
 {
     using System;
     using System.Collections;
@@ -118,19 +118,20 @@
         public void AddEmpty(string hex,int ID)
         {
             Fnt_char item = new Fnt_char();
-            item.BottomAlign = 0f;
-            item.charViewHeight = 0f;
-            item.charViewWidth = 0f;
-            item.LeftSpace = 0f;
-            item.RightSpace = 0f;
-            item.x1 = 0f;
-            item.y1 = 0f;
-            item.x2 = 0f;
-            item.y2 = 0f;
-            item.x3 = 0f;
-            item.y3 = 0f;
-            item.x4 = 0f;
-            item.y4 = 0f;
+            item.fTopEdge = 0f;
+            item.fHeight = 0f;
+            item.fWidth = 0f;
+            item.fLeadingEdge = 0f;
+            item.fSpacing = 0f;
+            item.iTextureIndex = 0;
+            item.pMapping[0].fU = 0f;
+            item.pMapping[0].fV = 0f;
+            item.pMapping[1].fU = 0f;
+            item.pMapping[1].fV = 0f;
+            item.pMapping[2].fU = 0f;
+            item.pMapping[2].fV = 0f;
+            item.pMapping[3].fU = 0f;
+            item.pMapping[3].fV = 0f;
             item.Empty = true;
             item.Enable = false;
             item.ID = ID;
@@ -296,7 +297,7 @@
                     CharCode[i.ToString("X4")] = iCharList[i];
                     if (!ht.Contains(c)) ht[c] = i;
                     iCharList[i].c = c;
-                    float width = iCharList[i].charViewWidth + iCharList[i].LeftSpace + iCharList[i].RightSpace;
+                    float width = iCharList[i].fWidth + iCharList[i].fLeadingEdge + iCharList[i].fSpacing;
                     if (i < 0x7E && i>0x20)
                     {
                         if (Width == 0) Width = width;
