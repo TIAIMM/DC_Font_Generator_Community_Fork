@@ -12,6 +12,7 @@ namespace DC_Font_Generator
     {
         #region Members
 
+        private const float DefaultFontSizePixels = 23f;
         public int ID = 0;
         public string name = ""; //fnt名稱
         private FL_FONT iFntFile;
@@ -77,7 +78,7 @@ namespace DC_Font_Generator
         {
             this.parent = P;
             
-            this._font1Descriptor = new FontDescriptor(SystemFonts.DefaultFont.FontFamily.Name, SystemFonts.DefaultFont.Size);
+            this._font1Descriptor = new FontDescriptor(SystemFonts.DefaultFont.FontFamily.Name, DefaultFontSizePixels);
             this._font2Descriptor = this._font1Descriptor;
             this.NowFont = this._font1Descriptor;
             this.iFntFile = new FL_FONT();
