@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace DC_Font_Generator
 {
@@ -24,6 +25,7 @@ namespace DC_Font_Generator
         public FontRenderWorkflowStatus Status { get; set; }
         public bool BandListChanged { get; set; }
         public FontAtlasResult AtlasResult { get; set; }
+        public FontPerformanceStats PerformanceStats { get; set; }
         public bool Success => Status == FontRenderWorkflowStatus.Success
             && AtlasResult != null
             && AtlasResult.Success;
@@ -37,6 +39,9 @@ namespace DC_Font_Generator
             if (request.AtlasRequest == null) throw new ArgumentNullException(nameof(request.AtlasRequest));
 
             FontRenderWorkflowResult result = new FontRenderWorkflowResult();
+            FontPerformanceStats stats = new FontPerformanceStats();
+            result.PerformanceStats = stats;
+            request.AtlasRequest.PerformanceStats = stats;
 
             if (request.GlyphSelection != null && request.Encoding != null)
             {
@@ -47,10 +52,13 @@ namespace DC_Font_Generator
                 }
             }
 
+            Stopwatch manufacturingWatch = Stopwatch.StartNew();
             foreach (Main section in request.FontSections)
             {
                 section.NewDrawing(request.Encoding, request.Progress);
             }
+            manufacturingWatch.Stop();
+            stats.Add("Manufacturing", manufacturingWatch.Elapsed);
 
             FontAtlasResult atlasResult = FontGenerationServices.BuildAtlas(request.AtlasRequest, request.Progress);
             result.AtlasResult = atlasResult;

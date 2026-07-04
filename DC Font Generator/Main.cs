@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
 using System.Threading;
@@ -58,6 +59,7 @@ namespace DC_Font_Generator
             public int Outline;
             public Color OutlineColor;
             public Color FontColor;
+            public FontRenderBackend RenderBackend;
         }
 
         private sealed class FontRenderState
@@ -488,7 +490,10 @@ namespace DC_Font_Generator
             if (renderTotal == 0) return;
 
             FontRenderSettings settings = CaptureFontRenderSettings();
-            int maxParallelism = Math.Max(1, Math.Min(buildItems.Count, Environment.ProcessorCount - 1));
+            settings.RenderBackend = SelectRenderBackend(settings, buildItems);
+            int maxParallelism = settings.RenderBackend == FontRenderBackend.Direct3D12
+                ? 1
+                : Math.Max(1, Math.Min(buildItems.Count, Environment.ProcessorCount - 1));
             int renderedCount = 0;
 
             Task renderTask = Task.Run(() =>
@@ -544,6 +549,88 @@ namespace DC_Font_Generator
             };
         }
 
+        private FontRenderBackend SelectRenderBackend(FontRenderSettings settings, List<FontBuildItem> buildItems)
+        {
+            FontRenderBackend requested = FontRenderBackendSelector.ReadRequestedBackend();
+            if (requested == FontRenderBackend.Cpu || requested == FontRenderBackend.Direct3D12)
+            {
+                return requested;
+            }
+
+            TimeSpan cpuTime;
+            if (!TryBenchmarkBackend(FontRenderBackend.Cpu, settings, buildItems, out cpuTime))
+            {
+                return FontRenderBackend.Cpu;
+            }
+
+            TimeSpan d3dTime;
+            if (!TryBenchmarkBackend(FontRenderBackend.Direct3D12, settings, buildItems, out d3dTime))
+            {
+                return FontRenderBackend.Cpu;
+            }
+
+            return d3dTime < cpuTime ? FontRenderBackend.Direct3D12 : FontRenderBackend.Cpu;
+        }
+
+        private bool TryBenchmarkBackend(
+            FontRenderBackend backend,
+            FontRenderSettings settings,
+            List<FontBuildItem> buildItems,
+            out TimeSpan elapsed)
+        {
+            elapsed = TimeSpan.Zero;
+            FontRenderSettings benchmarkSettings = new FontRenderSettings
+            {
+                BackColor = settings.BackColor,
+                DrawMode = settings.DrawMode,
+                Glow = settings.Glow,
+                GlowColor = settings.GlowColor,
+                Outline = settings.Outline,
+                OutlineColor = settings.OutlineColor,
+                FontColor = settings.FontColor,
+                RenderBackend = backend
+            };
+
+            int sampleCount = 0;
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            try
+            {
+                using (DrawFont renderer = CreateDrawFontRenderer(benchmarkSettings))
+                {
+                    Font activeFont = null;
+                    for (int i = 0; i < buildItems.Count && sampleCount < 64; i++)
+                    {
+                        FontBuildItem item = buildItems[i];
+                        if (item.IsEmpty || IsOriginalSerializedBlankGlyph(item.Character))
+                        {
+                            continue;
+                        }
+
+                        Font selectedFont = item.UseFont2 ? this.font2 : this.font1;
+                        if (activeFont != selectedFont)
+                        {
+                            renderer.FontData = selectedFont;
+                            activeFont = selectedFont;
+                        }
+
+                        DrawFont.GlyphRenderResult glyph = renderer.RenderGlyph(item.Character);
+                        glyph.Image?.Dispose();
+                        sampleCount++;
+                    }
+                }
+
+                stopwatch.Stop();
+                elapsed = stopwatch.Elapsed;
+                return sampleCount > 0;
+            }
+            catch
+            {
+                stopwatch.Stop();
+                elapsed = stopwatch.Elapsed;
+                return false;
+            }
+        }
+
         private FontRenderState CreateFontRenderState(FontRenderSettings settings)
         {
             return new FontRenderState
@@ -557,6 +644,7 @@ namespace DC_Font_Generator
         private DrawFont CreateDrawFontRenderer(FontRenderSettings settings)
         {
             DrawFont renderer = new DrawFont();
+            renderer.RenderBackend = settings.RenderBackend;
             renderer.BackColor = settings.BackColor;
             renderer.DrawMode = settings.DrawMode;
             renderer.OutlineWidth = settings.Outline;
@@ -932,7 +1020,7 @@ namespace DC_Font_Generator
             //按照圖形高度排序
             public int Compare(Fnt_char x, Fnt_char y)
             {
-                return y.FontImage.Height - x.FontImage.Height;
+                return y.charViewHeight.CompareTo(x.charViewHeight);
             }
         }
         public class Fnt_char_Width : IComparer<Fnt_char>
@@ -940,7 +1028,7 @@ namespace DC_Font_Generator
             //按照圖形寬度排序
             public int Compare(Fnt_char x, Fnt_char y)
             {
-                return y.FontImage.Width - x.FontImage.Width;
+                return y.charViewWidth.CompareTo(x.charViewWidth);
             }
         }
 

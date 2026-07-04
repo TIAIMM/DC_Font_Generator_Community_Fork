@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Text;
 using SkiaSharp;
 
 namespace DC_Font_Generator
@@ -31,6 +30,21 @@ namespace DC_Font_Generator
 
         private SKTypeface skTypeface;
         private bool ownsSkTypeface;
+        private GlyphRenderContext glyphRenderContext;
+        private FontRenderBackend renderBackend = FontRenderBackendSelector.ReadRequestedBackend();
+
+        public FontRenderBackend RenderBackend
+        {
+            get { return renderBackend; }
+            set
+            {
+                if (renderBackend != value)
+                {
+                    renderBackend = value;
+                    ResetGlyphRenderContext();
+                }
+            }
+        }
 
 		public DrawFont()
         {
@@ -143,6 +157,7 @@ namespace DC_Font_Generator
 
 			//建立底部對齊點
 			CDZ_BottomAlign = (shift / 2) + ascentPixel + 0.5f; // 增加0.5像素偏移补偿
+            ResetGlyphRenderContext();
 		}
 
 		/// <summary>
@@ -211,11 +226,9 @@ namespace DC_Font_Generator
             float baseline = CDZ_BottomAlign;
             int surfaceSize = Math.Max(1, (int)Math.Ceiling(lineSpacingPixel * 2f + (effectShift * 4f) + 4f));
 
-            SKImageInfo imageInfo = new SKImageInfo(surfaceSize, surfaceSize, SKColorType.Bgra8888, SKAlphaType.Premul);
             SKTypeface glyphTypeface = ResolveTypefaceForCharacter(c, out bool ownsGlyphTypeface);
             try
             {
-                using (SKSurface surface = SKSurface.Create(imageInfo))
                 using (SKFont font = CreateTextFont(glyphTypeface))
                 using (SKPaint fillPaint = CreateTextPaint(SKPaintStyle.Fill, FontColor, 0f))
                 using (SKPath glyphPath = GetTextPath(font, text, originX, baseline))
@@ -232,16 +245,14 @@ namespace DC_Font_Generator
                     }
 
                     result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
-                    result.RealSpace = GetSkiaPathRealSpace(text, originBounds.Width, originX, baseline, glyphTypeface);
+                    result.RealSpace = GetSkiaPathRealSpace(font, text, originBounds.Width, originX, baseline);
 
-                    SKCanvas canvas = surface.Canvas;
-                    canvas.Clear(SkiaBitmapInterop.ToSKColor(BackColor));
+                    SKCanvas canvas = GetGlyphRenderContext().PrepareCanvas(surfaceSize, surfaceSize, BackColor);
 
                     DrawSkiaEffects(canvas, glyphPath);
                     canvas.DrawPath(glyphPath, fillPaint);
-                    canvas.Flush();
 
-                    byte[] pixels = SkiaBitmapInterop.ReadSurfacePixels(surface, surfaceSize, surfaceSize);
+                    byte[] pixels = GetGlyphRenderContext().ReadPixels();
                     Rectangle bounds = SkiaBitmapInterop.FindContentBounds(pixels, surfaceSize, surfaceSize, BackColor);
                     if (bounds.Width <= 0 || bounds.Height <= 0)
                     {
@@ -307,9 +318,8 @@ namespace DC_Font_Generator
             }
         }
 
-        private float GetSkiaPathRealSpace(string text, float originWidth, float originX, float baseline, SKTypeface typeface)
+        private float GetSkiaPathRealSpace(SKFont font, string text, float originWidth, float originX, float baseline)
         {
-            using (SKFont font = CreateTextFont(typeface))
             using (SKPath doublePath = GetTextPath(font, text + text, originX, baseline))
             {
                 if (doublePath == null)
@@ -345,8 +355,7 @@ namespace DC_Font_Generator
 
         private static SKPath GetTextPath(SKFont font, string text, float x, float y)
         {
-            byte[] textBytes = Encoding.Unicode.GetBytes(text);
-            return font.GetTextPath(textBytes, SKTextEncoding.Utf16, new SKPoint(x, y));
+            return font.GetTextPath(text.AsSpan(), new SKPoint(x, y));
         }
 
         private SKTypeface ResolveTypefaceForCharacter(char c, out bool ownsResolvedTypeface)
@@ -417,6 +426,40 @@ namespace DC_Font_Generator
 
             skTypeface = next;
             ownsSkTypeface = ownsNext;
+            ResetGlyphRenderContext();
+        }
+
+        private GlyphRenderContext GetGlyphRenderContext()
+        {
+            if (glyphRenderContext != null)
+            {
+                return glyphRenderContext;
+            }
+
+            FontRenderBackend backend = renderBackend == FontRenderBackend.Auto
+                ? FontRenderBackend.Cpu
+                : renderBackend;
+            try
+            {
+                glyphRenderContext = new GlyphRenderContext(FontRenderBackendSelector.CreateFactory(backend));
+            }
+            catch
+            {
+                if (backend == FontRenderBackend.Cpu)
+                {
+                    throw;
+                }
+
+                glyphRenderContext = new GlyphRenderContext(FontRenderBackendSelector.CreateFactory(FontRenderBackend.Cpu));
+            }
+
+            return glyphRenderContext;
+        }
+
+        private void ResetGlyphRenderContext()
+        {
+            glyphRenderContext?.Dispose();
+            glyphRenderContext = null;
         }
 
 		public class GlyphRenderResult
@@ -591,6 +634,7 @@ namespace DC_Font_Generator
 
         public void Dispose()
         {
+            ResetGlyphRenderContext();
             if (ownsSkTypeface && skTypeface != null)
             {
                 skTypeface.Dispose();

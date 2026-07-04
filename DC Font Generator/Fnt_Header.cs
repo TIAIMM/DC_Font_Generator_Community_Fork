@@ -6,6 +6,8 @@
 
     public class Fnt_Header
     {
+        public const int SerializedSize = 0x128;
+
         private static int iConstant_0 = 1;
         private static int iConstant_1 = 1;
         private float iLineHeight;
@@ -16,13 +18,17 @@
         {
             MemoryStream output = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(output, enc);
+            WriteTo(writer);
+            writer.Flush();
+            writer.Close();
+            return output.ToArray();
+        }
+        public void WriteTo(BinaryWriter writer)
+        {
             writer.Write(this.iLineHeight);
             writer.Write(iConstant_0);
             writer.Write(iConstant_1);
             writer.Write(this.iTexFileName);
-            writer.Flush();
-            writer.Close();
-            return output.ToArray();
         }
         public void setBytes(BinaryReader reader)
         {

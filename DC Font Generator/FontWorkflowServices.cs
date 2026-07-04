@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Text;
@@ -139,11 +140,13 @@ namespace DC_Font_Generator
         public IList<string> FntPaths { get; set; } = Array.Empty<string>();
         public Encoding Encoding { get; set; }
         public IProgress<FontProgress> Progress { get; set; }
+        public FontPerformanceStats PerformanceStats { get; set; }
     }
 
     internal sealed class FontSaveResult
     {
         public List<string> FontNames { get; } = new List<string>();
+        public FontPerformanceStats PerformanceStats { get; set; }
     }
 
     internal sealed class FontSectionControlResult
@@ -202,9 +205,16 @@ namespace DC_Font_Generator
                 throw new ArgumentException("Fnt path count does not match font section count.");
             }
 
-            TextureFileService.SaveTex(request.TexPath, request.TextImage, request.Progress);
-
             FontSaveResult result = new FontSaveResult();
+            FontPerformanceStats stats = request.PerformanceStats ?? new FontPerformanceStats();
+            result.PerformanceStats = stats;
+
+            Stopwatch saveTexWatch = Stopwatch.StartNew();
+            TextureFileService.SaveTex(request.TexPath, request.TextImage, request.Progress);
+            saveTexWatch.Stop();
+            stats.Add("SaveTex", saveTexWatch.Elapsed);
+
+            Stopwatch saveFntWatch = Stopwatch.StartNew();
             for (int i = 0; i < request.FontSections.Count; i++)
             {
                 Main main = request.FontSections[i];
@@ -215,6 +225,8 @@ namespace DC_Font_Generator
                 main.SaveFnt(fntPath, request.Encoding);
                 result.FontNames.Add(fntName);
             }
+            saveFntWatch.Stop();
+            stats.Add("SaveFnt", saveFntWatch.Elapsed);
 
             return result;
         }

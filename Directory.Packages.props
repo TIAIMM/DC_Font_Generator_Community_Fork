@@ -10,5 +10,7 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="3.119.4" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.18" />
     <PackageVersion Include="System.Text.Encoding.CodePages" Version="9.0.7" />
+    <PackageVersion Include="Vortice.Direct3D12" Version="3.8.3" />
+    <PackageVersion Include="Vortice.DXGI" Version="3.8.3" />
   </ItemGroup>
 </Project>

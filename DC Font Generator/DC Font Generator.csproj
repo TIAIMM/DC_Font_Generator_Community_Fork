@@ -12,6 +12,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWindowsForms>true</UseWindowsForms>
     <ForceDesignerDpiUnaware>true</ForceDesignerDpiUnaware>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
@@ -41,6 +42,7 @@
     <Compile Include="DrawFont.cs" />
     <Compile Include="Encoding.cs" />
     <Compile Include="FL_FONT.cs" />
+    <Compile Include="FntBinaryCodec.cs" />
     <Compile Include="Fnt_char.cs" />
     <Compile Include="Fnt_Header.cs" />
     <Compile Include="FalloutFontServices.cs" />
@@ -49,10 +51,12 @@
     <Compile Include="FontIniWorkflowService.cs" />
     <Compile Include="FontPickerServices.cs" />
     <Compile Include="FontPickerPreviewRenderer.cs" />
+    <Compile Include="FontPerformanceStats.cs" />
     <Compile Include="FontRenderWorkflowService.cs" />
     <Compile Include="FontSectionStateService.cs" />
     <Compile Include="FontUiLogicServices.cs" />
     <Compile Include="FontWorkflowServices.cs" />
+    <Compile Include="GlyphRenderSurfaces.cs" />
     <Compile Include="GlyphEditingServices.cs" />
     <Compile Include="GlyphInteractionService.cs" />
     <Compile Include="GlyphSelectionWorkflowService.cs" />
@@ -95,11 +99,14 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="TextureFileService.cs" />
+    <Compile Include="TexturePixelCodec.cs" />
     <Compile Include="TextureWorkflowService.cs" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
     <PackageReference Include="System.Drawing.Common" />
     <PackageReference Include="System.Text.Encoding.CodePages" />
+    <PackageReference Include="Vortice.Direct3D12" />
+    <PackageReference Include="Vortice.DXGI" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="FontListSelect.resx">

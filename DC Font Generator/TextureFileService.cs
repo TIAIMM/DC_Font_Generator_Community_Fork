@@ -2,7 +2,6 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace DC_Font_Generator
 {
@@ -21,29 +20,7 @@ namespace DC_Font_Generator
             BitmapData bmpData = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                int rowBytes = bitmap.Width * 4;
-                byte[] sourceRow = new byte[rowBytes];
-                byte[] outputRow = new byte[rowBytes];
-
-                for (int y = 0; y < bitmap.Height; y++)
-                {
-                    IntPtr sourcePtr = IntPtr.Add(bmpData.Scan0, y * bmpData.Stride);
-                    Marshal.Copy(sourcePtr, sourceRow, 0, rowBytes);
-
-                    for (int i = 0; i < rowBytes; i += 4)
-                    {
-                        outputRow[i] = sourceRow[i + 2];
-                        outputRow[i + 1] = sourceRow[i + 1];
-                        outputRow[i + 2] = sourceRow[i];
-                        outputRow[i + 3] = sourceRow[i + 3];
-                    }
-
-                    output.Write(outputRow, 0, rowBytes);
-                    if ((y & 0x0F) == 0 || y == bitmap.Height - 1)
-                    {
-                        ReportProgress(progress, "SavingTex", y + 1, bitmap.Height);
-                    }
-                }
+                TexturePixelCodec.SaveTexPixels(output, bmpData, bitmap.Width, bitmap.Height, progress);
             }
             finally
             {
@@ -75,7 +52,7 @@ namespace DC_Font_Generator
 
                 try
                 {
-                    Marshal.Copy(pixelData, 0, bmpData.Scan0, totalBytes);
+                    TexturePixelCodec.LoadTexPixels(pixelData, bmpData, width, height);
                 }
                 finally
                 {

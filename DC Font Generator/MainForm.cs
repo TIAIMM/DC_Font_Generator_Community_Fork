@@ -756,6 +756,11 @@ namespace DC_Font_Generator
                 Encoding = fenc.enc,
                 Progress = CreateFontProgress()
             });
+            string savePerformanceLog = saveResult.PerformanceStats?.ToLogLine();
+            if (!string.IsNullOrEmpty(savePerformanceLog))
+            {
+                OutputLog(savePerformanceLog);
+            }
 
             InitFontSelector();
             ApplySavedFontIniSelections(
@@ -855,6 +860,11 @@ namespace DC_Font_Generator
             }
 
             BindAtlasResult(result.AtlasResult, startTime);
+            string performanceLog = result.PerformanceStats?.ToLogLine();
+            if (!string.IsNullOrEmpty(performanceLog))
+            {
+                OutputLog(performanceLog);
+            }
             this.buttonClear.Enabled = true;
             return true;
         }

@@ -1,8 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace DC_Font_Generator
 {
@@ -12,6 +12,7 @@ namespace DC_Font_Generator
         public Bitmap Texture { get; set; }
         public bool FixedFont { get; set; }
         public float FontMaxWidth { get; set; }
+        public FontPerformanceStats PerformanceStats { get; set; } = new FontPerformanceStats();
     }
 
     public static class FontFileImportService
@@ -35,7 +36,10 @@ namespace DC_Font_Generator
                 return result;
             }
 
+            Stopwatch loadFntWatch = Stopwatch.StartNew();
             fontFile.load(path, fontEncoding.enc, fontEncoding.Temp, id);
+            loadFntWatch.Stop();
+            result.PerformanceStats.Add("LoadFnt", loadFntWatch.Elapsed);
             if (!loadTex || fontFile.Header.TexFileName == null)
             {
                 return result;
@@ -50,14 +54,20 @@ namespace DC_Font_Generator
 
             try
             {
+                Stopwatch loadTexWatch = Stopwatch.StartNew();
                 result.Texture = TextureFileService.LoadTex(texPath);
+                loadTexWatch.Stop();
+                result.PerformanceStats.Add("LoadTex", loadTexWatch.Elapsed);
             }
             catch
             {
                 return result;
             }
 
+            Stopwatch buildIndexWatch = Stopwatch.StartNew();
             BuildCharIndex(fontFile, result.Texture, charIndex, progress);
+            buildIndexWatch.Stop();
+            result.PerformanceStats.Add("BuildCharIndex", buildIndexWatch.Elapsed);
 
             if (fontFile.FixedWidth > 0)
             {
@@ -81,91 +91,73 @@ namespace DC_Font_Generator
             BitmapData bmpData = texture.LockBits(
                 new Rectangle(0, 0, texture.Width, texture.Height),
                 ImageLockMode.ReadOnly,
-                texture.PixelFormat);
-
-            int bytesPerPixel = Image.GetPixelFormatSize(texture.PixelFormat) / 8;
-            int byteCount = bmpData.Stride * texture.Height;
-            byte[] pixelBuffer = new byte[byteCount];
-
-            Marshal.Copy(bmpData.Scan0, pixelBuffer, 0, byteCount);
-            texture.UnlockBits(bmpData);
-
-            int index = 0;
-            foreach (Fnt_char fnt in fontFile.CharList)
+                PixelFormat.Format32bppArgb);
+            try
             {
-                if (!fnt.Enable)
+                int index = 0;
+                foreach (Fnt_char fnt in fontFile.CharList)
                 {
-                    index++;
-                    continue;
-                }
+                    if (!fnt.Enable)
+                    {
+                        index++;
+                        continue;
+                    }
 
-                if (index % 10 == 0)
-                {
+                    if (index % 10 == 0)
+                    {
+                        ReportProgress(progress, index, fontFile.CharList.Count);
+                    }
+
+                    int px = (int)(fnt.x1 * texture.Width);
+                    int py = (int)(fnt.y1 * texture.Height);
+                    int rx = (int)(fnt.x4 * texture.Width);
+                    int ry = (int)(fnt.y4 * texture.Height);
+
+                    if (px < 0) px = 0;
+                    if (py < 0) py = 0;
+                    if (rx > texture.Width) rx = texture.Width;
+                    if (ry > texture.Height) ry = texture.Height;
+
+                    int pw = rx - px;
+                    int ph = ry - py;
+
+                    if (pw <= 0 || ph <= 0)
+                    {
+                        fnt.Empty = true;
+                        fnt.IsSpace = true;
+                        UpdateEmptyIndex(fontFile, fnt, index);
+                        index++;
+                        continue;
+                    }
+
+                    Rectangle rect = new Rectangle(px, py, pw, ph);
+                    fnt.SetLazyFontImage(texture, rect);
+
+                    bool notBlack = TexturePixelCodec.HasNonZeroPixel(bmpData, rect);
+                    for (int y = py; y < ry; y++)
+                    {
+                        charIndex.SetRange(px, y, pw, fnt);
+                    }
+
+                    if (notBlack)
+                    {
+                        fnt.Empty = false;
+                        fnt.IsSpace = (pw == 1 && ph == 1);
+                    }
+                    else
+                    {
+                        fnt.Empty = true;
+                        fnt.IsSpace = true;
+                        UpdateEmptyIndex(fontFile, fnt, index);
+                    }
+
+                    index++;
                     ReportProgress(progress, index, fontFile.CharList.Count);
                 }
-
-                int px = (int)(fnt.x1 * texture.Width);
-                int py = (int)(fnt.y1 * texture.Height);
-                int rx = (int)(fnt.x4 * texture.Width);
-                int ry = (int)(fnt.y4 * texture.Height);
-
-                if (px < 0) px = 0;
-                if (py < 0) py = 0;
-                if (rx > texture.Width) rx = texture.Width;
-                if (ry > texture.Height) ry = texture.Height;
-
-                int pw = rx - px;
-                int ph = ry - py;
-
-                if (pw <= 0 || ph <= 0)
-                {
-                    fnt.Empty = true;
-                    fnt.IsSpace = true;
-                    UpdateEmptyIndex(fontFile, fnt, index);
-                    index++;
-                    continue;
-                }
-
-                Rectangle rect = new Rectangle(px, py, pw, ph);
-                fnt.SetLazyFontImage(texture, rect);
-
-                bool notBlack = false;
-                for (int y = py; y < ry; y++)
-                {
-                    charIndex.SetRange(px, y, pw, fnt);
-
-                    if (!notBlack)
-                    {
-                        for (int x = px; x < rx; x++)
-                        {
-                            int offset = (y * bmpData.Stride) + (x * bytesPerPixel);
-                            if (bytesPerPixel >= 4
-                                && (pixelBuffer[offset + 3] > 0
-                                    || pixelBuffer[offset + 2] > 0
-                                    || pixelBuffer[offset + 1] > 0
-                                    || pixelBuffer[offset] > 0))
-                            {
-                                notBlack = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (notBlack)
-                {
-                    fnt.Empty = false;
-                    fnt.IsSpace = (pw == 1 && ph == 1);
-                }
-                else
-                {
-                    fnt.Empty = true;
-                    fnt.IsSpace = true;
-                    UpdateEmptyIndex(fontFile, fnt, index);
-                }
-
-                index++;
-                ReportProgress(progress, index, fontFile.CharList.Count);
+            }
+            finally
+            {
+                texture.UnlockBits(bmpData);
             }
         }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Drawing;
 using System.Collections.Generic;
@@ -10,6 +11,8 @@ namespace DC_Font_Generator
 
     public class Fnt_char
     {
+        public const int SerializedSize = 56;
+
         [DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")]
         private static extern void CopyMemory(IntPtr dest, IntPtr src, uint length);
 
@@ -64,47 +67,68 @@ namespace DC_Font_Generator
         }
         public byte[] getBytes()
         {
-            MemoryStream output = new MemoryStream();
-            BinaryWriter writer = new BinaryWriter(output);
-            WriteTo(writer);
-            writer.Flush();
-            writer.Close();
-            return output.ToArray();
+            byte[] bytes = new byte[SerializedSize];
+            WriteTo(bytes);
+            return bytes;
         }
         public void WriteTo(BinaryWriter writer)
         {
-            writer.Write(iConstant_0);
-            writer.Write(this.ix1);
-            writer.Write(this.iy1);
-            writer.Write(this.ix2);
-            writer.Write(this.iy2);
-            writer.Write(this.ix3);
-            writer.Write(this.iy3);
-            writer.Write(this.ix4);
-            writer.Write(this.iy4);
-            writer.Write(this.icharViewWidth);
-            writer.Write(this.icharViewHeight);
-            writer.Write(this.iLeftSpace);
-            writer.Write(this.iRightSpace);
-            writer.Write(this.iBottomAlign);
+            Span<byte> bytes = stackalloc byte[SerializedSize];
+            WriteTo(bytes);
+            writer.Write(bytes);
+        }
+        public void WriteTo(Span<byte> bytes)
+        {
+            if (bytes.Length < SerializedSize) throw new ArgumentException("Fnt_char record buffer is too small.", nameof(bytes));
+
+            WriteSingle(bytes, 0, iConstant_0);
+            WriteSingle(bytes, 4, this.ix1);
+            WriteSingle(bytes, 8, this.iy1);
+            WriteSingle(bytes, 12, this.ix2);
+            WriteSingle(bytes, 16, this.iy2);
+            WriteSingle(bytes, 20, this.ix3);
+            WriteSingle(bytes, 24, this.iy3);
+            WriteSingle(bytes, 28, this.ix4);
+            WriteSingle(bytes, 32, this.iy4);
+            WriteSingle(bytes, 36, this.icharViewWidth);
+            WriteSingle(bytes, 40, this.icharViewHeight);
+            WriteSingle(bytes, 44, this.iLeftSpace);
+            WriteSingle(bytes, 48, this.iRightSpace);
+            WriteSingle(bytes, 52, this.iBottomAlign);
         }
         public void setBytes(BinaryReader reader)
         {
-            iConstant_0 = reader.ReadSingle();
-            this.ix1 = reader.ReadSingle();
-            this.iy1 = reader.ReadSingle();
-            this.ix2 = reader.ReadSingle();
-            this.iy2 = reader.ReadSingle();
-            this.ix3 = reader.ReadSingle();
-            this.iy3 = reader.ReadSingle();
-            this.ix4 = reader.ReadSingle();
-            this.iy4 = reader.ReadSingle();
-            this.icharViewWidth = reader.ReadSingle();
-            this.icharViewHeight = reader.ReadSingle();
-            this.iLeftSpace = reader.ReadSingle();
-            this.iRightSpace = reader.ReadSingle();
-            this.iBottomAlign = reader.ReadSingle();
+            byte[] bytes = reader.ReadBytes(SerializedSize);
+            if (bytes.Length != SerializedSize) throw new EndOfStreamException("Unexpected end of .fnt character record.");
+            ReadFrom(bytes);
+        }
+        public void ReadFrom(ReadOnlySpan<byte> bytes)
+        {
+            if (bytes.Length < SerializedSize) throw new ArgumentException("Fnt_char record buffer is too small.", nameof(bytes));
+
+            iConstant_0 = ReadSingle(bytes, 0);
+            this.ix1 = ReadSingle(bytes, 4);
+            this.iy1 = ReadSingle(bytes, 8);
+            this.ix2 = ReadSingle(bytes, 12);
+            this.iy2 = ReadSingle(bytes, 16);
+            this.ix3 = ReadSingle(bytes, 20);
+            this.iy3 = ReadSingle(bytes, 24);
+            this.ix4 = ReadSingle(bytes, 28);
+            this.iy4 = ReadSingle(bytes, 32);
+            this.icharViewWidth = ReadSingle(bytes, 36);
+            this.icharViewHeight = ReadSingle(bytes, 40);
+            this.iLeftSpace = ReadSingle(bytes, 44);
+            this.iRightSpace = ReadSingle(bytes, 48);
+            this.iBottomAlign = ReadSingle(bytes, 52);
             if (this.icharViewHeight + this.iBottomAlign + this.icharViewWidth + this.iLeftSpace + this.iRightSpace == 0) Enable = false;
+        }
+        private static void WriteSingle(Span<byte> bytes, int offset, float value)
+        {
+            BinaryPrimitives.WriteSingleLittleEndian(bytes.Slice(offset, sizeof(float)), value);
+        }
+        private static float ReadSingle(ReadOnlySpan<byte> bytes, int offset)
+        {
+            return BinaryPrimitives.ReadSingleLittleEndian(bytes.Slice(offset, sizeof(float)));
         }
         public Bitmap FontImage
         {

@@ -161,47 +161,28 @@
 
         private void WriteTo(BinaryWriter writer, Encoding enc, bool ASCII_only)
         {
-            writer.Write(this.iHeader.getBytes(enc));
+            this.iHeader.WriteTo(writer);
             int max = ASCII_only ? Math.Min(256, this.iCharList.Count) : this.iCharList.Count;
-            for (int i = 0; i < max; i++)
-            {
-                this.iCharList[i].WriteTo(writer);
-            }
+            FntBinaryCodec.WriteRecords(writer, this.iCharList, 0, max);
         }
 
         private void WriteAppendTo(BinaryWriter writer)
         {
-            for (int i = 256; i < this.iCharList.Count; i++)
-            {
-                this.iCharList[i].WriteTo(writer);
-            }
+            FntBinaryCodec.WriteRecords(writer, this.iCharList, 256, this.iCharList.Count);
         }
 
         private void setBytes(string filename, Encoding enc, List<string> Temp,int ID)
         {
             try
             {
-                
-                FileStream input = new FileStream(filename, FileMode.Open);
-                BinaryReader reader = new BinaryReader(input, enc);
-                this.iHeader.setBytes(reader);
-                //開啟Tex
-                this.iCharList.Clear();
-                int count = 0;
-                while (reader.PeekChar() != -1)
+                using (FileStream input = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024))
+                using (BinaryReader reader = new BinaryReader(input, enc))
                 {
-                    Fnt_char fc = new Fnt_char();
-                    fc.setBytes(reader);
-
-                    string hex = Temp[count].Substring(2, 4);
-                    fc.ID = ID;
-                    fc.HEX = hex;
-                    this.iCharList.Add(fc);
-                    CharCode[hex] = this.iCharList[count];
-                    count++;
+                    this.iHeader.setBytes(reader);
+                    //開啟Tex
+                    this.iCharList.Clear();
+                    FntBinaryCodec.ReadRecords(input, reader, Temp, ID, this.iCharList, CharCode);
                 }
-                reader.Close();
-                input.Close();
             }
             catch (Exception ee)
             {
