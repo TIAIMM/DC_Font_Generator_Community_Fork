@@ -24,6 +24,7 @@ namespace DC_Font_Generator
         private readonly Color fontColor;
         private readonly FontDescriptor singleByteFont;
         private readonly FontDescriptor doubleByteFont;
+        private readonly Func<string, string> localize;
         private List<FontPickerFontEntry> allFontEntries = new List<FontPickerFontEntry>();
         private FontDescriptor previewFont;
         private bool preserveStyleOnFontSelection;
@@ -50,7 +51,8 @@ namespace DC_Font_Generator
             Color glowColor,
             int outline,
             Color outlineColor,
-            Color fontColor)
+            Color fontColor,
+            LanguageData language = null)
         {
             if (currentFont == null)
             {
@@ -67,6 +69,7 @@ namespace DC_Font_Generator
             this.outline = Math.Max(0, outline);
             this.outlineColor = outlineColor;
             this.fontColor = fontColor;
+            this.localize = language != null ? new Func<string, string>(language.GetString) : value => value;
             SelectedFont = currentFont;
             InitializeComponent();
             LoadFonts(currentFont);
@@ -96,7 +99,7 @@ namespace DC_Font_Generator
 
         private void InitializeComponent()
         {
-            Text = "Select Font";
+            Text = L("Select Font");
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             MaximizeBox = false;
@@ -150,10 +153,10 @@ namespace DC_Font_Generator
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30f));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            panel.Controls.Add(CreateHeaderLabel("Font"), 0, 0);
+            panel.Controls.Add(CreateHeaderLabel(L("Font")), 0, 0);
 
             fontSearch.Dock = DockStyle.Fill;
-            fontSearch.PlaceholderText = "Search by name";
+            fontSearch.PlaceholderText = L("Search by name");
             fontSearch.TextChanged += delegate { ApplyFontFilter(GetSelectedFontName()); };
             panel.Controls.Add(fontSearch, 0, 1);
 
@@ -172,7 +175,7 @@ namespace DC_Font_Generator
 
         private Control CreateStylePanel()
         {
-            TableLayoutPanel panel = CreateLabeledPanel("Style");
+            TableLayoutPanel panel = CreateLabeledPanel(L("Style"));
             styleList.Dock = DockStyle.Fill;
             styleList.IntegralHeight = false;
             styleList.SelectedIndexChanged += delegate { UpdatePreview(); };
@@ -191,7 +194,7 @@ namespace DC_Font_Generator
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
 
-            panel.Controls.Add(CreateHeaderLabel("Size (px)"), 0, 0);
+            panel.Controls.Add(CreateHeaderLabel(L("Size (px)")), 0, 0);
 
             sizeInput.DecimalPlaces = 0;
             sizeInput.Minimum = 1;
@@ -221,7 +224,7 @@ namespace DC_Font_Generator
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            panel.Controls.Add(CreateHeaderLabel("Preview"), 0, 0);
+            panel.Controls.Add(CreateHeaderLabel(L("Preview")), 0, 0);
             previewPanel.BorderStyle = BorderStyle.FixedSingle;
             previewPanel.Dock = DockStyle.Fill;
             previewPanel.BackColor = Color.Lime;
@@ -261,7 +264,7 @@ namespace DC_Font_Generator
         {
             okButton = new Button
             {
-                Text = "OK",
+                Text = L("OK"),
                 DialogResult = DialogResult.OK,
                 Width = 88
             };
@@ -269,14 +272,19 @@ namespace DC_Font_Generator
             return okButton;
         }
 
-        private static Button CreateCancelButton()
+        private Button CreateCancelButton()
         {
             return new Button
             {
-                Text = "Cancel",
+                Text = L("Cancel"),
                 DialogResult = DialogResult.Cancel,
                 Width = 88
             };
+        }
+
+        private string L(string key)
+        {
+            return localize != null ? localize(key) : key;
         }
 
         private void LoadFonts(FontDescriptor currentFont)
@@ -400,7 +408,7 @@ namespace DC_Font_Generator
             FontPickerStyleResult result = FontPickerCatalogService.GetStyles(entry, preferredDescriptor);
             foreach (FontPickerStyleItem item in result.Styles)
             {
-                styleList.Items.Add(item);
+                styleList.Items.Add(new LocalizedFontPickerStyleItem(item, LocalizeStyleName(item.Name)));
             }
 
             styleList.SelectedIndex = result.SelectedIndex;
@@ -501,12 +509,64 @@ namespace DC_Font_Generator
 
         private FontStyleDescriptor GetSelectedStyleDescriptor()
         {
+            if (styleList.SelectedItem is LocalizedFontPickerStyleItem localizedItem)
+            {
+                return localizedItem.Descriptor;
+            }
+
             if (styleList.SelectedItem is FontPickerStyleItem item)
             {
                 return item.Descriptor;
             }
 
             return GetRegularStyleDescriptor();
+        }
+
+        private string LocalizeStyleName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return name;
+            }
+
+            string direct = L(name);
+            if (!string.Equals(direct, name, StringComparison.Ordinal))
+            {
+                return direct;
+            }
+
+            const string italicSuffix = " Italic";
+            if (name.EndsWith(italicSuffix, StringComparison.Ordinal))
+            {
+                return L(name.Substring(0, name.Length - italicSuffix.Length)) + L("Style Italic Suffix");
+            }
+
+            const string obliqueSuffix = " Oblique";
+            if (name.EndsWith(obliqueSuffix, StringComparison.Ordinal))
+            {
+                return L(name.Substring(0, name.Length - obliqueSuffix.Length)) + L("Style Oblique Suffix");
+            }
+
+            return name;
+        }
+
+        private sealed class LocalizedFontPickerStyleItem
+        {
+            private readonly FontPickerStyleItem source;
+            private readonly string displayName;
+
+            public LocalizedFontPickerStyleItem(FontPickerStyleItem source, string displayName)
+            {
+                this.source = source;
+                this.displayName = displayName;
+            }
+
+            public FontStyleDescriptor Descriptor => source.Descriptor;
+
+            public override string ToString()
+            {
+                return displayName;
+            }
         }
 
         private sealed class BufferedPreviewPanel : Panel

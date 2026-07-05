@@ -4,6 +4,7 @@ using System.Text;
 using System.IO;
 using System.Drawing;
 using System.Collections;
+using System.Globalization;
 
 namespace DC_Font_Generator
 {
@@ -208,25 +209,123 @@ namespace DC_Font_Generator
         private Hashtable ht = new Hashtable();
         public LanguageData(Encoding enc)
         {
-            string CodePageName = enc.WebName;
             string LangINIPath = Path.Combine(System.AppDomain.CurrentDomain.SetupInformation.ApplicationBase,"Language.INI");
             if (!File.Exists(LangINIPath)) return;
-            INI_RW.IniFile lang_ini = new INI_RW.IniFile(LangINIPath);
-            string[] LangStr = lang_ini.ReadSection(CodePageName);
-            if (LangStr.Length > 0)
+            Dictionary<string, List<string>> sections = ReadLanguageSections(LangINIPath);
+            foreach (string sectionName in GetLanguageSectionCandidates(enc, sections))
             {
-                RecordCodePage(LangStr);
-            }
-            else
-            {
-                LangStr = lang_ini.ReadSection(enc.CodePage.ToString());
-                if (LangStr.Length > 0) RecordCodePage(LangStr);
+                if (sections.TryGetValue(sectionName, out List<string> langStr) && langStr.Count > 0)
+                {
+                    RecordCodePage(langStr);
+                    return;
+                }
             }
 
         }
-        private void RecordCodePage(string[] LangStr)
+
+        private static IEnumerable<string> GetLanguageSectionCandidates(Encoding enc, Dictionary<string, List<string>> sections)
         {
-            for (int i = 0; i < LangStr.Length; i++)
+            if (enc != null)
+            {
+                yield return enc.WebName;
+                yield return enc.CodePage.ToString(CultureInfo.InvariantCulture);
+            }
+
+            string uiName = CultureInfo.CurrentUICulture.Name;
+            string uiTwoLetter = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+            if (uiName.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
+            {
+                if (uiName.IndexOf("TW", StringComparison.OrdinalIgnoreCase) >= 0
+                    || uiName.IndexOf("HK", StringComparison.OrdinalIgnoreCase) >= 0
+                    || uiName.IndexOf("MO", StringComparison.OrdinalIgnoreCase) >= 0
+                    || uiName.IndexOf("Hant", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    yield return "big5";
+                    yield return "950";
+                }
+                else
+                {
+                    yield return "gb2312";
+                    yield return "936";
+                }
+            }
+            else if (string.Equals(uiTwoLetter, "ja", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return "shift_jis";
+                yield return "932";
+            }
+            else if (string.Equals(uiTwoLetter, "ko", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return "949";
+            }
+
+            yield return "gb2312";
+            yield return "936";
+            yield return "big5";
+            yield return "950";
+            yield return "shift_jis";
+            yield return "932";
+
+            if (sections.Count == 1)
+            {
+                foreach (string key in sections.Keys)
+                {
+                    yield return key;
+                }
+            }
+        }
+
+        private static Dictionary<string, List<string>> ReadLanguageSections(string path)
+        {
+            Dictionary<string, List<string>> sections = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            string currentSection = "";
+            foreach (string rawLine in ReadLanguageLines(path))
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith(";")) continue;
+                if (line.StartsWith("[") && line.EndsWith("]"))
+                {
+                    currentSection = line.Substring(1, line.Length - 2).Trim();
+                    if (!sections.ContainsKey(currentSection))
+                    {
+                        sections[currentSection] = new List<string>();
+                    }
+                    continue;
+                }
+
+                if (currentSection.Length == 0) continue;
+                sections[currentSection].Add(line);
+            }
+
+            return sections;
+        }
+
+        private static string[] ReadLanguageLines(string path)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            try
+            {
+                return SplitLanguageText(new UTF8Encoding(false, true).GetString(bytes));
+            }
+            catch (DecoderFallbackException)
+            {
+                return SplitLanguageText(Encoding.Default.GetString(bytes));
+            }
+        }
+
+        private static string[] SplitLanguageText(string text)
+        {
+            if (text.Length > 0 && text[0] == '\uFEFF')
+            {
+                text = text.Substring(1);
+            }
+
+            return text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+        }
+
+        private void RecordCodePage(IList<string> LangStr)
+        {
+            for (int i = 0; i < LangStr.Count; i++)
             {
                 int FindS = LangStr[i].IndexOf('='); //尋找第一個出現的索引
                 if (FindS > -1)

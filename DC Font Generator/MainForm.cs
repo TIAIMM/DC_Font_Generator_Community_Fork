@@ -183,8 +183,13 @@ namespace DC_Font_Generator
 
             buttonConvertTex2Png.Text = GetString("Convert Tex to PNG");
             buttonConvertPNG2Tex.Text = GetString("Convert PNG to Tex");
+            buttonImportTex.Text = GetString("Import Tex");
+            buttonImportBmp.Text = GetString("Import PNG");
             buttonOpenFNT.Text = GetString("Open");
             buttonClear.Text = GetString("Clear");
+            button4.Text = GetString("Codepage Debug");
+            tabControl1.TabPages["tabPage6"].Text = GetString("Log");
+            if (tabControl1.TabPages["tabPage3"] != null) tabControl1.TabPages["tabPage3"].Text = GetString("Debug");
 
             this.ToolTipFormat = "[{0}] Hex:[{1}]\n" + GetString("Width") +
                 ": {2}\n" + GetString("Height") +
@@ -521,7 +526,8 @@ namespace DC_Font_Generator
                     pickerState.GlowColor,
                     pickerState.Outline,
                     pickerState.OutlineColor,
-                    pickerState.FontColor))
+                    pickerState.FontColor,
+                    lang))
                 {
                     if (picker.ShowDialog(this) == DialogResult.OK)
                     {
@@ -622,7 +628,7 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void buttonOpenFNT_Click(object sender, EventArgs e)
         {
-            openFileDialog1.Title = "Open Fallout3 Fnt and Tex file";
+            openFileDialog1.Title = GetString("Open Fallout3 Fnt and Tex file");
             openFileDialog1.FileName = "";
             openFileDialog1.Filter = "Fnt File|*.Fnt";
             openFileDialog1.FilterIndex = 1;
@@ -685,8 +691,19 @@ namespace DC_Font_Generator
             buttonLink.Enabled = Encoding_comboBox.SelectedIndex >= 1 && MainList.Count > 1 && state.LinkButtonEnabled;
             if (!string.IsNullOrEmpty(state.LinkLabelText))
             {
-                label4.Text = state.LinkLabelText;
+                label4.Text = LocalizeLinkLabel(state.LinkLabelText);
             }
+        }
+
+        private string LocalizeLinkLabel(string text)
+        {
+            const string prefix = "Link to : ";
+            if (text.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return GetString(prefix) + text.Substring(prefix.Length);
+            }
+
+            return text;
         }
         #endregion
 
@@ -705,9 +722,9 @@ namespace DC_Font_Generator
             }
             StatusText = GetString("Please wait...");
             if (this.MainList.Count > 1)
-                this.saveFileDialog1.Title = "Save Tex";
+                this.saveFileDialog1.Title = GetString("Save Tex");
             else
-                this.saveFileDialog1.Title = "Save Fnt and Tex";
+                this.saveFileDialog1.Title = GetString("Save Fnt and Tex");
             this.saveFileDialog1.FileName = textBoxTexName.Text;
             this.saveFileDialog1.Filter = "Tex File|*.Tex";
             this.saveFileDialog1.FilterIndex = 1;
@@ -735,7 +752,7 @@ namespace DC_Font_Generator
                     this.saveFileDialog1.FileName = fontName;
                     this.saveFileDialog1.Filter = "Fnt & Tex File|*.Fnt";
                     this.saveFileDialog1.FilterIndex = 1;
-                    this.saveFileDialog1.Title = "Save Fnt " + index;
+                    this.saveFileDialog1.Title = GetString("Save Fnt") + " " + index;
                     if (this.saveFileDialog1.ShowDialog() == DialogResult.Cancel)
                     {
                         toolStripProgressBar1.Visible = false;
@@ -1072,7 +1089,7 @@ namespace DC_Font_Generator
         private void button4_Click(object sender, EventArgs e)
         {
             fenc.WriteToFile();
-            StatusText = "Output CodepageDebug.txt done.";
+            StatusText = GetString("Output CodepageDebug.txt done.");
         }
 
 
@@ -1091,14 +1108,14 @@ namespace DC_Font_Generator
             switch (Tag)
             {
                 case ("ImportTex"):
-                    openFileDialog1.Title = "Import Tex";
+                    openFileDialog1.Title = GetString("Import Tex");
                     openFileDialog1.Filter = "Tex File|*.Tex";
                     openFileDialog1.FilterIndex = 1;
                     format = TextureWorkflowFormat.Tex;
                     pass = true;
                     break;
                 case ("ImportBmp"):
-                    openFileDialog1.Title = "Import PNG";
+                    openFileDialog1.Title = GetString("Import PNG");
                     openFileDialog1.Filter = "PNG File|*.PNG";
                     openFileDialog1.FilterIndex = 1;
                     format = TextureWorkflowFormat.Png;
@@ -1115,8 +1132,8 @@ namespace DC_Font_Generator
             if (ChangeImageSize())
             {
                 StatusText = format == TextureWorkflowFormat.Tex
-                    ? "Import Tex done."
-                    : "Import PNG done.";
+                    ? GetString("Import Tex done.")
+                    : GetString("Import PNG done.");
             }
 
             //設定ComboBox Size
@@ -1178,7 +1195,7 @@ namespace DC_Font_Generator
         {
             string AppPath = System.AppDomain.CurrentDomain.SetupInformation.ApplicationBase;
             this.openFileDialog1.InitialDirectory = AppPath;
-            this.openFileDialog1.Title = "Load INI";
+            this.openFileDialog1.Title = GetString("Load INI");
             this.openFileDialog1.FileName = "";
             this.openFileDialog1.Filter = "INI File|*.ini";
             this.openFileDialog1.FilterIndex = 1;
@@ -1200,7 +1217,7 @@ namespace DC_Font_Generator
             string AppPath = System.AppDomain.CurrentDomain.SetupInformation.ApplicationBase;
             saveFileDialog1.InitialDirectory = AppPath;
 
-            this.saveFileDialog1.Title = "Save INI";
+            this.saveFileDialog1.Title = GetString("Save INI");
             this.saveFileDialog1.FileName = "";
             this.saveFileDialog1.Filter = "INI File|*.ini";
             this.saveFileDialog1.FilterIndex = 1;
@@ -1469,13 +1486,13 @@ namespace DC_Font_Generator
         private void buttonConvertTex2Png_Click(object sender, EventArgs e)
         {
             
-            this.openFileDialog1.Title = "Open Tex file";
+            this.openFileDialog1.Title = GetString("Open Tex file");
             this.openFileDialog1.FileName = "";
             this.openFileDialog1.Filter = "Tex File|*.Tex";
             this.openFileDialog1.FilterIndex = 1;
             if (this.openFileDialog1.ShowDialog() == DialogResult.Cancel) return;
 
-            this.saveFileDialog1.Title = "Save PNG";
+            this.saveFileDialog1.Title = GetString("Save PNG");
             this.saveFileDialog1.FileName = TextureWorkflowService.GetPngOutputPath(this.openFileDialog1.FileName);
             this.saveFileDialog1.Filter = "PNG File|*.PNG";
             this.saveFileDialog1.FilterIndex = 1;
@@ -1495,7 +1512,7 @@ namespace DC_Font_Generator
         /// <param name="e"></param>
         private void buttonConvertPNG2Tex_Click(object sender, EventArgs e)
         {
-            this.openFileDialog1.Title = "Open PNG file";
+            this.openFileDialog1.Title = GetString("Open PNG file");
             this.openFileDialog1.FileName = "";
             this.openFileDialog1.Filter = "PNG File|*.PNG";
             this.openFileDialog1.FilterIndex = 1;
@@ -1506,7 +1523,7 @@ namespace DC_Font_Generator
 
             //}
             
-            this.saveFileDialog1.Title = "Save Tex";
+            this.saveFileDialog1.Title = GetString("Save Tex");
             this.saveFileDialog1.FileName = TextureWorkflowService.GetTexOutputPath(this.openFileDialog1.FileName);
             this.saveFileDialog1.Filter = "Tex File|*.Tex";
             this.saveFileDialog1.FilterIndex = 1;
@@ -1776,7 +1793,7 @@ namespace DC_Font_Generator
             string AppPath = System.AppDomain.CurrentDomain.SetupInformation.ApplicationBase;
             saveFileDialog1.InitialDirectory = AppPath;
 
-            this.saveFileDialog1.Title = "Save Project";
+            this.saveFileDialog1.Title = GetString("Save Project");
             this.saveFileDialog1.FileName = "";
             this.saveFileDialog1.Filter = "Project.xml|*.project.xml";
             this.saveFileDialog1.FilterIndex = 1;
@@ -1822,7 +1839,7 @@ namespace DC_Font_Generator
         {
             string AppPath = System.AppDomain.CurrentDomain.SetupInformation.ApplicationBase;
             this.openFileDialog1.InitialDirectory = AppPath;
-            this.openFileDialog1.Title = "Load Project";
+            this.openFileDialog1.Title = GetString("Load Project");
             this.openFileDialog1.FileName = "";
             this.openFileDialog1.Filter = "Project.xml|*.project.xml";
             this.openFileDialog1.FilterIndex = 1;
