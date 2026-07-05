@@ -105,6 +105,22 @@ namespace DC_Font_Generator
         }
     }
 
+    public sealed class FontVerticalMetrics
+    {
+        public FontVerticalMetrics(float ascent, float descent, float leading)
+        {
+            Ascent = ascent;
+            Descent = descent;
+            Leading = leading;
+        }
+
+        public float Ascent { get; }
+        public float Descent { get; }
+        public float Leading { get; }
+        public float LineSpacing => Ascent + Descent + Leading;
+        public float TargetCenter => (Descent - Ascent) / 2f;
+    }
+
     public sealed class FontDescriptor
     {
         public FontDescriptor(string familyName, float sizePixels,
@@ -126,20 +142,19 @@ namespace DC_Font_Generator
         }
         public float GetLineSpacing()
         {
-            using (SKTypeface tf = CreateTypeface())
-            using (SKFont skFont = new SKFont(tf ?? SKTypeface.Default, SizePixels))
-            {
-                skFont.GetFontMetrics(out SKFontMetrics metrics);
-                return -metrics.Ascent + metrics.Descent + metrics.Leading;
-            }
+            return GetVerticalMetrics().LineSpacing;
         }
         public float GetAscent()
+        {
+            return GetVerticalMetrics().Ascent;
+        }
+        public FontVerticalMetrics GetVerticalMetrics()
         {
             using (SKTypeface tf = CreateTypeface())
             using (SKFont skFont = new SKFont(tf ?? SKTypeface.Default, SizePixels))
             {
                 skFont.GetFontMetrics(out SKFontMetrics metrics);
-                return -metrics.Ascent;
+                return new FontVerticalMetrics(-metrics.Ascent, metrics.Descent, metrics.Leading);
             }
         }
         public System.Drawing.Font ToGdiFont()

@@ -358,9 +358,11 @@ namespace DC_Font_Generator
                 SetGeneratedBaseLineFromFontMetrics();
 
             }
+            ApplyGeneratedTopEdgeOffsets();
             QuantizeGeneratedGlyphHorizontalMetrics();
             QuantizeGeneratedGlyphVerticalMetrics();
             QuantizeGeneratedBaseLine();
+            NormalizeGeneratedSpaceGlyphVerticalMetrics();
             return true;
         }
         /// <summary>
@@ -871,6 +873,169 @@ namespace DC_Font_Generator
             return Math.Max(0, this.Outline) + Math.Max(0, this.Glow) + 0.5f;
         }
 
+        private void ApplyGeneratedTopEdgeOffsets()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "")
+            {
+                return;
+            }
+
+            bool hasSingleByteOffset = TryCalculateTopEdgeOffset(false, this.font1, out int singleByteOffset);
+            bool hasDoubleByteOffset = TryCalculateTopEdgeOffset(true, this.font2, out int doubleByteOffset);
+
+            if (hasSingleByteOffset)
+            {
+                ApplyTopEdgeOffset(false, singleByteOffset);
+            }
+
+            if (hasDoubleByteOffset)
+            {
+                ApplyTopEdgeOffset(true, doubleByteOffset);
+            }
+
+            if (hasSingleByteOffset
+                && hasDoubleByteOffset
+                && TryGetSingleByteVisualCenter(out float singleByteCenter)
+                && TryGetDoubleByteVisualCenter(out float doubleByteCenter))
+            {
+                float centerDelta = doubleByteCenter - singleByteCenter;
+                if (Math.Abs(centerDelta) > 1f)
+                {
+                    int relativeOffset = ClampInt(RoundMetricToInt(centerDelta), -1, 1);
+                    ApplyTopEdgeOffset(true, relativeOffset);
+                }
+            }
+        }
+
+        private bool TryCalculateTopEdgeOffset(bool doubleByte, FontDescriptor font, out int offset)
+        {
+            offset = 0;
+            if (font == null)
+            {
+                return false;
+            }
+
+            bool hasCenter = doubleByte
+                ? TryGetDoubleByteVisualCenter(out float actualCenter)
+                : TryGetSingleByteVisualCenter(out actualCenter);
+            if (!hasCenter)
+            {
+                return false;
+            }
+
+            FontVerticalMetrics metrics = font.GetVerticalMetrics();
+            int maxOffset = CalculateMaxTopEdgeOffset(font);
+            offset = ClampInt(RoundMetricToInt(actualCenter - metrics.TargetCenter), -maxOffset, maxOffset);
+            return true;
+        }
+
+        private void ApplyTopEdgeOffset(bool doubleByte, int offset)
+        {
+            if (offset == 0)
+            {
+                return;
+            }
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (IsGeneratedVerticalAlignmentCandidate(fnt, doubleByte))
+                {
+                    fnt.fTopEdge += offset;
+                }
+            }
+        }
+
+        private bool TryGetSingleByteVisualCenter(out float center)
+        {
+            char[] referenceChars = { 'H', 'M', 'W', 'A', '0', '8', 'B', 'E', 'N', 'T', 'X' };
+            List<float> centers = new List<float>();
+            foreach (char c in referenceChars)
+            {
+                Fnt_char fnt = this.iFntFile.GetFntFromChar(c);
+                if (IsGeneratedVerticalAlignmentCandidate(fnt, false))
+                {
+                    centers.Add(GetVisualCenter(fnt));
+                }
+            }
+
+            if (TryGetMedian(centers, out center))
+            {
+                return true;
+            }
+
+            return TryGetVisualCenter(false, false, out center);
+        }
+
+        private bool TryGetDoubleByteVisualCenter(out float center)
+        {
+            if (TryGetVisualCenter(true, true, out center))
+            {
+                return true;
+            }
+
+            return TryGetVisualCenter(true, false, out center);
+        }
+
+        private bool TryGetVisualCenter(bool doubleByte, bool cjkOnly, out float center)
+        {
+            List<float> centers = new List<float>();
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!IsGeneratedVerticalAlignmentCandidate(fnt, doubleByte))
+                {
+                    continue;
+                }
+
+                if (cjkOnly && !IsCjkIdeograph(fnt.c))
+                {
+                    continue;
+                }
+
+                centers.Add(GetVisualCenter(fnt));
+            }
+
+            return TryGetMedian(centers, out center);
+        }
+
+        private static float GetVisualCenter(Fnt_char fnt)
+        {
+            return (fnt.fHeight / 2f) - fnt.fTopEdge;
+        }
+
+        private static int CalculateMaxTopEdgeOffset(FontDescriptor font)
+        {
+            if (font == null)
+            {
+                return 1;
+            }
+
+            return ClampInt(RoundMetricToInt(font.SizePixels * 0.08f), 1, 3);
+        }
+
+        private static int RoundMetricToInt(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0;
+            }
+
+            return (int)Math.Round(value, MidpointRounding.AwayFromZero);
+        }
+
+        private static int ClampInt(int value, int min, int max)
+        {
+            if (value < min) return min;
+            if (value > max) return max;
+            return value;
+        }
+
+        private static bool IsCjkIdeograph(char c)
+        {
+            return (c >= '\u3400' && c <= '\u4DBF')
+                || (c >= '\u4E00' && c <= '\u9FFF')
+                || (c >= '\uF900' && c <= '\uFAFF');
+        }
+
         private void QuantizeGeneratedGlyphVerticalMetrics()
         {
             if (ImportFont1name != "" || ImportFont2name != "")
@@ -919,6 +1084,62 @@ namespace DC_Font_Generator
             this.iFntFile.Header.fBaseLine = CeilingMetric(this.iFntFile.Header.fBaseLine);
         }
 
+        private void NormalizeGeneratedSpaceGlyphVerticalMetrics()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "")
+            {
+                return;
+            }
+
+            if (!TryGetGeneratedLineDrop(out float lineDrop))
+            {
+                return;
+            }
+
+            float baseLine = CeilingMetric(this.iFntFile.Header.fBaseLine);
+            float drop = Math.Max(0f, CeilingMetric(lineDrop));
+            float height = Math.Max(1f, baseLine + drop);
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (fnt == null || !fnt.Enable || fnt.c != ' ' || !fnt.IsSpace)
+                {
+                    continue;
+                }
+
+                fnt.fTopEdge = baseLine;
+                fnt.fHeight = height;
+            }
+        }
+
+        private bool TryGetGeneratedLineDrop(out float lineDrop)
+        {
+            lineDrop = 0f;
+            bool found = false;
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!IsGeneratedLineDropCandidate(fnt))
+                {
+                    continue;
+                }
+
+                float drop = fnt.fHeight - fnt.fTopEdge;
+                if (float.IsNaN(drop) || float.IsInfinity(drop) || drop <= 0f)
+                {
+                    continue;
+                }
+
+                if (!found || drop > lineDrop)
+                {
+                    lineDrop = drop;
+                    found = true;
+                }
+            }
+
+            return found;
+        }
+
         private static float RoundMetric(float value)
         {
             if (float.IsNaN(value) || float.IsInfinity(value))
@@ -949,35 +1170,6 @@ namespace DC_Font_Generator
             return (float)Math.Floor(value);
         }
 
-        private bool TryGetSingleByteReferenceDrop(out float drop)
-        {
-            char[] referenceChars = { 'H', 'A', 'M', 'W', '0' };
-            List<float> drops = new List<float>();
-            for (int i = 0; i < referenceChars.Length; i++)
-            {
-                Fnt_char fnt = this.iFntFile.GetFntFromChar(referenceChars[i]);
-                if (IsGeneratedLineDropCandidate(fnt) && !fnt.IsDC)
-                {
-                    drops.Add(fnt.fHeight - fnt.fTopEdge);
-                }
-            }
-
-            if (TryGetMedian(drops, out drop))
-            {
-                return true;
-            }
-
-            foreach (Fnt_char fnt in this.iFntFile.CharList)
-            {
-                if (IsGeneratedLineDropCandidate(fnt) && !fnt.IsDC)
-                {
-                    drops.Add(fnt.fHeight - fnt.fTopEdge);
-                }
-            }
-
-            return TryGetMedian(drops, out drop);
-        }
-
         private static bool TryGetMedian(List<float> values, out float median)
         {
             if (values.Count == 0)
@@ -999,6 +1191,12 @@ namespace DC_Font_Generator
                 && !fnt.IsSpace
                 && fnt.fWidth > 0
                 && fnt.fHeight > 0;
+        }
+
+        private static bool IsGeneratedVerticalAlignmentCandidate(Fnt_char fnt, bool doubleByte)
+        {
+            return IsGeneratedLineDropCandidate(fnt)
+                && fnt.IsDC == doubleByte;
         }
 
         #region Properties
