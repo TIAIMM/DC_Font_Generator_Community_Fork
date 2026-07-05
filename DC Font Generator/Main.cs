@@ -13,6 +13,11 @@ namespace DC_Font_Generator
         #region Members
 
         private const float DefaultFontSizePixels = 23f;
+        private const float SingleByteEffectAdvanceFactor = 0.20f;
+        private const float SingleByteEffectAdvanceMax = 1.0f;
+        private const float DoubleByteEffectAdvanceFactor = 0.35f;
+        private const float DoubleByteEffectAdvanceMax = 2.0f;
+        private const float EffectAdvanceOverhangThreshold = 0.5f;
         public int ID = 0;
         public string name = ""; //fnt名稱
         private FL_FONT iFntFile;
@@ -277,7 +282,9 @@ namespace DC_Font_Generator
 
             }
             NormalizeBaselines();
+            QuantizeGeneratedGlyphVerticalMetrics();
             EnsureGeneratedBaseLineContainsGlyphs();
+            QuantizeGeneratedBaseLine();
             return true;
         }
         /// <summary>
@@ -377,7 +384,7 @@ namespace DC_Font_Generator
                 //ef.Width += this.sc_i右下角.X;
                 //ef.Height += this.sc_i右下角.Y;
 
-                fnt.fTopEdge = glyph.fTopEdge;
+                fnt.fTopEdge = FloorMetric(glyph.fTopEdge);
                 fnt.fHeight = (float)ViewSize.Height;  //顯示高度
                 fnt.fWidth = (float)ViewSize.Width;      //顯示寬度
 
@@ -388,6 +395,8 @@ namespace DC_Font_Generator
                     float layoutAdvance = glyph.LayoutAdvance > 0f
                         ? glyph.LayoutAdvance
                         : glyph.OriginSize.Width + Math.Max(0f, glyph.RealSpace * 2f);
+                    layoutAdvance = Math.Max(1f, RoundMetric(layoutAdvance));
+                    layoutAdvance += CalculateEffectAdvanceCompensation(glyph, dc);
                     fnt.fSpacing = layoutAdvance - fnt.fWidth;
                 }
                 else if (glyph.RealSpace > 0)
@@ -407,9 +416,9 @@ namespace DC_Font_Generator
                 if (IsSpace)
                 {
                     fnt.fLeadingEdge = 0;
-                    fnt.fSpacing = fnt.fWidth;
                     fnt.fHeight = 1f;
                     fnt.fWidth = 1f;
+                    fnt.fSpacing = Math.Max(0f, RoundMetric(renderer.SpaceWidth) - fnt.fWidth);
                     fnt.Empty = true;
                     fnt.IsSpace = true;
                 }
@@ -417,6 +426,24 @@ namespace DC_Font_Generator
             }
 
             return fnt;
+        }
+
+        private static float CalculateEffectAdvanceCompensation(DrawFont.GlyphRenderResult glyph, bool isDoubleByte)
+        {
+            if (glyph == null || glyph.IsSpace || glyph.RightOverhang <= EffectAdvanceOverhangThreshold)
+            {
+                return 0f;
+            }
+
+            float factor = isDoubleByte ? DoubleByteEffectAdvanceFactor : SingleByteEffectAdvanceFactor;
+            float max = isDoubleByte ? DoubleByteEffectAdvanceMax : SingleByteEffectAdvanceMax;
+            float compensation = glyph.RightOverhang * factor;
+            if (compensation < 0f)
+            {
+                return 0f;
+            }
+
+            return compensation > max ? max : compensation;
         }
 
         private static bool IsOriginalSerializedBlankGlyph(char c)
@@ -734,6 +761,64 @@ namespace DC_Font_Generator
             {
                 this.iFntFile.Header.fBaseLine = (float)Math.Ceiling(maxTopEdge);
             }
+        }
+
+        private void QuantizeGeneratedGlyphVerticalMetrics()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "")
+            {
+                return;
+            }
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!fnt.Enable || fnt.IsSpace)
+                {
+                    continue;
+                }
+
+                fnt.fTopEdge = FloorMetric(fnt.fTopEdge);
+            }
+        }
+
+        private void QuantizeGeneratedBaseLine()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "")
+            {
+                return;
+            }
+
+            this.iFntFile.Header.fBaseLine = CeilingMetric(this.iFntFile.Header.fBaseLine);
+        }
+
+        private static float RoundMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (float)Math.Round(value, MidpointRounding.AwayFromZero);
+        }
+
+        private static float CeilingMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (float)Math.Ceiling(value);
+        }
+
+        private static float FloorMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (float)Math.Floor(value);
         }
 
         private bool TryGetSingleByteReferenceCenter(out float center)

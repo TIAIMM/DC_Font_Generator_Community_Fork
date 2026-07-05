@@ -178,6 +178,8 @@ namespace DC_Font_Generator
 			{
 				SpaceWidth = maxSpace;
 			}
+
+            SpaceWidth = Math.Max(1f, RoundMetric(SpaceWidth));
 		}
 
 		/// <summary>
@@ -231,8 +233,11 @@ namespace DC_Font_Generator
                     }
 
                     result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
-                    result.LayoutAdvance = MeasureLayoutAdvance(font, text, originBounds.Width);
+                    result.LayoutAdvance = Math.Max(1f, RoundMetric(MeasureLayoutAdvance(font, text, originBounds.Width)));
                     result.RealSpace = GetSkiaPathRealSpace(font, text, originBounds.Width, originX, baseline);
+                    surfaceSize = Math.Max(
+                        surfaceSize,
+                        (int)Math.Ceiling(result.LayoutAdvance + (effectShift * 4f) + 4f));
 
                     SKCanvas canvas = GetGlyphRenderContext().PrepareCanvas(surfaceSize, surfaceSize, BackColor);
 
@@ -246,8 +251,10 @@ namespace DC_Font_Generator
                         return CreateSpaceResult(result);
                     }
 
+                    result.RightOverhang = CalculateRightOverhang(bounds, originX, result.LayoutAdvance);
+                    bounds = NormalizeEffectHorizontalBounds(bounds, originX, result.LayoutAdvance, surfaceSize);
                     result.Image = SkiaBitmapInterop.CreateBitmapFromBgra(pixels, surfaceSize, bounds);
-                    result.fTopEdge = CDZ_BottomAlign - bounds.Y;
+                    result.fTopEdge = FloorMetric(CDZ_BottomAlign - bounds.Y);
                     return result;
                 }
             }
@@ -260,12 +267,58 @@ namespace DC_Font_Generator
             }
 		}
 
+        private Rectangle NormalizeEffectHorizontalBounds(Rectangle contentBounds, float originX, float layoutAdvance, int surfaceSize)
+        {
+            if (glow <= 0 && OutlineWidth <= 0)
+            {
+                return contentBounds;
+            }
+
+            int effectPad = (int)Math.Ceiling((Math.Max(0, glow) + Math.Max(0, OutlineWidth)) / 2f);
+            if (effectPad < 1)
+            {
+                effectPad = 1;
+            }
+
+            int left = (int)Math.Floor(originX - effectPad);
+            int right = (int)Math.Ceiling(originX + layoutAdvance + effectPad);
+
+            if (left > contentBounds.Left)
+            {
+                left = contentBounds.Left;
+            }
+
+            if (right < contentBounds.Right)
+            {
+                right = contentBounds.Right;
+            }
+
+            if (left < 0) left = 0;
+            if (right > surfaceSize) right = surfaceSize;
+            if (right <= left) right = Math.Min(surfaceSize, left + 1);
+
+            return Rectangle.FromLTRB(left, contentBounds.Top, right, contentBounds.Bottom);
+        }
+
+        private float CalculateRightOverhang(Rectangle contentBounds, float originX, float layoutAdvance)
+        {
+            if (glow <= 0 && OutlineWidth <= 0)
+            {
+                return 0f;
+            }
+
+            float logicalRight = originX + layoutAdvance;
+            float overhang = contentBounds.Right - logicalRight;
+            return overhang > 0f ? overhang : 0f;
+        }
+
         private GlyphRenderResult CreateSpaceResult(GlyphRenderResult result)
         {
             result.IsSpace = true;
             result.OriginSize = new Size((int)SpaceWidth, 0);
             result.LayoutAdvance = SpaceWidth;
             result.RealSpace = SpaceWidth;
+            result.RightOverhang = 0f;
             return result;
         }
 
@@ -278,6 +331,36 @@ namespace DC_Font_Generator
             }
 
             return advance;
+        }
+
+        private static float RoundMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (float)Math.Round(value, MidpointRounding.AwayFromZero);
+        }
+
+        private static float CeilingMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (float)Math.Ceiling(value);
+        }
+
+        private static float FloorMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (float)Math.Floor(value);
         }
 
         private void DrawSkiaEffects(SKCanvas canvas, SKPath glyphPath)
@@ -482,9 +565,10 @@ namespace DC_Font_Generator
 		public class GlyphRenderResult
 		{
 			public Bitmap Image;
-			public Size OriginSize;
+            public Size OriginSize;
             public float LayoutAdvance;
 			public float RealSpace;
+            public float RightOverhang;
 			public float fTopEdge;
 			public bool IsSpace;
 

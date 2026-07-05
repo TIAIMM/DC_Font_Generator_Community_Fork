@@ -26,6 +26,7 @@ namespace DC_Font_Generator
         private readonly FontDescriptor doubleByteFont;
         private List<FontPickerFontEntry> allFontEntries = new List<FontPickerFontEntry>();
         private FontDescriptor previewFont;
+        private bool preserveStyleOnFontSelection;
         private Button okButton;
 
         public FontPickerForm(FontDescriptor currentFont)
@@ -160,7 +161,9 @@ namespace DC_Font_Generator
             fontList.IntegralHeight = false;
             fontList.SelectedIndexChanged += delegate
             {
-                UpdateStyleList(GetSelectedStyleDescriptor());
+                UpdateStyleList(preserveStyleOnFontSelection
+                    ? GetSelectedStyleDescriptor()
+                    : GetRegularStyleDescriptor());
                 UpdatePreview();
             };
             panel.Controls.Add(fontList, 0, 2);
@@ -344,7 +347,7 @@ namespace DC_Font_Generator
                 return;
             }
 
-            fontList.SelectedIndex = filterResult.SelectedIndex;
+            SetFontListSelectedIndex(filterResult.SelectedIndex, true);
             fontList.EndUpdate();
             SetOkEnabled(true);
         }
@@ -366,12 +369,25 @@ namespace DC_Font_Generator
                 index = 0;
             }
 
-            fontList.SelectedIndex = index;
+            SetFontListSelectedIndex(index, true);
             sizeInput.Value = FontPickerCatalogService.ClampFontSize(
                 currentFont.SizePixels,
                 sizeInput.Minimum,
                 sizeInput.Maximum);
             UpdateStyleList(MakeStyleDescriptorFromFont(currentFont));
+        }
+
+        private void SetFontListSelectedIndex(int index, bool preserveStyle)
+        {
+            preserveStyleOnFontSelection = preserveStyle;
+            try
+            {
+                fontList.SelectedIndex = index;
+            }
+            finally
+            {
+                preserveStyleOnFontSelection = false;
+            }
         }
 
         private void UpdateStyleList(FontStyleDescriptor preferredDescriptor)
@@ -478,6 +494,11 @@ namespace DC_Font_Generator
                 font.Slant);
         }
 
+        private static FontStyleDescriptor GetRegularStyleDescriptor()
+        {
+            return FontStyleDescriptor.FromLegacyFontStyle(FontStyle.Regular);
+        }
+
         private FontStyleDescriptor GetSelectedStyleDescriptor()
         {
             if (styleList.SelectedItem is FontPickerStyleItem item)
@@ -485,7 +506,7 @@ namespace DC_Font_Generator
                 return item.Descriptor;
             }
 
-            return FontStyleDescriptor.FromLegacyFontStyle(FontStyle.Regular);
+            return GetRegularStyleDescriptor();
         }
 
         private sealed class BufferedPreviewPanel : Panel
