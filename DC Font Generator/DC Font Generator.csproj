@@ -39,6 +39,7 @@
 	</ItemGroup>
   <ItemGroup>
     <Compile Include="2DArray.cs" />
+    <Compile Include="Bgra32Image.cs" />
     <Compile Include="DrawFont.cs" />
     <Compile Include="Encoding.cs" />
     <Compile Include="FL_FONT.cs" />
@@ -56,6 +57,7 @@
     <Compile Include="FontSectionStateService.cs" />
     <Compile Include="FontUiLogicServices.cs" />
     <Compile Include="FontWorkflowServices.cs" />
+    <Compile Include="GameFontMetricQuantizer.cs" />
     <Compile Include="GlyphRenderSurfaces.cs" />
     <Compile Include="GlyphEditingServices.cs" />
     <Compile Include="GlyphInteractionService.cs" />

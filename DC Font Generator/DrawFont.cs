@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using SkiaSharp;
 
 namespace DC_Font_Generator
@@ -192,7 +190,7 @@ namespace DC_Font_Generator
 		{
 			GlyphRenderResult glyph = RenderGlyph(c);
 			BottomAlign = glyph.fTopEdge;
-			return glyph.Image ?? new Bitmap(1, 1);
+			return glyph.GlyphImage != null ? glyph.GlyphImage.ToBitmap() : new Bitmap(1, 1);
 		}
 
 		public GlyphRenderResult RenderGlyph(char c)
@@ -233,7 +231,9 @@ namespace DC_Font_Generator
                     }
 
                     result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
-                    result.LayoutAdvance = Math.Max(1f, RoundMetric(MeasureLayoutAdvance(font, text, originBounds.Width)));
+                    result.LayoutAdvance = Math.Max(1f, MeasureLayoutAdvance(font, text, originBounds.Width));
+                    result.BakedLeftPad = (int)Math.Floor(originX);
+                    result.BakedAdvance = Math.Max(1, GameFontMetricQuantizer.ToGameInt(result.LayoutAdvance));
                     result.RealSpace = GetSkiaPathRealSpace(font, text, originBounds.Width, originX, baseline);
                     surfaceSize = Math.Max(
                         surfaceSize,
@@ -251,9 +251,10 @@ namespace DC_Font_Generator
                         return CreateSpaceResult(result);
                     }
 
-                    result.RightOverhang = CalculateRightOverhang(bounds, originX, result.LayoutAdvance);
-                    bounds = NormalizeEffectHorizontalBounds(bounds, originX, result.LayoutAdvance, surfaceSize);
-                    result.Image = SkiaBitmapInterop.CreateBitmapFromBgra(pixels, surfaceSize, bounds);
+                    result.LeftBearing = CalculateLeftBearing(bounds, originX);
+                    result.RightOverhang = CalculateRightOverhang(bounds, result.BakedLeftPad + result.BakedAdvance);
+                    bounds = BakeHorizontalBounds(bounds, GetRightSidePadding(), surfaceSize);
+                    result.GlyphImage = SkiaBitmapInterop.CreateImageFromBgra(pixels, surfaceSize, bounds);
                     result.fTopEdge = FloorMetric(CDZ_BottomAlign - bounds.Y);
                     return result;
                 }
@@ -267,31 +268,16 @@ namespace DC_Font_Generator
             }
 		}
 
-        private Rectangle NormalizeEffectHorizontalBounds(Rectangle contentBounds, float originX, float layoutAdvance, int surfaceSize)
+        private int GetRightSidePadding()
         {
-            if (glow <= 0 && OutlineWidth <= 0)
-            {
-                return contentBounds;
-            }
+            int effectPadding = (int)Math.Ceiling((glow + OutlineWidth) * 0.25f);
+            return Math.Max(1, effectPadding);
+        }
 
-            int effectPad = (int)Math.Ceiling((Math.Max(0, glow) + Math.Max(0, OutlineWidth)) / 2f);
-            if (effectPad < 1)
-            {
-                effectPad = 1;
-            }
-
-            int left = (int)Math.Floor(originX - effectPad);
-            int right = (int)Math.Ceiling(originX + layoutAdvance + effectPad);
-
-            if (left > contentBounds.Left)
-            {
-                left = contentBounds.Left;
-            }
-
-            if (right < contentBounds.Right)
-            {
-                right = contentBounds.Right;
-            }
+        private static Rectangle BakeHorizontalBounds(Rectangle contentBounds, int rightPadding, int surfaceSize)
+        {
+            int left = 0;
+            int right = contentBounds.Right + Math.Max(0, rightPadding);
 
             if (left < 0) left = 0;
             if (right > surfaceSize) right = surfaceSize;
@@ -300,14 +286,19 @@ namespace DC_Font_Generator
             return Rectangle.FromLTRB(left, contentBounds.Top, right, contentBounds.Bottom);
         }
 
-        private float CalculateRightOverhang(Rectangle contentBounds, float originX, float layoutAdvance)
+        private static float CalculateLeftBearing(Rectangle contentBounds, float originX)
+        {
+            float leftBearing = contentBounds.Left - originX;
+            return float.IsNaN(leftBearing) || float.IsInfinity(leftBearing) ? 0f : leftBearing;
+        }
+
+        private float CalculateRightOverhang(Rectangle contentBounds, float logicalRight)
         {
             if (glow <= 0 && OutlineWidth <= 0)
             {
                 return 0f;
             }
 
-            float logicalRight = originX + layoutAdvance;
             float overhang = contentBounds.Right - logicalRight;
             return overhang > 0f ? overhang : 0f;
         }
@@ -317,7 +308,10 @@ namespace DC_Font_Generator
             result.IsSpace = true;
             result.OriginSize = new Size((int)SpaceWidth, 0);
             result.LayoutAdvance = SpaceWidth;
+            result.BakedLeftPad = 0;
+            result.BakedAdvance = Math.Max(1, GameFontMetricQuantizer.ToGameInt(SpaceWidth));
             result.RealSpace = SpaceWidth;
+            result.LeftBearing = 0f;
             result.RightOverhang = 0f;
             return result;
         }
@@ -564,10 +558,13 @@ namespace DC_Font_Generator
 
 		public class GlyphRenderResult
 		{
-			public Bitmap Image;
+            public Bgra32Image GlyphImage;
             public Size OriginSize;
             public float LayoutAdvance;
+            public int BakedLeftPad;
+            public int BakedAdvance;
 			public float RealSpace;
+            public float LeftBearing;
             public float RightOverhang;
 			public float fTopEdge;
 			public bool IsSpace;
@@ -592,152 +589,16 @@ namespace DC_Font_Generator
             return glyph.OriginSize;
 		}
 
-		// 统一的边界检测方法
-		private Rectangle GetFontBounds(BmpPixelData bmpData)
-		{
-			int backArgb = BackColor.ToArgb();
-			int top = int.MaxValue;
-			int left = int.MaxValue;
-			int bottom = int.MinValue;
-			int right = int.MinValue;
-			bool found = false;
-
-			// 单次遍历同时检测所有边界
-			for (int y = 0; y < bmpData.Height; y++)
-			{
-				int row = y * bmpData.Stride;
-				for (int x = 0; x < bmpData.Width; x++)
-				{
-					if (bmpData.GetArgb(row, x) != backArgb)
-					{
-						found = true;
-						if (y < top) top = y;
-						if (y > bottom) bottom = y;
-						if (x < left) left = x;
-						if (x > right) right = x;
-					}
-				}
-			}
-
-			if (!found) return Rectangle.Empty;
-
-			return new Rectangle(left, top, right - left + 1, bottom - top + 1);
-		}
-
 		public Bitmap GetOriginFont(char c, out bool IsEmpty)
 		{
             GlyphRenderResult glyph = RenderGlyph(c);
-            IsEmpty = glyph.IsSpace || glyph.Image == null;
-            if (glyph.Image == null)
+            IsEmpty = glyph.IsSpace || glyph.GlyphImage == null;
+            if (glyph.GlyphImage == null)
             {
-                return new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+                return new Bitmap(1, 1);
             }
 
-            return new Bitmap(glyph.Image);
-		}
-
-		/// <summary>
-		/// 裁切bitmap
-		/// </summary>
-		/// <param name="img">原始bitmap</param>
-		/// <param name="cropArea">正方形</param>
-		/// <returns>裁好的bitmap</returns>
-		public Bitmap cropImage(Bitmap img, Rectangle cropArea)
-		{
-			if (cropArea.Width <= 0 || cropArea.Height <= 0)
-				return new Bitmap(1, 1);
-
-			// 使用LockBits直接复制内存块
-			var cropped = new Bitmap(cropArea.Width, cropArea.Height, PixelFormat.Format32bppArgb);
-
-			// 锁定源位图
-			var srcData = img.LockBits(
-				new Rectangle(0, 0, img.Width, img.Height),
-				ImageLockMode.ReadOnly,
-				PixelFormat.Format32bppArgb);
-
-			// 锁定目标位图
-			var destData = cropped.LockBits(
-				new Rectangle(0, 0, cropped.Width, cropped.Height),
-				ImageLockMode.WriteOnly,
-				PixelFormat.Format32bppArgb);
-
-			try
-			{
-				int srcStride = srcData.Stride;
-				int destStride = destData.Stride;
-				int bytesPerPixel = 4; // 32bppArgb
-
-				// 计算要复制的字节数
-				int copyWidth = Math.Min(cropArea.Width * bytesPerPixel, srcStride);
-
-				// 计算源图像起始位置
-				IntPtr srcPtr = srcData.Scan0 + (cropArea.Y * srcStride) + (cropArea.X * bytesPerPixel);
-				IntPtr destPtr = destData.Scan0;
-
-				// 逐行复制
-				for (int y = 0; y < cropArea.Height; y++)
-				{
-					CopyMemory(destPtr, srcPtr, (uint)copyWidth);
-					srcPtr = IntPtr.Add(srcPtr, srcStride);
-					destPtr = IntPtr.Add(destPtr, destStride);
-				}
-			}
-			finally
-			{
-				img.UnlockBits(srcData);
-				cropped.UnlockBits(destData);
-			}
-
-			return cropped;
-		}
-
-		// 导入内存复制函数
-		[DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")]
-		private static extern void CopyMemory(IntPtr dest, IntPtr src, uint length);
-
-		/// <summary>
-		/// 取得字型真實大小
-		/// </summary>
-		/// <param name="image"></param>
-		/// <returns></returns>
-		public Rectangle GetFontGSize(Bitmap image)
-		{
-			using (var bmpData = new BmpPixelData(image))
-			{
-				return GetFontBounds(bmpData);
-			}
-		}
-
-		/// <summary>
-		/// 複製圖
-		/// </summary>
-		/// <param name="Source"></param>
-		/// <param name="Target"></param>
-		/// <param name="point"></param>
-		public void CopyImage(Bitmap Source, ref Bitmap Target, Point point)
-		{
-			// 使用LockBits进行内存复制
-			using (var sourceData = new BmpPixelData(Source))
-			using (var targetData = new BmpPixelData(Target))
-			{
-				int sourceWidth = Math.Min(Source.Width, Target.Width - point.X);
-				int sourceHeight = Math.Min(Source.Height, Target.Height - point.Y);
-				int backArgb = BackColor.ToArgb();
-
-				for (int y = 0; y < sourceHeight; y++)
-				{
-					int sourceRow = y * sourceData.Stride;
-					int targetRow = (y + point.Y) * targetData.Stride + point.X * 4;
-
-					for (int x = 0; x < sourceWidth; x++)
-					{
-						int argb = sourceData.GetArgb(sourceRow, x);
-						if (argb != backArgb)
-							targetData.SetArgb(targetRow + x * 4, argb);
-					}
-				}
-			}
+            return glyph.GlyphImage.ToBitmap();
 		}
 
         public void Dispose()
@@ -751,47 +612,5 @@ namespace DC_Font_Generator
             ownsSkTypeface = false;
         }
 
-		private class BmpPixelData : IDisposable
-		{
-			private Bitmap _bitmap;
-			private BitmapData _data;
-			public byte[] Bytes { get; }
-			public int Width { get; }
-			public int Height { get; }
-			public int Stride { get; }
-
-			public BmpPixelData(Bitmap bmp)
-			{
-				_bitmap = bmp;
-				Width = bmp.Width;
-				Height = bmp.Height;
-				Rectangle rect = new Rectangle(0, 0, Width, Height);
-				_data = bmp.LockBits(rect, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
-				Stride = _data.Stride;
-				Bytes = new byte[Stride * Height];
-				Marshal.Copy(_data.Scan0, Bytes, 0, Bytes.Length);
-			}
-
-			public int GetArgb(int row, int x)
-			{
-				int idx = row + x * 4;
-				return Bytes[idx] | (Bytes[idx + 1] << 8) |
-					   (Bytes[idx + 2] << 16) | (Bytes[idx + 3] << 24);
-			}
-
-			public void SetArgb(int offset, int argb)
-			{
-				Bytes[offset] = (byte)(argb);
-				Bytes[offset + 1] = (byte)(argb >> 8);
-				Bytes[offset + 2] = (byte)(argb >> 16);
-				Bytes[offset + 3] = (byte)(argb >> 24);
-			}
-
-			public void Dispose()
-			{
-				Marshal.Copy(Bytes, 0, _data.Scan0, Bytes.Length);
-				_bitmap.UnlockBits(_data);
-			}
-		}
 	}
 }

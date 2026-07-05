@@ -25,17 +25,6 @@ namespace DC_Font_Generator
 
     internal static class FontPickerPreviewRenderer
     {
-        public static void Draw(Graphics graphics, FontPickerPreviewRequest request)
-        {
-            RectangleF bounds = graphics.VisibleClipBounds;
-            int width = Math.Max(1, (int)Math.Ceiling(bounds.Width));
-            int height = Math.Max(1, (int)Math.Ceiling(bounds.Height));
-            using (Bitmap preview = Render(new Size(width, height), request))
-            {
-                graphics.DrawImageUnscaled(preview, 0, 0);
-            }
-        }
-
         public static Bitmap Render(Size size, FontPickerPreviewRequest request)
         {
             Bitmap bitmap = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
@@ -105,7 +94,10 @@ namespace DC_Font_Generator
                 }
 
                 DrawTextRun(canvas, request, run.Font, run.Text, x, y);
-                x += MeasureTextWidth(run.Font, null, run.Text) + 8f;
+                FontStyleDescriptor descriptor = ReferenceEquals(run.Font, request.PreviewFont)
+                    ? request.PreviewFontStyleDescriptor
+                    : null;
+                x += MeasureTextWidth(run.Font, descriptor, run.Text) + 8f;
             }
         }
 
@@ -323,12 +315,7 @@ namespace DC_Font_Generator
                 return 0f;
             }
 
-            using (SKTypeface tf = font.CreateTypeface())
-            using (SKFont skFont = new SKFont(tf ?? SKTypeface.Default, font.SizePixels))
-            {
-                skFont.GetFontMetrics(out SKFontMetrics metrics);
-                return -metrics.Ascent;
-            }
+            return font.GetAscent();
         }
 
         private sealed class PreviewRun

@@ -212,21 +212,22 @@ namespace DC_Font_Generator
             ProjectApplyResult result,
             Func<string, string> localize)
         {
-            Font font = new Font(fontName, fontSize, fontStyle);
-            if (!font.FontFamily.IsStyleAvailable(fontStyle))
+            using (Font font = new Font(fontName, fontSize, fontStyle))
             {
-                font.Dispose();
-                result.Logs.Add(localize("Project font error : Missing Font.") + "(" + fontName + ")");
-                return false;
-            }
+                if (!font.FontFamily.IsStyleAvailable(fontStyle))
+                {
+                    result.Logs.Add(localize("Project font error : Missing Font.") + "(" + fontName + ")");
+                    return false;
+                }
 
-            if (singleByteFont)
-            {
-                main.font1 = FontDescriptor.FromGdiFont(font);
-            }
-            else
-            {
-                main.font2 = FontDescriptor.FromGdiFont(font);
+                if (singleByteFont)
+                {
+                    main.font1 = FontDescriptor.FromGdiFont(font);
+                }
+                else
+                {
+                    main.font2 = FontDescriptor.FromGdiFont(font);
+                }
             }
 
             return true;

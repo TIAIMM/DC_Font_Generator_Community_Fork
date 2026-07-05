@@ -55,6 +55,7 @@ namespace DC_Font_Generator
             Stopwatch manufacturingWatch = Stopwatch.StartNew();
             foreach (Main section in request.FontSections)
             {
+                section.ResetGeneratedStateIfRenderSettingsChanged(request.Encoding);
                 section.NewDrawing(request.Encoding, request.Progress);
             }
             manufacturingWatch.Stop();

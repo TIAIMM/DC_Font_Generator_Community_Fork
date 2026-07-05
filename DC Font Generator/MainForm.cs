@@ -24,6 +24,7 @@ namespace DC_Font_Generator
         private LanguageData lang;
 
         public Bitmap TextImage;
+        public Bgra32Image TextPixels;
         public Bitmap TextImageMask;
         private Bitmap TextImageSelectionMask;
         public Size TextImageSize = new Size(128, 128);
@@ -170,14 +171,14 @@ namespace DC_Font_Generator
             checkBox_fixed.Text = GetString("Fixedsys Font");
             label10.Text = GetString("Backgroung Color");
 
-            label12.Text = GetString("1.Glow Monofonto Large"); 
-            label13.Text = GetString("2.Monofonto Large (PIP-Boy)");
-            label14.Text = GetString("3.Glow Monofonto Medium");
-            label19.Text = GetString("4.Monofonto VeryLarge02 Dialogs2");
-            label20.Text = GetString("5.Fixedsys Comp uniform width (terminals)");
-            label21.Text = GetString("6.Glow Monofonto VL dialogs");
-            label23.Text = GetString("7.Baked-in Monofonto Large");
-            label22.Text = GetString("8.Glow Futura Caps Large");
+            label12.Text = "1.Glow Monofonto Large";
+            label13.Text = "2.Monofonto Large (PIP-Boy)";
+            label14.Text = "3.Glow Monofonto Medium";
+            label19.Text = "4.Monofonto VeryLarge02 Dialogs2";
+            label20.Text = "5.Fixedsys Comp uniform width (terminals)";
+            label21.Text = "6.Glow Monofonto VL dialogs";
+            label23.Text = "7.Baked-in Monofonto Large";
+            label22.Text = "8.Glow Futura Caps Large";
 
             button7.Text = GetString("Fallout3 Default");
 
@@ -532,10 +533,8 @@ namespace DC_Font_Generator
                     if (picker.ShowDialog(this) == DialogResult.OK)
                     {
                         FontDescriptor font = picker.SelectedFont;
-                        string styleLabel = picker.SelectedFontStyleDescriptor != null
-                            ? picker.SelectedFontStyleDescriptor.Name : FontStyleDescriptor.StyleNameFromValues(font.Weight, font.Slant);
-                        ((Label)sender).Text = font.FamilyName + "," + font.SizePixels + "," + styleLabel;
                         FontSectionStateService.ApplySelectedFont(this.MainList, MainSelect, editingDoubleByteFont, font, picker.SelectedFontStyleDescriptor);
+                        ((Label)sender).Text = FontSectionStateService.FormatFontDisplayText("", font, picker.SelectedFontStyleDescriptor);
                         this.button1.Enabled = false;
 
                         ((Label)sender).Font = font.ToGdiFont();
@@ -680,6 +679,7 @@ namespace DC_Font_Generator
                 return false;
             }
 
+            this.TextPixels = result.TexturePixels;
             this.TextImage = result.Texture;
             SetNowData();
             buttonClear.Enabled = true;
@@ -769,6 +769,7 @@ namespace DC_Font_Generator
             {
                 FontSections = this.MainList,
                 TextImage = this.TextImage,
+                TextPixels = this.TextPixels,
                 TexPath = texPath,
                 TexName = TexName,
                 FntPaths = fntPaths,
@@ -855,7 +856,7 @@ namespace DC_Font_Generator
         private bool RunRenderWorkflow()
         {
             toolStripProgressBar1.Visible = true;
-            MaskReset();
+            PrepareUiForRender();
 
             this.errorProvider1.SetError(this.label7, "");
             this.StatusText = GetString("Manufacturing fonts...");
@@ -872,6 +873,7 @@ namespace DC_Font_Generator
 
             if (!result.Success)
             {
+                SyncSelectionUiAfterRender();
                 StatusText = GetString("Font file size exceeds the limit! Can not be processed.");
                 toolStripProgressBar1.Visible = false;
                 this.TexEnable = false;
@@ -879,6 +881,7 @@ namespace DC_Font_Generator
             }
 
             BindAtlasResult(result.AtlasResult, startTime);
+            SyncSelectionUiAfterRender();
             string performanceLog = result.PerformanceStats?.ToLogLine();
             if (!string.IsNullOrEmpty(performanceLog))
             {
@@ -886,6 +889,25 @@ namespace DC_Font_Generator
             }
             this.buttonClear.Enabled = true;
             return true;
+        }
+
+        private void PrepareUiForRender()
+        {
+            DisposeTextImageMasks();
+            this.pictureBox1.ChangeImage = null;
+            this.TexEnable = false;
+            this.button1.Enabled = false;
+            this.buttonSavePrj.Enabled = false;
+            this.tableLayoutPanelAdjust.Enabled = false;
+        }
+
+        private void SyncSelectionUiAfterRender()
+        {
+            ready = false;
+            checkBox_SelectAllSC.Checked = false;
+            checkBox_SelectAllDC.Checked = false;
+            ready = true;
+            DisposeTextImageMasks();
         }
 
         private void BindAtlasResult(FontAtlasResult result, DateTime startTime)
@@ -902,6 +924,7 @@ namespace DC_Font_Generator
             DisposeTextImageMasks();
             this.pictureBox1.Invalidate();
             if (this.TextImage != null) this.TextImage.Dispose();
+            this.TextPixels = result.TextPixels;
             this.TextImage = result.TextImage;
             this.CharIndex = result.CharIndex;
             this.pictureBox1.SetImage = this.TextImage;
@@ -1001,7 +1024,7 @@ namespace DC_Font_Generator
             return comboBox.Items.Cast<TexSize>().ToList();
         }
 
-        private void ApplyTextImage(Bitmap image, bool disposeOldImage)
+        private void ApplyTextImage(Bitmap image, bool disposeOldImage, Bgra32Image pixels = null)
         {
             DisposeTextImageMasks();
             if (disposeOldImage && this.TextImage != null && !object.ReferenceEquals(this.TextImage, image))
@@ -1010,6 +1033,7 @@ namespace DC_Font_Generator
             }
 
             this.TextImage = image;
+            this.TextPixels = pixels ?? (image != null ? Bgra32Image.FromBitmap(image) : null);
             this.pictureBox1.SetImage = this.TextImage;
         }
 
@@ -1040,7 +1064,8 @@ namespace DC_Font_Generator
                 comboBoxSizeY.SelectedIndex = 0;
             }
             DisposeTextImageMasks();
-            TextImage = new Bitmap(128, 128);
+            TextPixels = new Bgra32Image(128, 128);
+            TextImage = TextPixels.ToBitmap();
             pictureBox1.SetImage = TextImage;
 
             buttonFntUp.Enabled = false;
@@ -1128,7 +1153,7 @@ namespace DC_Font_Generator
             toolStripProgressBar1.Visible = true;
             StatusText = GetString("Please wait...");
             TextureImportResult importResult = TextureWorkflowService.Import(this.openFileDialog1.FileName, format);
-            ApplyTextImage(importResult.Image, true);
+            ApplyTextImage(importResult.Image, true, importResult.ImagePixels);
             if (ChangeImageSize())
             {
                 StatusText = format == TextureWorkflowFormat.Tex

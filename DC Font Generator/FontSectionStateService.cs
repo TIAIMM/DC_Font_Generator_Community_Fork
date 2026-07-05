@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 
 namespace DC_Font_Generator
 {
@@ -75,8 +76,8 @@ namespace DC_Font_Generator
                 FontColor = selected.FontColor,
                 SingleByteFont = selected.font1,
                 DoubleByteFont = selected.font2,
-                SingleByteFontText = GetFontText(selected.ImportFont1name, selected.font1),
-                DoubleByteFontText = GetFontText(selected.ImportFont2name, selected.font2),
+                SingleByteFontText = FormatFontDisplayText(selected.ImportFont1name, selected.font1, selected.font1StyleDescriptor),
+                DoubleByteFontText = FormatFontDisplayText(selected.ImportFont2name, selected.font2, selected.font2StyleDescriptor),
                 FntName = selected.name,
                 CanMoveUp = selectedIndex > 0 && sections.Count > 1,
                 CanMoveDown = selectedIndex < sections.Count - 1 && sections.Count > 1,
@@ -306,14 +307,45 @@ namespace DC_Font_Generator
             return sections[selectedIndex];
         }
 
-        private static string GetFontText(string importName, FontDescriptor font)
+        public static string FormatFontDisplayText(string importName, FontDescriptor font, FontStyleDescriptor descriptor = null)
         {
             if (importName != "")
             {
                 return importName;
             }
 
-            return font.FamilyName + "," + font.SizePixels;
+            if (font == null)
+            {
+                return "";
+            }
+
+            string styleLabel = descriptor != null
+                ? descriptor.Name
+                : FontStyleDescriptor.StyleNameFromValues(font.Weight, font.Slant);
+
+            return font.FamilyName
+                + ","
+                + FormatMetric(font.SizePixels)
+                + ","
+                + styleLabel
+                + ",LH:"
+                + FormatMetric(font.GetLineSpacing());
+        }
+
+        private static string FormatMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return "0";
+            }
+
+            float rounded = (float)Math.Round(value, 2, MidpointRounding.AwayFromZero);
+            if (Math.Abs(rounded - Math.Round(rounded, MidpointRounding.AwayFromZero)) < 0.001f)
+            {
+                return ((int)Math.Round(rounded, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture);
+            }
+
+            return rounded.ToString("0.##", CultureInfo.InvariantCulture);
         }
 
         private static void ApplyIniState(IList<Main> sections, int selectedIndex, FontSectionViewState state)

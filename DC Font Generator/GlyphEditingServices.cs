@@ -552,10 +552,11 @@ namespace DC_Font_Generator
                     return;
                 }
 
-                float lineHeight = main.FntFile.Header.fBaseLine;
+                float lineRise = Math.Max(1f, main.FntFile.Header.fBaseLine);
+                float lineAdvance = GetPreviewLineAdvance(main);
                 PointF point = new PointF(0, 0);
                 char[] chars = text.ToCharArray();
-                int linePoint = (int)lineHeight;
+                int linePoint = (int)lineRise;
 
                 for (int i = 0; i < chars.Length; i++)
                 {
@@ -564,37 +565,39 @@ namespace DC_Font_Generator
                     if (drawX + fnt.fWidth > target.Width && point.X > 0)
                     {
                         point.X = 0;
-                        linePoint += (int)lineHeight;
+                        linePoint += (int)lineAdvance;
                         drawX = fnt.fLeadingEdge;
                     }
 
-                    point.X = drawX;
-                    point.Y = linePoint - fnt.fTopEdge;
-                    if (point.Y > target.Height) break;
+                    float drawY = linePoint - fnt.fTopEdge;
+                    if (drawY > target.Height) break;
 
-                    Bitmap fontImage;
+                    Bgra32Image glyphImage;
                     if (fnt.IsDC && main.DCfontLink > -1)
                     {
                         int link = main.DCfontLink;
                         Fnt_char linked = fontSections[link].FntFile.GetFntFromChar(chars[i]);
-                        fontImage = linked.FontImage;
+                        glyphImage = linked.GlyphImage;
                     }
                     else
                     {
-                        fontImage = fnt.FontImage;
+                        glyphImage = fnt.GlyphImage;
                     }
 
-                    if (point.X < 0) point.X = 0;
-                    if (point.Y < lineHeight - fnt.fTopEdge) point.Y = lineHeight - fnt.fTopEdge;
-                    if (point.Y < 0) point.Y = 0;
-                    using (SKBitmap glyphBitmap = SkiaBitmapInterop.CreateSKBitmap(fontImage))
+                    if (drawX < 0) drawX = 0;
+                    if (drawY < lineRise - fnt.fTopEdge) drawY = lineRise - fnt.fTopEdge;
+                    if (drawY < 0) drawY = 0;
+                    if (glyphImage != null)
                     {
-                        SKRect destination = new SKRect(
-                            point.X,
-                            point.Y,
-                            point.X + fnt.fWidth,
-                            point.Y + fnt.fHeight);
-                        canvas.DrawBitmap(glyphBitmap, destination);
+                        using (SKBitmap glyphBitmap = SkiaBitmapInterop.CreateSKBitmap(glyphImage))
+                        {
+                            SKRect destination = new SKRect(
+                                drawX,
+                                drawY,
+                                drawX + fnt.fWidth,
+                                drawY + fnt.fHeight);
+                            canvas.DrawBitmap(glyphBitmap, destination);
+                        }
                     }
                     point.X += fnt.fWidth + fnt.fSpacing;
                 }
@@ -602,6 +605,26 @@ namespace DC_Font_Generator
                 canvas.Flush();
                 SkiaBitmapInterop.CopySurfaceToBitmap(surface, target);
             }
+        }
+
+        private static float GetPreviewLineAdvance(Main main)
+        {
+            float maxDrop = 0f;
+            foreach (Fnt_char fnt in main.FntFile.CharList)
+            {
+                if (fnt == null || !fnt.Enable || fnt.Empty || fnt.IsSpace || fnt.fHeight <= 0)
+                {
+                    continue;
+                }
+
+                float drop = fnt.fHeight - fnt.fTopEdge;
+                if (drop > maxDrop)
+                {
+                    maxDrop = drop;
+                }
+            }
+
+            return Math.Max(1f, main.FntFile.Header.fBaseLine + maxDrop);
         }
     }
 }

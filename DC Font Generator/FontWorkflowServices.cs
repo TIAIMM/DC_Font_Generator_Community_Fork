@@ -12,6 +12,7 @@ namespace DC_Font_Generator
         public bool Success { get; set; }
         public bool IsDoubleByteFont { get; set; }
         public Bitmap Texture { get; set; }
+        public Bgra32Image TexturePixels { get; set; }
     }
 
     internal sealed class ImportedFontRequest
@@ -98,7 +99,8 @@ namespace DC_Font_Generator
             {
                 Success = true,
                 IsDoubleByteFont = isDoubleByteFont,
-                Texture = texture
+                Texture = texture,
+                TexturePixels = target.LastLoadedTexturePixels
             };
         }
 
@@ -135,6 +137,7 @@ namespace DC_Font_Generator
     {
         public IList<Main> FontSections { get; set; } = Array.Empty<Main>();
         public Bitmap TextImage { get; set; }
+        public Bgra32Image TextPixels { get; set; }
         public string TexPath { get; set; }
         public string TexName { get; set; }
         public IList<string> FntPaths { get; set; } = Array.Empty<string>();
@@ -210,7 +213,14 @@ namespace DC_Font_Generator
             result.PerformanceStats = stats;
 
             Stopwatch saveTexWatch = Stopwatch.StartNew();
-            TextureFileService.SaveTex(request.TexPath, request.TextImage, request.Progress);
+            if (request.TextPixels != null)
+            {
+                TextureFileService.SaveTexImage(request.TexPath, request.TextPixels, request.Progress);
+            }
+            else
+            {
+                TextureFileService.SaveTexImage(request.TexPath, Bgra32Image.FromBitmap(request.TextImage), request.Progress);
+            }
             saveTexWatch.Stop();
             stats.Add("SaveTex", saveTexWatch.Elapsed);
 

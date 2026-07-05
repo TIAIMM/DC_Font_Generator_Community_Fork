@@ -29,6 +29,8 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Data;
 using System.Windows.Forms;
+using DC_Font_Generator;
+using SkiaSharp;
 
 #endregion
 
@@ -222,14 +224,26 @@ namespace PictureBoxCtrl
 		/// </summary>
 		private void RedCross ()
 		{
-			Bitmap bmp = new Bitmap ( OuterPanel.Width, OuterPanel.Height, System.Drawing.Imaging.PixelFormat.Format16bppRgb555 );
-			Graphics gr;
-			gr = Graphics.FromImage ( bmp );
-			Pen pencil = new Pen ( Color.Red, 5 );
-			gr.DrawLine ( pencil, 0, 0, OuterPanel.Width, OuterPanel.Height );
-			gr.DrawLine ( pencil, 0, OuterPanel.Height, OuterPanel.Width, 0  );
+			Bitmap bmp = new Bitmap (
+				Math.Max(1, OuterPanel.Width),
+				Math.Max(1, OuterPanel.Height),
+				System.Drawing.Imaging.PixelFormat.Format32bppArgb );
+			SkiaBitmapInterop.DrawToBitmap(bmp, canvas =>
+			{
+				canvas.Clear(SKColors.Transparent);
+				using (SKPaint paint = new SKPaint
+				{
+					Color = SKColors.Red,
+					IsAntialias = true,
+					StrokeWidth = 5,
+					Style = SKPaintStyle.Stroke
+				})
+				{
+					canvas.DrawLine(0, 0, bmp.Width, bmp.Height, paint);
+					canvas.DrawLine(0, bmp.Height, bmp.Width, 0, paint);
+				}
+			});
 			PicBox.Image = bmp;
-			gr.Dispose ();
 		}
 
 		#endregion

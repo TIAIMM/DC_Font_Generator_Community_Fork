@@ -88,6 +88,11 @@ namespace DC_Font_Generator
             return bitmap;
         }
 
+        public static Bgra32Image CreateImageFromBgra(byte[] pixels, int sourceWidth, Rectangle sourceRect)
+        {
+            return Bgra32Image.FromBgra(pixels, sourceWidth, sourceRect);
+        }
+
         public static void CopySurfaceToBitmap(SKSurface surface, Bitmap target)
         {
             byte[] pixels = ReadSurfacePixels(surface, target.Width, target.Height);
@@ -195,6 +200,12 @@ namespace DC_Font_Generator
             return CreateBitmapFromBgra(pixels, width, new Rectangle(0, 0, width, height));
         }
 
+        public static Bgra32Image CreateImageFromSurface(SKSurface surface, int width, int height)
+        {
+            byte[] pixels = ReadSurfacePixels(surface, width, height);
+            return CreateImageFromBgra(pixels, width, new Rectangle(0, 0, width, height));
+        }
+
         public static SKBitmap CreateSKBitmap(Bitmap bitmap)
         {
             SKBitmap skBitmap = new SKBitmap(new SKImageInfo(
@@ -221,6 +232,37 @@ namespace DC_Font_Generator
             finally
             {
                 bitmap.UnlockBits(data);
+            }
+
+            return skBitmap;
+        }
+
+        public static SKBitmap CreateSKBitmap(Bgra32Image image)
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image));
+
+            SKBitmap skBitmap = new SKBitmap(new SKImageInfo(
+                image.Width,
+                image.Height,
+                SKColorType.Bgra8888,
+                SKAlphaType.Unpremul));
+
+            GCHandle handle = GCHandle.Alloc(image.Pixels, GCHandleType.Pinned);
+            try
+            {
+                int copyBytes = image.Width * 4;
+                IntPtr sourcePixels = handle.AddrOfPinnedObject();
+                IntPtr destinationPixels = skBitmap.GetPixels();
+                for (int y = 0; y < image.Height; y++)
+                {
+                    IntPtr sourceRow = IntPtr.Add(sourcePixels, y * image.Stride);
+                    IntPtr destinationRow = IntPtr.Add(destinationPixels, y * skBitmap.RowBytes);
+                    CopyMemory(destinationRow, sourceRow, (uint)copyBytes);
+                }
+            }
+            finally
+            {
+                handle.Free();
             }
 
             return skBitmap;

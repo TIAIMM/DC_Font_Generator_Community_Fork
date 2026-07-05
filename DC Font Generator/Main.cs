@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +30,7 @@ namespace DC_Font_Generator
         public string ImportFont2name = "";
 
         public string PictureFileName = "";
+        public Bgra32Image LastLoadedTexturePixels { get; private set; }
         public event EventHandler TextOverFlow; //圖片空間不足事件
 
         public bool SkipASCII = false; //忽略ASCII的輸出
@@ -39,6 +41,7 @@ namespace DC_Font_Generator
         private DrawFont SysDraw = new DrawFont();
         public float FontMaxWidth = 17;
         public float FontMaxHeight = 0;
+        private string lastGenerationSignature = "";
 
         public int DCfontLink = -1; //如果大於-1，代表fnt要使用別的區段
         public List<Main> parent;
@@ -153,6 +156,85 @@ namespace DC_Font_Generator
                 this.iFntFile.reset(false);
         }
 
+        internal void ResetGeneratedStateIfRenderSettingsChanged(FontEncoding enc)
+        {
+            string signature = CreateGenerationSignature(enc);
+            if (string.Equals(lastGenerationSignature, signature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            Clear();
+            lastGenerationSignature = signature;
+        }
+
+        internal void InvalidateGeneratedState()
+        {
+            lastGenerationSignature = "";
+        }
+
+        private string CreateGenerationSignature(FontEncoding enc)
+        {
+            StringBuilder builder = new StringBuilder(256);
+            AppendFontSignature(builder, "font1", font1);
+            AppendFontSignature(builder, "font2", font2);
+            builder.Append("|import1=").Append(ImportFont1name ?? "");
+            builder.Append("|import2=").Append(ImportFont2name ?? "");
+            builder.Append("|link=").Append(DCfontLink.ToString(CultureInfo.InvariantCulture));
+            builder.Append("|fixed=").Append(fixedFont ? "1" : "0");
+            builder.Append("|fixedWidth=").Append(FontMaxWidth.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append("|glow=").Append(Glow.ToString(CultureInfo.InvariantCulture));
+            builder.Append("|glowColor=").Append(GlowColor.ToArgb().ToString(CultureInfo.InvariantCulture));
+            builder.Append("|outline=").Append(Outline.ToString(CultureInfo.InvariantCulture));
+            builder.Append("|outlineColor=").Append(OutlineColor.ToArgb().ToString(CultureInfo.InvariantCulture));
+            builder.Append("|fontColor=").Append(FontColor.ToArgb().ToString(CultureInfo.InvariantCulture));
+
+            if (enc != null)
+            {
+                builder.Append("|codePage=").Append(enc.enc.CodePage.ToString(CultureInfo.InvariantCulture));
+                builder.Append("|ascii=").Append(enc.ASCII_Only ? "1" : "0");
+                builder.Append("|tempCount=").Append(enc.Temp != null ? enc.Temp.Count.ToString(CultureInfo.InvariantCulture) : "0");
+                builder.Append("|tempHash=").Append(GetEncodingTemplateHash(enc).ToString(CultureInfo.InvariantCulture));
+            }
+
+            return builder.ToString();
+        }
+
+        private static void AppendFontSignature(StringBuilder builder, string name, FontDescriptor font)
+        {
+            builder.Append('|').Append(name).Append('=');
+            if (font == null)
+            {
+                builder.Append("<null>");
+                return;
+            }
+
+            builder.Append(font.FamilyName ?? "");
+            builder.Append(',').Append(font.SizePixels.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append(',').Append(font.Weight.ToString(CultureInfo.InvariantCulture));
+            builder.Append(',').Append(font.Width.ToString(CultureInfo.InvariantCulture));
+            builder.Append(',').Append(((int)font.Slant).ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static int GetEncodingTemplateHash(FontEncoding enc)
+        {
+            if (enc.Temp == null)
+            {
+                return 0;
+            }
+
+            unchecked
+            {
+                int hash = 17;
+                foreach (string item in enc.Temp)
+                {
+                    hash = (hash * 31) + (item != null ? item.GetHashCode() : 0);
+                }
+
+                return hash;
+            }
+        }
+
         /// <summary>
         /// 重繪製
         /// </summary>
@@ -264,26 +346,20 @@ namespace DC_Font_Generator
             if (fixedFont && ImportFont1name == "" && ImportFont2name == "")
             {
                 FixedFont(fixedFont, this.FontMaxWidth);
-				float lineHeight1 = this.font1.GetLineSpacing();
-				float lineHeight2 = this.font2.GetLineSpacing();
-				this.iFntFile.Header.fBaseLine = Math.Max(lineHeight1, lineHeight2);
 			}
-            else if (ImportFont1name == "" && ImportFont2name == "")
+            if (ImportFont1name == "" && ImportFont2name == "")
             {
 
 				//this.iFntFile.Header.fBaseLine = SysDraw.lineSpacingPixel;
 
 				//this.iFntFile.Header.fBaseLine = (float)FontMaxHeight * 1.3f;
-				//登記行高
+				//Fallout FontData::fBaseLine 是行 rise/ascent，不是 glyph 顶边 fTopEdge。
 
-				float lineHeight1 = this.font1.GetLineSpacing();
-				float lineHeight2 = this.font2.GetLineSpacing();
-				this.iFntFile.Header.fBaseLine = Math.Max(lineHeight1, lineHeight2);
+                SetGeneratedBaseLineFromFontMetrics();
 
             }
-            NormalizeBaselines();
+            QuantizeGeneratedGlyphHorizontalMetrics();
             QuantizeGeneratedGlyphVerticalMetrics();
-            EnsureGeneratedBaseLineContainsGlyphs();
             QuantizeGeneratedBaseLine();
             return true;
         }
@@ -366,14 +442,15 @@ namespace DC_Font_Generator
                 {
                     //繪製文字
 
-                    fnt.FontImage = glyph.Image;
+                    fnt.GlyphImage = glyph.GlyphImage;
 
-                    ViewSize = new SizeF(fnt.FontImage.Width, fnt.FontImage.Height);
+                    ViewSize = fnt.GlyphImage != null
+                        ? new SizeF(fnt.GlyphImage.Width, fnt.GlyphImage.Height)
+                        : SizeF.Empty;
 
                 }
                 else //製造空白
                 {
-                    //fnt.FontImage = new Bitmap(1, 1);
                     ViewSize = new SizeF(renderer.SpaceWidth, 0);
                     
 
@@ -384,25 +461,39 @@ namespace DC_Font_Generator
                 //ef.Width += this.sc_i右下角.X;
                 //ef.Height += this.sc_i右下角.Y;
 
-                fnt.fTopEdge = FloorMetric(glyph.fTopEdge);
-                fnt.fHeight = (float)ViewSize.Height;  //顯示高度
-                fnt.fWidth = (float)ViewSize.Width;      //顯示寬度
-
                 fnt.fLeadingEdge = 0;
                 fnt.fSpacing = 0;
                 if (!this.fixedFont && !IsSpace)
                 {
-                    float layoutAdvance = glyph.LayoutAdvance > 0f
+                    float rawAdvance = glyph.LayoutAdvance > 0f
                         ? glyph.LayoutAdvance
                         : glyph.OriginSize.Width + Math.Max(0f, glyph.RealSpace * 2f);
-                    layoutAdvance = Math.Max(1f, RoundMetric(layoutAdvance));
-                    layoutAdvance += CalculateEffectAdvanceCompensation(glyph, dc);
-                    fnt.fSpacing = layoutAdvance - fnt.fWidth;
+                    float desiredAdvance = Math.Max(1f, rawAdvance);
+
+                    desiredAdvance += CalculateEffectAdvanceCompensation(glyph, dc);
+                    int minimumAdvance = CalculateMinimumGameAdvance(glyph, dc);
+                    int targetGameAdvance = GameFontMetricQuantizer.SelectAdvance(
+                        desiredAdvance,
+                        minimumAdvance,
+                        dc);
+
+                    float serializedWidth = RoundMetric(ViewSize.Width);
+                    fnt.fLeadingEdge = 0;
+                    fnt.fSpacing = GameFontMetricQuantizer.SpacingForAdvance(serializedWidth, targetGameAdvance);
+                }
+                else if (this.fixedFont && !IsSpace)
+                {
+                    int targetGlyphWidth = Math.Max(1, glyph.BakedLeftPad + glyph.BakedAdvance);
+                    if (fnt.GlyphImage != null && fnt.GlyphImage.Width < targetGlyphWidth)
+                    {
+                        fnt.GlyphImage = PadGlyphWidth(fnt.GlyphImage, targetGlyphWidth, renderer.BackColor);
+                        ViewSize = new SizeF(fnt.GlyphImage.Width, fnt.GlyphImage.Height);
+                    }
                 }
                 else if (glyph.RealSpace > 0)
                 {
-                    fnt.fLeadingEdge = glyph.RealSpace;
-                    fnt.fSpacing = glyph.RealSpace;
+                    fnt.fLeadingEdge = RoundMetric(glyph.RealSpace);
+                    fnt.fSpacing = RoundMetric(glyph.RealSpace);
                 }
                 /*
                 if (SysDraw.Glow > 0)
@@ -422,10 +513,47 @@ namespace DC_Font_Generator
                     fnt.Empty = true;
                     fnt.IsSpace = true;
                 }
+                else
+                {
+                    fnt.fTopEdge = FloorMetric(glyph.fTopEdge);
+                    fnt.fHeight = RoundMetric(ViewSize.Height);  //顯示高度
+                    fnt.fWidth = RoundMetric(ViewSize.Width);      //顯示寬度
+                }
                 height = fnt.fHeight;
             }
 
             return fnt;
+        }
+
+        private static Bgra32Image PadGlyphWidth(Bgra32Image image, int targetWidth, Color background)
+        {
+            if (image == null || image.Width >= targetWidth)
+            {
+                return image;
+            }
+
+            Bgra32Image padded = new Bgra32Image(targetWidth, image.Height);
+            padded.Clear(background);
+            image.CopyTo(padded, 0, 0);
+            return padded;
+        }
+
+        private static int CalculateMinimumGameAdvance(DrawFont.GlyphRenderResult glyph, bool isDoubleByte)
+        {
+            if (glyph == null)
+            {
+                return 1;
+            }
+
+            float rawAdvance = glyph.LayoutAdvance > 0f
+                ? glyph.LayoutAdvance
+                : glyph.OriginSize.Width + Math.Max(0f, glyph.RealSpace * 2f);
+
+            int minimumAdvance = isDoubleByte
+                ? GameFontMetricQuantizer.ToNearestGameInt(rawAdvance)
+                : GameFontMetricQuantizer.ToGameInt(rawAdvance);
+
+            return Math.Max(1, minimumAdvance);
         }
 
         private static float CalculateEffectAdvanceCompensation(DrawFont.GlyphRenderResult glyph, bool isDoubleByte)
@@ -443,7 +571,8 @@ namespace DC_Font_Generator
                 return 0f;
             }
 
-            return compensation > max ? max : compensation;
+            compensation = compensation > max ? max : compensation;
+            return RoundMetric(compensation);
         }
 
         private static bool IsOriginalSerializedBlankGlyph(char c)
@@ -636,8 +765,7 @@ namespace DC_Font_Generator
                             activeFont = selectedFont;
                         }
 
-                        DrawFont.GlyphRenderResult glyph = renderer.RenderGlyph(item.Character);
-                        glyph.Image?.Dispose();
+                        renderer.RenderGlyph(item.Character);
                         sampleCount++;
                     }
                 }
@@ -704,63 +832,43 @@ namespace DC_Font_Generator
 
         }
 
-        private void NormalizeBaselines()
+        private void SetGeneratedBaseLineFromFontMetrics()
         {
             if (ImportFont1name != "" || ImportFont2name != "")
             {
                 return;
             }
 
-            float singleByteCenter;
-            float doubleByteCenter;
-            if (!TryGetSingleByteReferenceCenter(out singleByteCenter)
-                || !TryGetDoubleByteReferenceCenter(out doubleByteCenter))
+            float baseline = Math.Max(GetFontAscent(this.font1), GetFontAscent(this.font2));
+            if (baseline <= 0f)
             {
-                return;
+                float lineHeight1 = this.font1 != null ? this.font1.GetLineSpacing() : 0f;
+                float lineHeight2 = this.font2 != null ? this.font2.GetLineSpacing() : 0f;
+                baseline = Math.Max(lineHeight1, lineHeight2);
             }
 
-            float doubleByteShift = doubleByteCenter - singleByteCenter;
-            if (Math.Abs(doubleByteShift) < 0.001f)
-            {
-                return;
-            }
-
-            foreach (Fnt_char fnt in this.iFntFile.CharList)
-            {
-                if (!fnt.Enable || fnt.IsSpace || !fnt.IsDC)
-                {
-                    continue;
-                }
-
-                fnt.fTopEdge += doubleByteShift;
-            }
+            this.iFntFile.Header.fBaseLine = baseline + GetEffectRisePadding() + this.iFntFile.Header.fBaseLineFixed;
         }
 
-        private void EnsureGeneratedBaseLineContainsGlyphs()
+        private static float GetFontAscent(FontDescriptor font)
         {
-            if (ImportFont1name != "" || ImportFont2name != "")
+            if (font == null)
             {
-                return;
+                return 0f;
             }
 
-            float maxTopEdge = 0f;
-            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            float ascent = font.GetAscent();
+            if (float.IsNaN(ascent) || float.IsInfinity(ascent) || ascent <= 0f)
             {
-                if (!fnt.Enable || fnt.IsSpace)
-                {
-                    continue;
-                }
-
-                if (fnt.fTopEdge > maxTopEdge)
-                {
-                    maxTopEdge = fnt.fTopEdge;
-                }
+                return font.SizePixels;
             }
 
-            if (maxTopEdge > this.iFntFile.Header.fBaseLine)
-            {
-                this.iFntFile.Header.fBaseLine = (float)Math.Ceiling(maxTopEdge);
-            }
+            return ascent;
+        }
+
+        private float GetEffectRisePadding()
+        {
+            return Math.Max(0, this.Outline) + Math.Max(0, this.Glow) + 0.5f;
         }
 
         private void QuantizeGeneratedGlyphVerticalMetrics()
@@ -778,6 +886,26 @@ namespace DC_Font_Generator
                 }
 
                 fnt.fTopEdge = FloorMetric(fnt.fTopEdge);
+            }
+        }
+
+        private void QuantizeGeneratedGlyphHorizontalMetrics()
+        {
+            if (ImportFont1name != "" || ImportFont2name != "" || fixedFont)
+            {
+                return;
+            }
+
+            foreach (Fnt_char fnt in this.iFntFile.CharList)
+            {
+                if (!fnt.Enable)
+                {
+                    continue;
+                }
+
+                fnt.fWidth = RoundMetric(fnt.fWidth);
+                fnt.fLeadingEdge = RoundMetric(fnt.fLeadingEdge);
+                fnt.fSpacing = RoundMetric(fnt.fSpacing);
             }
         }
 
@@ -821,80 +949,40 @@ namespace DC_Font_Generator
             return (float)Math.Floor(value);
         }
 
-        private bool TryGetSingleByteReferenceCenter(out float center)
+        private bool TryGetSingleByteReferenceDrop(out float drop)
         {
             char[] referenceChars = { 'H', 'A', 'M', 'W', '0' };
-            List<float> centers = new List<float>();
+            List<float> drops = new List<float>();
             for (int i = 0; i < referenceChars.Length; i++)
             {
                 Fnt_char fnt = this.iFntFile.GetFntFromChar(referenceChars[i]);
-                if (IsBaselineCandidate(fnt, false))
+                if (IsGeneratedLineDropCandidate(fnt) && !fnt.IsDC)
                 {
-                    centers.Add(GetVisualCenter(fnt));
+                    drops.Add(fnt.fHeight - fnt.fTopEdge);
                 }
             }
 
-            if (TryGetMedian(centers, out center))
+            if (TryGetMedian(drops, out drop))
             {
                 return true;
             }
-
-            return TryGetMedianVisualCenter(false, false, false, out center);
-        }
-
-        private bool TryGetDoubleByteReferenceCenter(out float center)
-        {
-            if (TryGetMedianVisualCenter(true, true, true, out center))
-            {
-                return true;
-            }
-
-            if (TryGetMedianVisualCenter(true, true, false, out center))
-            {
-                return true;
-            }
-
-            return TryGetMedianVisualCenter(true, false, false, out center);
-        }
-
-        private bool TryGetMedianVisualCenter(bool isDC, bool preferFullHeight, bool cjkOnly, out float center)
-        {
-            List<float> centers = new List<float>();
-            float minHeight = this.iFntFile.Header.fBaseLine * 0.5f;
 
             foreach (Fnt_char fnt in this.iFntFile.CharList)
             {
-                if (!IsBaselineCandidate(fnt, isDC))
+                if (IsGeneratedLineDropCandidate(fnt) && !fnt.IsDC)
                 {
-                    continue;
+                    drops.Add(fnt.fHeight - fnt.fTopEdge);
                 }
-
-                if (preferFullHeight && fnt.fHeight < minHeight)
-                {
-                    continue;
-                }
-
-                if (cjkOnly && !IsCjkIdeograph(fnt.c))
-                {
-                    continue;
-                }
-
-                centers.Add(GetVisualCenter(fnt));
             }
 
-            return TryGetMedian(centers, out center);
-        }
-
-        private float GetVisualCenter(Fnt_char fnt)
-        {
-            return this.iFntFile.Header.fBaseLine - fnt.fTopEdge + (fnt.fHeight / 2f);
+            return TryGetMedian(drops, out drop);
         }
 
         private static bool TryGetMedian(List<float> values, out float median)
         {
             if (values.Count == 0)
             {
-                median = 0;
+                median = 0f;
                 return false;
             }
 
@@ -903,21 +991,14 @@ namespace DC_Font_Generator
             return true;
         }
 
-        private static bool IsBaselineCandidate(Fnt_char fnt, bool isDC)
+        private static bool IsGeneratedLineDropCandidate(Fnt_char fnt)
         {
-            return fnt.Enable
+            return fnt != null
+                && fnt.Enable
                 && !fnt.Empty
                 && !fnt.IsSpace
-                && fnt.IsDC == isDC
                 && fnt.fWidth > 0
                 && fnt.fHeight > 0;
-        }
-
-        private static bool IsCjkIdeograph(char c)
-        {
-            return (c >= '\u3400' && c <= '\u4DBF')
-                || (c >= '\u4E00' && c <= '\u9FFF')
-                || (c >= '\uF900' && c <= '\uFAFF');
         }
 
         #region Properties
@@ -1084,6 +1165,7 @@ namespace DC_Font_Generator
 				CharIndex,
 				progress);
 			b_tex = result.Texture;
+            LastLoadedTexturePixels = result.TexturePixels;
 			if (result.FixedFont)
 			{
 				fixedFont = true;

@@ -133,6 +133,15 @@ namespace DC_Font_Generator
                 return -metrics.Ascent + metrics.Descent + metrics.Leading;
             }
         }
+        public float GetAscent()
+        {
+            using (SKTypeface tf = CreateTypeface())
+            using (SKFont skFont = new SKFont(tf ?? SKTypeface.Default, SizePixels))
+            {
+                skFont.GetFontMetrics(out SKFontMetrics metrics);
+                return -metrics.Ascent;
+            }
+        }
         public System.Drawing.Font ToGdiFont()
         {
             FontStyle gdiStyle = FontStyle.Regular;

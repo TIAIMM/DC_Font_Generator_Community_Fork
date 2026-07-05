@@ -13,6 +13,7 @@ namespace DC_Font_Generator
     internal sealed class TextureImportResult
     {
         public Bitmap Image { get; set; }
+        public Bgra32Image ImagePixels { get; set; }
         public Size ImageSize => Image == null ? Size.Empty : Image.Size;
     }
 
@@ -30,36 +31,34 @@ namespace DC_Font_Generator
 
         public static TextureImportResult Import(string path, TextureWorkflowFormat format)
         {
+            Bgra32Image image = LoadImage(path, format);
             return new TextureImportResult
             {
-                Image = Load(path, format)
+                ImagePixels = image,
+                Image = image.ToBitmap()
             };
         }
 
         public static void ConvertTexToPng(string texPath, string pngPath)
         {
-            using (Bitmap bitmap = TextureFileService.LoadTex(texPath))
-            {
-                TextureFileService.SaveBmp(pngPath, bitmap);
-            }
+            Bgra32Image image = TextureFileService.LoadTexImage(texPath);
+            TextureFileService.SavePngImage(pngPath, image);
         }
 
         public static void ConvertPngToTex(string pngPath, string texPath, IProgress<FontProgress> progress)
         {
-            using (Bitmap bitmap = TextureFileService.LoadBmp(pngPath))
-            {
-                TextureFileService.SaveTex(texPath, bitmap, progress);
-            }
+            Bgra32Image image = TextureFileService.LoadPngImage(pngPath);
+            TextureFileService.SaveTexImage(texPath, image, progress);
         }
 
-        private static Bitmap Load(string path, TextureWorkflowFormat format)
+        private static Bgra32Image LoadImage(string path, TextureWorkflowFormat format)
         {
             switch (format)
             {
                 case TextureWorkflowFormat.Tex:
-                    return TextureFileService.LoadTex(path);
+                    return TextureFileService.LoadTexImage(path);
                 case TextureWorkflowFormat.Png:
-                    return TextureFileService.LoadBmp(path);
+                    return TextureFileService.LoadPngImage(path);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(format), format, null);
             }

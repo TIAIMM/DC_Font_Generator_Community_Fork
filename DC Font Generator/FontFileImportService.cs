@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 
 namespace DC_Font_Generator
@@ -10,6 +9,7 @@ namespace DC_Font_Generator
     {
         public bool Success { get; set; }
         public Bitmap Texture { get; set; }
+        public Bgra32Image TexturePixels { get; set; }
         public bool FixedFont { get; set; }
         public float FontMaxWidth { get; set; }
         public FontPerformanceStats PerformanceStats { get; set; } = new FontPerformanceStats();
@@ -28,8 +28,9 @@ namespace DC_Font_Generator
         {
             FontFileImportResult result = new FontFileImportResult
             {
-                Texture = new Bitmap(1, 1)
+                TexturePixels = new Bgra32Image(1, 1)
             };
+            result.Texture = result.TexturePixels.ToBitmap();
 
             if (fontEncoding.Temp.Count < 256)
             {
@@ -61,7 +62,9 @@ namespace DC_Font_Generator
             try
             {
                 Stopwatch loadTexWatch = Stopwatch.StartNew();
-                result.Texture = TextureFileService.LoadTex(texPath);
+                if (result.Texture != null) result.Texture.Dispose();
+                result.TexturePixels = TextureFileService.LoadTexImage(texPath);
+                result.Texture = result.TexturePixels.ToBitmap();
                 loadTexWatch.Stop();
                 result.PerformanceStats.Add("LoadTex", loadTexWatch.Elapsed);
             }
@@ -71,7 +74,7 @@ namespace DC_Font_Generator
             }
 
             Stopwatch buildIndexWatch = Stopwatch.StartNew();
-            BuildCharIndex(fontFile, result.Texture, charIndex, progress);
+            BuildCharIndex(fontFile, result.TexturePixels, charIndex, progress);
             buildIndexWatch.Stop();
             result.PerformanceStats.Add("BuildCharIndex", buildIndexWatch.Elapsed);
 
@@ -87,83 +90,72 @@ namespace DC_Font_Generator
 
         private static void BuildCharIndex(
             FL_FONT fontFile,
-            Bitmap texture,
+            Bgra32Image texture,
             Array2D.List2D<Fnt_char> charIndex,
             IProgress<FontProgress> progress)
         {
             charIndex.Clear();
             ReportProgress(progress, 0, fontFile.CharList.Count);
 
-            BitmapData bmpData = texture.LockBits(
-                new Rectangle(0, 0, texture.Width, texture.Height),
-                ImageLockMode.ReadOnly,
-                PixelFormat.Format32bppArgb);
-            try
+            int index = 0;
+            foreach (Fnt_char fnt in fontFile.CharList)
             {
-                int index = 0;
-                foreach (Fnt_char fnt in fontFile.CharList)
+                if (!fnt.Enable)
                 {
-                    if (!fnt.Enable)
-                    {
-                        index++;
-                        continue;
-                    }
-
-                    if (index % 10 == 0)
-                    {
-                        ReportProgress(progress, index, fontFile.CharList.Count);
-                    }
-
-                    int px = (int)(fnt.pMapping[0].fU * texture.Width);
-                    int py = (int)(fnt.pMapping[0].fV * texture.Height);
-                    int rx = (int)(fnt.pMapping[3].fU * texture.Width);
-                    int ry = (int)(fnt.pMapping[3].fV * texture.Height);
-
-                    if (px < 0) px = 0;
-                    if (py < 0) py = 0;
-                    if (rx > texture.Width) rx = texture.Width;
-                    if (ry > texture.Height) ry = texture.Height;
-
-                    int pw = rx - px;
-                    int ph = ry - py;
-
-                    if (pw <= 0 || ph <= 0)
-                    {
-                        fnt.Empty = true;
-                        fnt.IsSpace = true;
-                        UpdateEmptyIndex(fontFile, fnt, index);
-                        index++;
-                        continue;
-                    }
-
-                    Rectangle rect = new Rectangle(px, py, pw, ph);
-                    fnt.SetLazyFontImage(texture, rect);
-
-                    bool notBlack = TexturePixelCodec.HasNonZeroPixel(bmpData, rect);
-                    for (int y = py; y < ry; y++)
-                    {
-                        charIndex.SetRange(px, y, pw, fnt);
-                    }
-
-                    if (notBlack)
-                    {
-                        fnt.Empty = false;
-                        fnt.IsSpace = (pw == 1 && ph == 1);
-                    }
-                    else
-                    {
-                        fnt.Empty = true;
-                        fnt.IsSpace = true;
-                        UpdateEmptyIndex(fontFile, fnt, index);
-                    }
-
                     index++;
+                    continue;
+                }
+
+                if (index % 10 == 0)
+                {
                     ReportProgress(progress, index, fontFile.CharList.Count);
                 }
-            }
-            finally
-            {
-                texture.UnlockBits(bmpData);
+
+                int px = (int)(fnt.pMapping[0].fU * texture.Width);
+                int py = (int)(fnt.pMapping[0].fV * texture.Height);
+                int rx = (int)(fnt.pMapping[3].fU * texture.Width);
+                int ry = (int)(fnt.pMapping[3].fV * texture.Height);
+
+                if (px < 0) px = 0;
+                if (py < 0) py = 0;
+                if (rx > texture.Width) rx = texture.Width;
+                if (ry > texture.Height) ry = texture.Height;
+
+                int pw = rx - px;
+                int ph = ry - py;
+
+                if (pw <= 0 || ph <= 0)
+                {
+                    fnt.Empty = true;
+                    fnt.IsSpace = true;
+                    UpdateEmptyIndex(fontFile, fnt, index);
+                    index++;
+                    continue;
+                }
+
+                Rectangle rect = new Rectangle(px, py, pw, ph);
+                fnt.SetLazyGlyphImage(texture, rect);
+
+                bool notBlack = TexturePixelCodec.HasNonZeroPixel(texture, rect);
+                for (int y = py; y < ry; y++)
+                {
+                    charIndex.SetRange(px, y, pw, fnt);
+                }
+
+                if (notBlack)
+                {
+                    fnt.Empty = false;
+                    fnt.IsSpace = (pw == 1 && ph == 1);
+                }
+                else
+                {
+                    fnt.Empty = true;
+                    fnt.IsSpace = true;
+                    UpdateEmptyIndex(fontFile, fnt, index);
+                }
+
+                index++;
+                ReportProgress(progress, index, fontFile.CharList.Count);
             }
         }
 

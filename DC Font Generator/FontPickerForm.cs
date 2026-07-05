@@ -27,6 +27,8 @@ namespace DC_Font_Generator
         private readonly Func<string, string> localize;
         private List<FontPickerFontEntry> allFontEntries = new List<FontPickerFontEntry>();
         private FontDescriptor previewFont;
+        private Bitmap previewBitmap;
+        private Size previewBitmapSize = Size.Empty;
         private bool preserveStyleOnFontSelection;
         private Button okButton;
 
@@ -92,6 +94,7 @@ namespace DC_Font_Generator
             {
                 SelectedFont = null;
                 previewFont = null;
+                DisposePreviewBitmap();
             }
 
             base.Dispose(disposing);
@@ -229,7 +232,11 @@ namespace DC_Font_Generator
             previewPanel.Dock = DockStyle.Fill;
             previewPanel.BackColor = Color.Lime;
             previewPanel.Paint += PreviewPanelPaint;
-            previewPanel.Resize += delegate { previewPanel.Invalidate(); };
+            previewPanel.Resize += delegate
+            {
+                DisposePreviewBitmap();
+                previewPanel.Invalidate();
+            };
             panel.Controls.Add(previewPanel, 0, 1);
 
             return panel;
@@ -350,6 +357,7 @@ namespace DC_Font_Generator
                 fontList.EndUpdate();
                 styleList.Items.Clear();
                 previewFont = null;
+                DisposePreviewBitmap();
                 previewPanel.Invalidate();
                 SetOkEnabled(false);
                 return;
@@ -419,6 +427,9 @@ namespace DC_Font_Generator
         {
             if (fontList.SelectedItem == null || styleList.SelectedItem == null)
             {
+                previewFont = null;
+                DisposePreviewBitmap();
+                previewPanel.Invalidate();
                 return;
             }
 
@@ -426,11 +437,13 @@ namespace DC_Font_Generator
             if (font == null)
             {
                 previewFont = null;
+                DisposePreviewBitmap();
                 previewPanel.Invalidate();
                 return;
             }
 
             previewFont = font;
+            DisposePreviewBitmap();
             previewPanel.Invalidate();
         }
 
@@ -460,27 +473,69 @@ namespace DC_Font_Generator
         {
             try
             {
-                FontPickerPreviewRenderer.Draw(e.Graphics, new FontPickerPreviewRequest
+                EnsurePreviewBitmap();
+                if (previewBitmap != null)
                 {
-                    PreviewFont = previewFont,
-                    PreviewFontStyleDescriptor = GetSelectedStyleDescriptor(),
-                    SingleByteFont = singleByteFont,
-                    DoubleByteFont = doubleByteFont,
-                    EditingDoubleByteFont = editingDoubleByteFont,
-                    AsciiOnly = asciiOnly,
-                    EncodingCodePage = encodingCodePage,
-                    Glow = glow,
-                    GlowColor = glowColor,
-                    Outline = outline,
-                    OutlineColor = outlineColor,
-                    FontColor = fontColor,
-                    BackColor = previewPanel.BackColor
-                });
+                    e.Graphics.DrawImageUnscaled(previewBitmap, 0, 0);
+                }
+                else
+                {
+                    e.Graphics.Clear(previewPanel.BackColor);
+                }
             }
             catch
             {
                 e.Graphics.Clear(previewPanel.BackColor);
             }
+        }
+
+        private void EnsurePreviewBitmap()
+        {
+            Size size = previewPanel.ClientSize;
+            if (size.Width <= 0 || size.Height <= 0)
+            {
+                return;
+            }
+
+            if (previewBitmap != null && previewBitmapSize == size)
+            {
+                return;
+            }
+
+            DisposePreviewBitmap();
+            previewBitmapSize = size;
+            previewBitmap = FontPickerPreviewRenderer.Render(size, CreatePreviewRequest());
+        }
+
+        private FontPickerPreviewRequest CreatePreviewRequest()
+        {
+            return new FontPickerPreviewRequest
+            {
+                PreviewFont = previewFont,
+                PreviewFontStyleDescriptor = GetSelectedStyleDescriptor(),
+                SingleByteFont = singleByteFont,
+                DoubleByteFont = doubleByteFont,
+                EditingDoubleByteFont = editingDoubleByteFont,
+                AsciiOnly = asciiOnly,
+                EncodingCodePage = encodingCodePage,
+                Glow = glow,
+                GlowColor = glowColor,
+                Outline = outline,
+                OutlineColor = outlineColor,
+                FontColor = fontColor,
+                BackColor = previewPanel.BackColor
+            };
+        }
+
+        private void DisposePreviewBitmap()
+        {
+            if (previewBitmap != null)
+            {
+                previewBitmap.Dispose();
+                previewBitmap = null;
+            }
+
+            previewBitmapSize = Size.Empty;
         }
 
         private string GetSelectedFontName()

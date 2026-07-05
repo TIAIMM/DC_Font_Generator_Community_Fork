@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging;
 
 namespace DC_Font_Generator
 {
@@ -47,6 +46,7 @@ namespace DC_Font_Generator
         public Size TextImageSize { get; set; }
         public int SizeXIndex { get; set; } = -1;
         public int SizeYIndex { get; set; } = -1;
+        public Bgra32Image TextPixels { get; set; }
         public Bitmap TextImage { get; set; }
         public Array2D.List2D<Fnt_char> CharIndex { get; set; }
     }
@@ -89,29 +89,25 @@ namespace DC_Font_Generator
             request.PerformanceStats?.Add("AtlasLayout", layoutWatch.Elapsed);
 
             Array2D.List2D<Fnt_char> charIndex = new Array2D.List2D<Fnt_char>();
-            Bitmap textImage = new Bitmap(bestSize.Width, bestSize.Height, PixelFormat.Format32bppArgb);
+            Bgra32Image textPixels = new Bgra32Image(bestSize.Width, bestSize.Height);
             Stopwatch drawWatch = Stopwatch.StartNew();
-            BitmapData atlasData = textImage.LockBits(
-                new Rectangle(0, 0, bestSize.Width, bestSize.Height),
-                ImageLockMode.WriteOnly,
-                PixelFormat.Format32bppArgb);
             try
             {
-                TexturePixelCodec.Clear(atlasData, bestSize.Width, bestSize.Height, GetAtlasBackground(request.BackgroundColor));
+                TexturePixelCodec.Clear(textPixels, GetAtlasBackground(request.BackgroundColor));
 
                 Report(progress, 0, fonts.Count);
                 for (int i = 0; i < fonts.Count; i++)
                 {
-                    DrawFontPlacement(fonts[i], placements[i], charIndex, bestSize, atlasData);
+                    DrawFontPlacement(fonts[i], placements[i], charIndex, bestSize, textPixels);
                     Report(progress, i + 1, fonts.Count);
                 }
             }
             finally
             {
-                textImage.UnlockBits(atlasData);
                 drawWatch.Stop();
                 request.PerformanceStats?.Add("AtlasDraw", drawWatch.Elapsed);
             }
+            Bitmap textImage = textPixels.ToBitmap();
 
             return new FontAtlasResult
             {
@@ -119,6 +115,7 @@ namespace DC_Font_Generator
                 TextImageSize = bestSize,
                 SizeXIndex = sizeXIndex,
                 SizeYIndex = sizeYIndex,
+                TextPixels = textPixels,
                 TextImage = textImage,
                 CharIndex = charIndex
             };
@@ -312,11 +309,15 @@ namespace DC_Font_Generator
             Rectangle placement,
             Array2D.List2D<Fnt_char> charIndex,
             Size textImageSize,
-            BitmapData atlasData)
+            Bgra32Image atlas)
         {
             if (!fnt.Enable || placement.Width <= 0 || placement.Height <= 0) return;
 
-            TexturePixelCodec.CopyBitmapToLocked(fnt.FontImage, atlasData, placement.X, placement.Y);
+            Bgra32Image glyph = fnt.GlyphImage;
+            if (glyph != null)
+            {
+                TexturePixelCodec.CopyImageToImage(glyph, atlas, placement.X, placement.Y);
+            }
 
             int startX = placement.X;
             int startY = placement.Y;

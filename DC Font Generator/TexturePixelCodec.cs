@@ -1,107 +1,56 @@
 using System;
 using System.Buffers;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
 
 namespace DC_Font_Generator
 {
-    internal static unsafe class TexturePixelCodec
+    internal static class TexturePixelCodec
     {
-        [DllImport("kernel32.dll", EntryPoint = "RtlMoveMemory")]
-        private static extern void CopyMemory(IntPtr dest, IntPtr src, uint length);
-
-        public static void Clear(BitmapData data, int width, int height, Color color)
+        public static void Clear(Bgra32Image image, Color color)
         {
-            byte b = color.B;
-            byte g = color.G;
-            byte r = color.R;
-            byte a = color.A;
-            for (int y = 0; y < height; y++)
-            {
-                byte* row = (byte*)data.Scan0 + (y * data.Stride);
-                for (int x = 0; x < width; x++)
-                {
-                    int offset = x * 4;
-                    row[offset] = b;
-                    row[offset + 1] = g;
-                    row[offset + 2] = r;
-                    row[offset + 3] = a;
-                }
-            }
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            image.Clear(color);
         }
 
-        public static void CopyBitmapToLocked(Bitmap source, BitmapData targetData, int targetX, int targetY)
+        public static void CopyImageToImage(Bgra32Image source, Bgra32Image target, int targetX, int targetY)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            if (source.Width <= 0 || source.Height <= 0) return;
-
-            BitmapData sourceData = source.LockBits(
-                new Rectangle(0, 0, source.Width, source.Height),
-                ImageLockMode.ReadOnly,
-                PixelFormat.Format32bppArgb);
-            try
-            {
-                int copyBytes = source.Width * 4;
-                for (int y = 0; y < source.Height; y++)
-                {
-                    IntPtr sourceRow = IntPtr.Add(sourceData.Scan0, y * sourceData.Stride);
-                    IntPtr targetRow = IntPtr.Add(targetData.Scan0, ((targetY + y) * targetData.Stride) + (targetX * 4));
-                    CopyMemory(targetRow, sourceRow, (uint)copyBytes);
-                }
-            }
-            finally
-            {
-                source.UnlockBits(sourceData);
-            }
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            source.CopyTo(target, targetX, targetY);
         }
 
-        public static bool HasNonZeroPixel(BitmapData data, Rectangle rect)
+        public static bool HasNonZeroPixel(Bgra32Image image, Rectangle rect)
         {
-            int maxY = rect.Y + rect.Height;
-            int maxX = rect.X + rect.Width;
-            for (int y = rect.Y; y < maxY; y++)
-            {
-                byte* row = (byte*)data.Scan0 + (y * data.Stride);
-                for (int x = rect.X; x < maxX; x++)
-                {
-                    int offset = x * 4;
-                    if (row[offset] != 0
-                        || row[offset + 1] != 0
-                        || row[offset + 2] != 0
-                        || row[offset + 3] != 0)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            return image.HasNonZeroPixel(rect);
         }
 
-        public static void SaveTexPixels(Stream output, BitmapData data, int width, int height, IProgress<FontProgress> progress)
+        public static void SaveTexPixels(Stream output, Bgra32Image image, IProgress<FontProgress> progress)
         {
-            int rowBytes = width * 4;
+            if (image == null) throw new ArgumentNullException(nameof(image));
+
+            int rowBytes = image.Width * 4;
             byte[] rented = ArrayPool<byte>.Shared.Rent(rowBytes);
             try
             {
-                for (int y = 0; y < height; y++)
+                for (int y = 0; y < image.Height; y++)
                 {
-                    byte* sourceRow = (byte*)data.Scan0 + (y * data.Stride);
-                    for (int x = 0; x < width; x++)
+                    int sourceRow = y * image.Stride;
+                    for (int x = 0; x < image.Width; x++)
                     {
                         int offset = x * 4;
-                        rented[offset] = sourceRow[offset + 2];
-                        rented[offset + 1] = sourceRow[offset + 1];
-                        rented[offset + 2] = sourceRow[offset];
-                        rented[offset + 3] = sourceRow[offset + 3];
+                        int sourceOffset = sourceRow + offset;
+                        rented[offset] = image.Pixels[sourceOffset + 2];
+                        rented[offset + 1] = image.Pixels[sourceOffset + 1];
+                        rented[offset + 2] = image.Pixels[sourceOffset];
+                        rented[offset + 3] = image.Pixels[sourceOffset + 3];
                     }
 
                     output.Write(rented.AsSpan(0, rowBytes));
-                    if ((y & 0x0F) == 0 || y == height - 1)
+                    if ((y & 0x0F) == 0 || y == image.Height - 1)
                     {
-                        progress?.Report(new FontProgress("SavingTex", y + 1, height));
+                        progress?.Report(new FontProgress("SavingTex", y + 1, image.Height));
                     }
                 }
             }
@@ -111,16 +60,22 @@ namespace DC_Font_Generator
             }
         }
 
-        public static void LoadTexPixels(ReadOnlySpan<byte> pixelData, BitmapData data, int width, int height)
+        public static void LoadTexPixels(ReadOnlySpan<byte> pixelData, Bgra32Image image)
         {
-            int rowBytes = width * 4;
-            for (int y = 0; y < height; y++)
+            if (image == null) throw new ArgumentNullException(nameof(image));
+
+            int rowBytes = image.Width * 4;
+            for (int y = 0; y < image.Height; y++)
             {
                 ReadOnlySpan<byte> source = pixelData.Slice(y * rowBytes, rowBytes);
-                byte* targetRow = (byte*)data.Scan0 + (y * data.Stride);
-                fixed (byte* sourcePtr = source)
+                Span<byte> target = image.Pixels.AsSpan(y * image.Stride, rowBytes);
+                for (int x = 0; x < image.Width; x++)
                 {
-                    Buffer.MemoryCopy(sourcePtr, targetRow, rowBytes, rowBytes);
+                    int offset = x * 4;
+                    target[offset] = source[offset + 2];
+                    target[offset + 1] = source[offset + 1];
+                    target[offset + 2] = source[offset];
+                    target[offset + 3] = source[offset + 3];
                 }
             }
         }
