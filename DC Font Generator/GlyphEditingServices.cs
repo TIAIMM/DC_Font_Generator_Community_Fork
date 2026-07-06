@@ -538,6 +538,23 @@ namespace DC_Font_Generator
 
     internal static class GlyphPreviewRenderer
     {
+        private sealed class PreviewGlyph
+        {
+            public char Character;
+            public Fnt_char Metrics;
+            public Bgra32Image Image;
+            public float PenX;
+            public float BaselineY;
+        }
+
+        private sealed class PreviewLine
+        {
+            public readonly List<PreviewGlyph> Glyphs = new List<PreviewGlyph>();
+            public float PenX;
+            public float Drop;
+            public bool HasGlyphs => Glyphs.Count > 0;
+        }
+
         public static void Render(Bitmap target, string text, Main main, IList<Main> fontSections)
         {
             SKImageInfo imageInfo = new SKImageInfo(target.Width, target.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -552,54 +569,32 @@ namespace DC_Font_Generator
                     return;
                 }
 
-                float lineRise = Math.Max(1f, main.FntFile.Header.fBaseLine);
-                float lineAdvance = GetPreviewLineAdvance(main);
-                PointF point = new PointF(0, 0);
-                char[] chars = text.ToCharArray();
-                int linePoint = (int)lineRise;
-
-                for (int i = 0; i < chars.Length; i++)
+                List<PreviewGlyph> layout = LayoutText(text, main, fontSections, target.Width);
+                foreach (PreviewGlyph glyph in layout)
                 {
-                    Fnt_char fnt = main.FntFile.GetFntFromChar(chars[i]);
-                    float drawX = point.X + fnt.fLeadingEdge;
-                    if (drawX + fnt.fWidth > target.Width && point.X > 0)
+                    Fnt_char fnt = glyph.Metrics;
+                    if (fnt == null || fnt.fWidth <= 0f || fnt.fHeight <= 0f || glyph.BaselineY - fnt.fTopEdge > target.Height)
                     {
-                        point.X = 0;
-                        linePoint += (int)lineAdvance;
-                        drawX = fnt.fLeadingEdge;
+                        continue;
                     }
 
-                    float drawY = linePoint - fnt.fTopEdge;
-                    if (drawY > target.Height) break;
-
-                    Bgra32Image glyphImage;
-                    if (fnt.IsDC && main.DCfontLink > -1)
+                    Bgra32Image glyphImage = glyph.Image;
+                    if (glyphImage == null || fnt.IsSpace || fnt.Empty)
                     {
-                        int link = main.DCfontLink;
-                        Fnt_char linked = fontSections[link].FntFile.GetFntFromChar(chars[i]);
-                        glyphImage = linked.GlyphImage;
-                    }
-                    else
-                    {
-                        glyphImage = fnt.GlyphImage;
+                        continue;
                     }
 
-                    if (drawX < 0) drawX = 0;
-                    if (drawY < lineRise - fnt.fTopEdge) drawY = lineRise - fnt.fTopEdge;
-                    if (drawY < 0) drawY = 0;
-                    if (glyphImage != null)
+                    float drawX = glyph.PenX + fnt.fLeadingEdge;
+                    float drawY = glyph.BaselineY - fnt.fTopEdge;
+                    using (SKBitmap glyphBitmap = SkiaBitmapInterop.CreateSKBitmap(glyphImage))
                     {
-                        using (SKBitmap glyphBitmap = SkiaBitmapInterop.CreateSKBitmap(glyphImage))
-                        {
-                            SKRect destination = new SKRect(
-                                drawX,
-                                drawY,
-                                drawX + fnt.fWidth,
-                                drawY + fnt.fHeight);
-                            canvas.DrawBitmap(glyphBitmap, destination);
-                        }
+                        SKRect destination = new SKRect(
+                            drawX,
+                            drawY,
+                            drawX + fnt.fWidth,
+                            drawY + fnt.fHeight);
+                        canvas.DrawBitmap(glyphBitmap, destination);
                     }
-                    point.X += fnt.fWidth + fnt.fSpacing;
                 }
 
                 canvas.Flush();
@@ -607,24 +602,115 @@ namespace DC_Font_Generator
             }
         }
 
-        private static float GetPreviewLineAdvance(Main main)
+        private static List<PreviewGlyph> LayoutText(string text, Main main, IList<Main> fontSections, float wrapWidth)
         {
-            float maxDrop = 0f;
-            foreach (Fnt_char fnt in main.FntFile.CharList)
+            List<PreviewGlyph> glyphs = new List<PreviewGlyph>();
+            float lineRise = Math.Max(1f, ToGameMetric(main.FntFile.Header.fBaseLine));
+            float baselineY = lineRise;
+            PreviewLine line = new PreviewLine();
+
+            foreach (char c in text)
             {
-                if (fnt == null || !fnt.Enable || fnt.Empty || fnt.IsSpace || fnt.fHeight <= 0)
+                if (c == '\r')
                 {
                     continue;
                 }
 
-                float drop = fnt.fHeight - fnt.fTopEdge;
-                if (drop > maxDrop)
+                if (c == '\n')
                 {
-                    maxDrop = drop;
+                    CommitLine(line, glyphs, baselineY);
+                    baselineY += GetLineAdvance(line, lineRise);
+                    line = new PreviewLine();
+                    continue;
+                }
+
+                Fnt_char fnt = main.FntFile.GetFntFromChar(c);
+                if (!IsLayoutGlyph(fnt))
+                {
+                    continue;
+                }
+
+                float advance = GetAdvance(fnt);
+                if (ShouldWrap(line, advance, wrapWidth))
+                {
+                    CommitLine(line, glyphs, baselineY);
+                    baselineY += GetLineAdvance(line, lineRise);
+                    line = new PreviewLine();
+                }
+
+                line.Glyphs.Add(new PreviewGlyph
+                {
+                    Character = c,
+                    Metrics = fnt,
+                    Image = ResolveGlyphImage(c, fnt, main, fontSections),
+                    PenX = line.PenX
+                });
+                line.PenX += advance;
+                line.Drop = Math.Max(line.Drop, Math.Max(0f, ToGameMetric(fnt.fHeight - fnt.fTopEdge)));
+            }
+
+            CommitLine(line, glyphs, baselineY);
+            return glyphs;
+        }
+
+        private static void CommitLine(PreviewLine line, List<PreviewGlyph> output, float baselineY)
+        {
+            foreach (PreviewGlyph glyph in line.Glyphs)
+            {
+                glyph.BaselineY = baselineY;
+                output.Add(glyph);
+            }
+        }
+
+        private static bool ShouldWrap(PreviewLine line, float advance, float wrapWidth)
+        {
+            if (wrapWidth <= 0f || !line.HasGlyphs)
+            {
+                return false;
+            }
+
+            return line.PenX + advance > wrapWidth;
+        }
+
+        private static float GetLineAdvance(PreviewLine line, float lineRise)
+        {
+            return Math.Max(1f, lineRise + line.Drop);
+        }
+
+        private static float GetAdvance(Fnt_char fnt)
+        {
+            return fnt.fWidth + fnt.fSpacing;
+        }
+
+        private static float ToGameMetric(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0f;
+            }
+
+            return (int)value;
+        }
+
+        private static bool IsLayoutGlyph(Fnt_char fnt)
+        {
+            return fnt != null
+                && fnt.Enable
+                && fnt.fWidth > 0f;
+        }
+
+        private static Bgra32Image ResolveGlyphImage(char c, Fnt_char fnt, Main main, IList<Main> fontSections)
+        {
+            if (fnt.IsDC && main.DCfontLink > -1 && fontSections != null && main.DCfontLink < fontSections.Count)
+            {
+                Fnt_char linked = fontSections[main.DCfontLink].FntFile.GetFntFromChar(c);
+                if (linked != null)
+                {
+                    return linked.GlyphImage;
                 }
             }
 
-            return Math.Max(1f, main.FntFile.Header.fBaseLine + maxDrop);
+            return fnt.GlyphImage;
         }
     }
 }
