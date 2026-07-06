@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>DC_Font_Generator.Core</RootNamespace>
+    <AssemblyName>DC Font Generator.Core</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <SupportedPlatform Include="windows" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="System.Text.Encoding.CodePages" />
+    <PackageReference Include="Vortice.Direct3D12" />
+    <PackageReference Include="Vortice.DXGI" />
+  </ItemGroup>
+</Project>

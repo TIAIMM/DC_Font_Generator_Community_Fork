@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>DC_Font_Generator.Wpf</RootNamespace>
+    <AssemblyName>DC Font Generator.Wpf</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DC Font Generator.Core\DC Font Generator.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\DC Font Generator\Language.INI" Link="Language.INI" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
