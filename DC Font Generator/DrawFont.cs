@@ -231,6 +231,8 @@ namespace DC_Font_Generator
                     }
 
                     result.OriginSize = new Size((int)Math.Ceiling(originBounds.Width), (int)Math.Ceiling(originBounds.Height));
+                    result.BodyTopEdge = baseline - originBounds.Top;
+                    result.BodyDrop = originBounds.Bottom - baseline;
                     result.LayoutAdvance = Math.Max(1f, MeasureLayoutAdvance(font, text, originBounds.Width));
                     result.BakedLeftPad = (int)Math.Floor(originX);
                     result.BakedAdvance = Math.Max(1, GameFontMetricQuantizer.ToGameInt(result.LayoutAdvance));
@@ -253,6 +255,8 @@ namespace DC_Font_Generator
 
                     result.LeftBearing = CalculateLeftBearing(bounds, originX);
                     result.RightOverhang = CalculateRightOverhang(bounds, result.BakedLeftPad + result.BakedAdvance);
+                    result.EffectTopPad = originBounds.Top - bounds.Top;
+                    result.EffectBottomPad = bounds.Bottom - originBounds.Bottom;
                     bounds = BakeHorizontalBounds(bounds, GetRightSidePadding(), surfaceSize);
                     result.GlyphImage = SkiaBitmapInterop.CreateImageFromBgra(pixels, surfaceSize, bounds);
                     result.fTopEdge = FloorMetric(CDZ_BottomAlign - bounds.Y);
@@ -566,6 +570,10 @@ namespace DC_Font_Generator
 			public float RealSpace;
             public float LeftBearing;
             public float RightOverhang;
+            public float BodyTopEdge;
+            public float BodyDrop;
+            public float EffectTopPad;
+            public float EffectBottomPad;
 			public float fTopEdge;
 			public bool IsSpace;
 
@@ -573,6 +581,22 @@ namespace DC_Font_Generator
             {
                 get { return fTopEdge; }
                 set { fTopEdge = value; }
+            }
+
+            public float GetGeneratedTopEdge(bool useBodyMetrics)
+            {
+                if (!useBodyMetrics || BodyTopEdge <= 0f)
+                {
+                    return fTopEdge;
+                }
+
+                float topEdge = BodyTopEdge + Math.Max(0f, EffectTopPad);
+                if (float.IsNaN(topEdge) || float.IsInfinity(topEdge) || topEdge <= 0f)
+                {
+                    return fTopEdge;
+                }
+
+                return topEdge;
             }
 		}
 

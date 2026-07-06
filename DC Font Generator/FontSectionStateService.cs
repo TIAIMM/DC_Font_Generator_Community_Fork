@@ -36,6 +36,8 @@ namespace DC_Font_Generator
         public bool LeftSpacingEnabled { get; set; }
         public bool RightSpacingEnabled { get; set; }
         public bool LineSpacingEnabled { get; set; }
+        public bool UseManualBaseLine { get; set; }
+        public float ManualBaseLine { get; set; }
     }
 
     internal sealed class FontSectionNavigationResult
@@ -85,7 +87,9 @@ namespace DC_Font_Generator
                 CanAdd = sections.Count < 8,
                 LeftSpacingEnabled = !selected.fixedFont,
                 RightSpacingEnabled = !selected.fixedFont,
-                LineSpacingEnabled = true
+                LineSpacingEnabled = true,
+                UseManualBaseLine = selected.UseManualBaseLine,
+                ManualBaseLine = selected.ManualBaseLine
             };
 
             ApplyIniState(sections, selectedIndex, state);
@@ -225,6 +229,22 @@ namespace DC_Font_Generator
         {
             section.FixedFont(enabled, maxWidth);
             section.Clear();
+        }
+
+        public static void ApplyManualBaseLine(IList<Main> sections, int selectedIndex, bool enabled, float value, bool clear)
+        {
+            ApplyManualBaseLine(GetSection(sections, selectedIndex), enabled, value, clear);
+        }
+
+        public static void ApplyManualBaseLine(Main section, bool enabled, float value, bool clear)
+        {
+            section.UseManualBaseLine = enabled;
+            section.ManualBaseLine = Math.Max(1f, value);
+            if (clear)
+            {
+                section.Clear();
+                section.InvalidateGeneratedState();
+            }
         }
 
         public static void SetName(IList<Main> sections, int selectedIndex, string name)

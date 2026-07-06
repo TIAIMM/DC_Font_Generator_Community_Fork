@@ -43,6 +43,8 @@
 			openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
 			toolTip1 = new System.Windows.Forms.ToolTip(components);
 			checkBox_fixed = new System.Windows.Forms.CheckBox();
+			checkBoxAutoBaseLine = new System.Windows.Forms.CheckBox();
+			labelBaseLine = new System.Windows.Forms.Label();
 			textBox_TypeTest = new System.Windows.Forms.TextBox();
 			textBox_ToHex = new System.Windows.Forms.TextBox();
 			textBox_ToText = new System.Windows.Forms.TextBox();
@@ -79,6 +81,7 @@
 			label25 = new System.Windows.Forms.Label();
 			numericUpDown_Outline = new System.Windows.Forms.NumericUpDown();
 			numericUpDown_MaxWidth = new System.Windows.Forms.NumericUpDown();
+			numericUpDown_BaseLine = new System.Windows.Forms.NumericUpDown();
 			button_GlowColor = new System.Windows.Forms.Button();
 			button_Outline = new System.Windows.Forms.Button();
 			label1 = new System.Windows.Forms.Label();
@@ -201,6 +204,7 @@
 			((System.ComponentModel.ISupportInitialize)numericUpDown1).BeginInit();
 			((System.ComponentModel.ISupportInitialize)numericUpDown_Outline).BeginInit();
 			((System.ComponentModel.ISupportInitialize)numericUpDown_MaxWidth).BeginInit();
+			((System.ComponentModel.ISupportInitialize)numericUpDown_BaseLine).BeginInit();
 			tableLayoutPanel17.SuspendLayout();
 			groupBox3.SuspendLayout();
 			tabPage5.SuspendLayout();
@@ -322,7 +326,22 @@
 			toolTip1.SetToolTip(checkBox_fixed, "To the terminal used.");
 			checkBox_fixed.UseVisualStyleBackColor = true;
 			checkBox_fixed.CheckedChanged += checkBox_fixed_CheckedChanged;
-			// 
+			//
+			// checkBoxAutoBaseLine
+			//
+			checkBoxAutoBaseLine.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+			checkBoxAutoBaseLine.AutoSize = true;
+			checkBoxAutoBaseLine.Checked = true;
+			checkBoxAutoBaseLine.CheckState = System.Windows.Forms.CheckState.Checked;
+			checkBoxAutoBaseLine.Location = new System.Drawing.Point(267, 95);
+			checkBoxAutoBaseLine.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+			checkBoxAutoBaseLine.Name = "checkBoxAutoBaseLine";
+			checkBoxAutoBaseLine.Size = new System.Drawing.Size(58, 21);
+			checkBoxAutoBaseLine.TabIndex = 14;
+			checkBoxAutoBaseLine.Text = "Auto";
+			checkBoxAutoBaseLine.UseVisualStyleBackColor = true;
+			checkBoxAutoBaseLine.CheckedChanged += checkBoxAutoBaseLine_CheckedChanged;
+			//
 			// textBox_TypeTest
 			// 
 			textBox_TypeTest.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
@@ -763,14 +782,19 @@
 			tableLayoutPanel9.Controls.Add(button_Outline, 2, 1);
 			tableLayoutPanel9.Controls.Add(label1, 0, 2);
 			tableLayoutPanel9.Controls.Add(buttonFontColor, 2, 2);
+			tableLayoutPanel9.Controls.Add(labelBaseLine, 0, 3);
+			tableLayoutPanel9.Controls.Add(numericUpDown_BaseLine, 1, 3);
+			tableLayoutPanel9.Controls.Add(checkBoxAutoBaseLine, 2, 3);
+			tableLayoutPanel9.SetColumnSpan(checkBoxAutoBaseLine, 3);
 			tableLayoutPanel9.Location = new System.Drawing.Point(6, 14);
 			tableLayoutPanel9.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			tableLayoutPanel9.Name = "tableLayoutPanel9";
-			tableLayoutPanel9.RowCount = 3;
-			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33334F));
-			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33334F));
-			tableLayoutPanel9.Size = new System.Drawing.Size(514, 92);
+			tableLayoutPanel9.RowCount = 4;
+			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+			tableLayoutPanel9.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+			tableLayoutPanel9.Size = new System.Drawing.Size(514, 112);
 			tableLayoutPanel9.TabIndex = 1;
 			// 
 			// label24
@@ -831,6 +855,31 @@
 			numericUpDown_MaxWidth.Value = new decimal(new int[] { 17, 0, 0, 0 });
 			numericUpDown_MaxWidth.Visible = false;
 			numericUpDown_MaxWidth.ValueChanged += numericUpDown_MaxWidth_ValueChanged;
+			//
+			// labelBaseLine
+			//
+			labelBaseLine.Anchor = System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+			labelBaseLine.AutoSize = true;
+			labelBaseLine.Location = new System.Drawing.Point(3, 95);
+			labelBaseLine.Name = "labelBaseLine";
+			labelBaseLine.Size = new System.Drawing.Size(94, 17);
+			labelBaseLine.TabIndex = 16;
+			labelBaseLine.Text = "Base Line";
+			//
+			// numericUpDown_BaseLine
+			//
+			numericUpDown_BaseLine.Anchor = System.Windows.Forms.AnchorStyles.Left;
+			numericUpDown_BaseLine.DecimalPlaces = 1;
+			numericUpDown_BaseLine.Enabled = false;
+			numericUpDown_BaseLine.Location = new System.Drawing.Point(103, 94);
+			numericUpDown_BaseLine.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+			numericUpDown_BaseLine.Maximum = new decimal(new int[] { 256, 0, 0, 0 });
+			numericUpDown_BaseLine.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+			numericUpDown_BaseLine.Name = "numericUpDown_BaseLine";
+			numericUpDown_BaseLine.Size = new System.Drawing.Size(61, 23);
+			numericUpDown_BaseLine.TabIndex = 15;
+			numericUpDown_BaseLine.Value = new decimal(new int[] { 31, 0, 0, 0 });
+			numericUpDown_BaseLine.ValueChanged += numericUpDown_BaseLine_ValueChanged;
 			// 
 			// button_GlowColor
 			// 
@@ -2130,6 +2179,7 @@
 			((System.ComponentModel.ISupportInitialize)numericUpDown1).EndInit();
 			((System.ComponentModel.ISupportInitialize)numericUpDown_Outline).EndInit();
 			((System.ComponentModel.ISupportInitialize)numericUpDown_MaxWidth).EndInit();
+			((System.ComponentModel.ISupportInitialize)numericUpDown_BaseLine).EndInit();
 			tableLayoutPanel17.ResumeLayout(false);
 			groupBox3.ResumeLayout(false);
 			groupBox3.PerformLayout();
@@ -2245,6 +2295,9 @@
         private System.Windows.Forms.NumericUpDown numericUpDown_Outline;
         private System.Windows.Forms.Button button_GlowColor;
         private System.Windows.Forms.Button button_Outline;
+        private System.Windows.Forms.CheckBox checkBoxAutoBaseLine;
+        private System.Windows.Forms.Label labelBaseLine;
+        private System.Windows.Forms.NumericUpDown numericUpDown_BaseLine;
         private System.Windows.Forms.Button buttonImportBmp;
         private System.Windows.Forms.Button buttonImportTex;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;

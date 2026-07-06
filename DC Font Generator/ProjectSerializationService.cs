@@ -61,6 +61,10 @@ namespace DC_Font_Generator
         public bool[] Fallout3INI { get; } = new bool[8];
         public bool FixedFont { get; set; }
         public float FontMaxWidth { get; set; }
+        public bool HasUseManualBaseLine { get; set; }
+        public bool UseManualBaseLine { get; set; }
+        public bool HasManualBaseLine { get; set; }
+        public float ManualBaseLine { get; set; }
     }
 
     public static class ProjectSerializationService
@@ -218,6 +222,11 @@ namespace DC_Font_Generator
             writer.WriteElementString("Outline", main.Outline.ToString());
             writer.WriteElementString("OutlineColor", main.OutlineColor.ToArgb().ToString());
             writer.WriteElementString("FontColor", main.FontColor.ToArgb().ToString());
+            writer.WriteElementString("UseManualBaseLine", main.UseManualBaseLine.ToString());
+            if (main.UseManualBaseLine)
+            {
+                writer.WriteElementString("ManualBaseLine", main.ManualBaseLine.ToString());
+            }
             for (int i = 0; i < 8; i++)
             {
                 writer.WriteElementString("LinkINI" + (i + 1), main.Fallout3INI[i].ToString());
@@ -314,6 +323,14 @@ namespace DC_Font_Generator
                 case "FontColor":
                     currentFont.FontColorArgb = ReadInt(reader);
                     currentFont.HasFontColor = true;
+                    break;
+                case "UseManualBaseLine":
+                    currentFont.UseManualBaseLine = ReadString(reader).ToLower() == "true";
+                    currentFont.HasUseManualBaseLine = true;
+                    break;
+                case "ManualBaseLine":
+                    currentFont.ManualBaseLine = ReadFloat(reader);
+                    currentFont.HasManualBaseLine = true;
                     break;
                 case "FntName":
                     currentFont.FntName = ReadString(reader);

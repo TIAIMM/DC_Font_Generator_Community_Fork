@@ -41,6 +41,8 @@ namespace DC_Font_Generator
         private DrawFont SysDraw = new DrawFont();
         public float FontMaxWidth = 17;
         public float FontMaxHeight = 0;
+        public bool UseManualBaseLine = false;
+        public float ManualBaseLine = 31f;
         private string lastGenerationSignature = "";
 
         public int DCfontLink = -1; //如果大於-1，代表fnt要使用別的區段
@@ -188,6 +190,8 @@ namespace DC_Font_Generator
             builder.Append("|outline=").Append(Outline.ToString(CultureInfo.InvariantCulture));
             builder.Append("|outlineColor=").Append(OutlineColor.ToArgb().ToString(CultureInfo.InvariantCulture));
             builder.Append("|fontColor=").Append(FontColor.ToArgb().ToString(CultureInfo.InvariantCulture));
+            builder.Append("|manualBaseLine=").Append(UseManualBaseLine ? "1" : "0");
+            builder.Append("|baseLine=").Append(ManualBaseLine.ToString("R", CultureInfo.InvariantCulture));
 
             if (enc != null)
             {
@@ -517,7 +521,7 @@ namespace DC_Font_Generator
                 }
                 else
                 {
-                    fnt.fTopEdge = FloorMetric(glyph.fTopEdge);
+                    fnt.fTopEdge = FloorMetric(glyph.GetGeneratedTopEdge(this.UseManualBaseLine));
                     fnt.fHeight = RoundMetric(ViewSize.Height);  //顯示高度
                     fnt.fWidth = RoundMetric(ViewSize.Width);      //顯示寬度
                 }
@@ -849,6 +853,12 @@ namespace DC_Font_Generator
                 baseline = Math.Max(lineHeight1, lineHeight2);
             }
 
+            if (this.UseManualBaseLine)
+            {
+                this.iFntFile.Header.fBaseLine = Math.Max(1f, this.ManualBaseLine) + this.iFntFile.Header.fBaseLineFixed;
+                return;
+            }
+
             this.iFntFile.Header.fBaseLine = baseline + GetEffectRisePadding() + this.iFntFile.Header.fBaseLineFixed;
         }
 
@@ -875,7 +885,7 @@ namespace DC_Font_Generator
 
         private void ApplyGeneratedTopEdgeOffsets()
         {
-            if (ImportFont1name != "" || ImportFont2name != "")
+            if (ImportFont1name != "" || ImportFont2name != "" || this.UseManualBaseLine)
             {
                 return;
             }

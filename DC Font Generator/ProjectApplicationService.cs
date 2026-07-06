@@ -189,6 +189,14 @@ namespace DC_Font_Generator
             if (section.HasOutline) main.Outline = section.Outline;
             if (section.HasOutlineColor) main.OutlineColor = Color.FromArgb(section.OutlineColorArgb);
             if (section.HasFontColor) main.FontColor = Color.FromArgb(section.FontColorArgb);
+            if (section.HasUseManualBaseLine)
+            {
+                main.UseManualBaseLine = section.UseManualBaseLine && section.HasManualBaseLine;
+                if (main.UseManualBaseLine)
+                {
+                    main.ManualBaseLine = Math.Max(1f, section.ManualBaseLine);
+                }
+            }
             if (section.FixedFont)
             {
                 main.fixedFont = true;

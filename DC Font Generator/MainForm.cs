@@ -169,6 +169,8 @@ namespace DC_Font_Generator
             label25.Text = GetString("Outline");
             label1.Text = GetString("Font Color");
             checkBox_fixed.Text = GetString("Fixedsys Font");
+            checkBoxAutoBaseLine.Text = GetString("Auto Base Line");
+            labelBaseLine.Text = GetString("Base Line");
             label10.Text = GetString("Backgroung Color");
 
             label12.Text = "1.Glow Monofonto Large";
@@ -227,6 +229,8 @@ namespace DC_Font_Generator
             label28.Text = GetString("Increment");
             this.toolStripDropDownButtonLinkINI.ToolTipText = GetString("Select the font settings under the Fallout3.ini,When the saved will be automatically set to Fallout.ini.");
             this.toolTip1.SetToolTip(this.checkBox_fixed, GetString("To the terminal used.Fixed-width is 17."));
+            this.toolTip1.SetToolTip(this.checkBoxAutoBaseLine, GetString("Automatically calculate Base Line from selected fonts."));
+            this.toolTip1.SetToolTip(this.numericUpDown_BaseLine, GetString("Base Line"));
             this.toolTip1.SetToolTip(this.buttonLink, GetString("You can use shared fonts, is a space-saving method."));
             this.toolTip1.SetToolTip(this.buttonOpenFNT, GetString("You can use the original game font."));
             this.buttonFntNew.ToolTipText = GetString("At the same one to add a new font map is a space-saving way to.");
@@ -306,6 +310,9 @@ namespace DC_Font_Generator
             numericUpDown_Outline.Value = state.Outline; //outline
 
             checkBox_fixed.Checked = state.FixedFont; //等寬字
+            checkBoxAutoBaseLine.Checked = !state.UseManualBaseLine;
+            numericUpDown_BaseLine.Value = ClampDecimal((decimal)state.ManualBaseLine, numericUpDown_BaseLine.Minimum, numericUpDown_BaseLine.Maximum);
+            numericUpDown_BaseLine.Enabled = state.UseManualBaseLine;
 
             button_GlowColor.BackColor = state.GlowColor;
             button_Outline.BackColor = state.OutlineColor;
@@ -619,6 +626,36 @@ namespace DC_Font_Generator
         private void numericUpDown_MaxWidth_ValueChanged(object sender, EventArgs e)
         {
             if (ready) FontSectionStateService.ApplyFixedFontWidth(this.MainList, MainSelect, checkBox_fixed.Checked, (float)numericUpDown_MaxWidth.Value);
+        }
+
+        private void checkBoxAutoBaseLine_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!ready) return;
+            numericUpDown_BaseLine.Enabled = !checkBoxAutoBaseLine.Checked;
+            FontSectionStateService.ApplyManualBaseLine(
+                this.MainList,
+                MainSelect,
+                !checkBoxAutoBaseLine.Checked,
+                (float)numericUpDown_BaseLine.Value,
+                true);
+        }
+
+        private void numericUpDown_BaseLine_ValueChanged(object sender, EventArgs e)
+        {
+            if (!ready) return;
+            FontSectionStateService.ApplyManualBaseLine(
+                this.MainList,
+                MainSelect,
+                !checkBoxAutoBaseLine.Checked,
+                (float)numericUpDown_BaseLine.Value,
+                !checkBoxAutoBaseLine.Checked);
+        }
+
+        private static decimal ClampDecimal(decimal value, decimal minimum, decimal maximum)
+        {
+            if (value < minimum) return minimum;
+            if (value > maximum) return maximum;
+            return value;
         }
         /// <summary>
         /// 匯入Fallout3字型
