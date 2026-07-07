@@ -3,11 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36310.24
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DC Font Generator", "DC Font Generator\DC Font Generator.csproj", "{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DC Font Generator.WinUI", "DC Font Generator.WinUI\DC Font Generator.WinUI.csproj", "{071F98C5-CABA-4AF5-8678-E08E4580DA4D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DC Font Generator.Core", "DC Font Generator.Core\DC Font Generator.Core.csproj", "{72876717-B580-44F0-9EC8-5286818DD46B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DC Font Generator.Wpf", "DC Font Generator.Wpf\DC Font Generator.Wpf.csproj", "{73D952EF-0FDD-4D8F-9318-900C01AD57C8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,18 +17,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Debug|x64.Build.0 = Debug|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Debug|x86.Build.0 = Debug|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Release|x64.ActiveCfg = Release|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Release|x64.Build.0 = Release|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Release|x86.ActiveCfg = Release|Any CPU
-		{A5B91D20-6B3B-4A93-BC00-819A1E0E684B}.Release|x86.Build.0 = Release|Any CPU
 		{72876717-B580-44F0-9EC8-5286818DD46B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{72876717-B580-44F0-9EC8-5286818DD46B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{72876717-B580-44F0-9EC8-5286818DD46B}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -43,18 +29,18 @@ Global
 		{72876717-B580-44F0-9EC8-5286818DD46B}.Release|x64.Build.0 = Release|Any CPU
 		{72876717-B580-44F0-9EC8-5286818DD46B}.Release|x86.ActiveCfg = Release|Any CPU
 		{72876717-B580-44F0-9EC8-5286818DD46B}.Release|x86.Build.0 = Release|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Debug|x64.Build.0 = Debug|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Debug|x86.Build.0 = Debug|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Release|x64.ActiveCfg = Release|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Release|x64.Build.0 = Release|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Release|x86.ActiveCfg = Release|Any CPU
-		{73D952EF-0FDD-4D8F-9318-900C01AD57C8}.Release|x86.Build.0 = Release|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Debug|x64.Build.0 = Debug|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Debug|x86.Build.0 = Debug|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Release|x64.ActiveCfg = Release|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Release|x64.Build.0 = Release|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Release|x86.ActiveCfg = Release|Any CPU
+		{071F98C5-CABA-4AF5-8678-E08E4580DA4D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
