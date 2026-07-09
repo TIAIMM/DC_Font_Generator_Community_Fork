@@ -13,10 +13,22 @@ internal static class CommandButtonOrderService
             return;
         }
 
-        Grid.SetColumn(FindElement<Button>(root, "RenderButton"), 0);
-        Grid.SetColumn(FindElement<Button>(root, "SaveFontButton"), 1);
-        Grid.SetColumn(FindElement<Button>(root, "LoadProjectButton"), 2);
-        Grid.SetColumn(FindElement<Button>(root, "SaveProjectButton"), 3);
+        ConfigureButton(root, "RenderButton", 0, "渲染");
+        ConfigureButton(root, "SaveFontButton", 1, "保存字体");
+        ConfigureButton(root, "LoadProjectButton", 2, "加载项目");
+        ConfigureButton(root, "SaveProjectButton", 3, "保存项目");
+    }
+
+    private static void ConfigureButton(DependencyObject root, string name, int column, string content)
+    {
+        Button button = FindElement<Button>(root, name);
+        if (button == null)
+        {
+            return;
+        }
+
+        Grid.SetColumn(button, column);
+        button.Content = content;
     }
 
     private static T FindElement<T>(DependencyObject root, string name) where T : FrameworkElement
