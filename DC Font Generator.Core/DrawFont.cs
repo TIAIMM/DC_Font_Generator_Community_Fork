@@ -528,10 +528,9 @@ namespace DC_Font_Generator
             bool ownsNext = false;
             if (Font != null)
             {
-                int weight, width;
-                SKFontStyleSlant slant;
-                GetStyleValues(out weight, out width, out slant);
-                next = SkiaTypefaceService.CreateTypeface(Font.FamilyName, weight, width, slant);
+                next = StyleDescriptor != null
+                    ? SkiaTypefaceService.CreateTypeface(Font, StyleDescriptor)
+                    : Font.CreateTypeface();
                 ownsNext = next != null;
             }
 
