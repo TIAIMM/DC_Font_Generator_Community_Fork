@@ -78,11 +78,6 @@ namespace DC_Font_Generator
                 return new GlyphInteractionResult { Hit = hit, MaskImage = mask };
             }
 
-            if (mask != null)
-            {
-                GlyphOverlayRenderer.DrawFocus(mask, hit);
-            }
-
             Main selected = request.FontSections[request.SelectedFontIndex];
             return new GlyphInteractionResult
             {
