@@ -20,6 +20,7 @@ namespace DC_Font_Generator
             path = null;
             if (font == null || c < 32)
             {
+                FontRenderDebugLog.Add($"[font-debug] DW skip char U+{(int)c:X4}: font={(font == null ? "<null>" : font.FamilyName)}, control={c < 32}");
                 return false;
             }
 
@@ -35,43 +36,55 @@ namespace DC_Font_Generator
                     : font.FamilyName;
                 if (string.IsNullOrWhiteSpace(familyName))
                 {
-                    return false;
-                }
-
-                int hr = SharedFactory.Value.GetSystemFontCollection(out collection, false);
-                if (hr < 0 || collection == null)
-                {
-                    return false;
-                }
-
-                hr = collection.FindFamilyName(familyName, out uint familyIndex, out bool exists);
-                if (hr < 0 || !exists)
-                {
-                    return false;
-                }
-
-                hr = collection.GetFontFamily(familyIndex, out family);
-                if (hr < 0 || family == null)
-                {
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: empty family, font={FormatFont(font)}, desc={FormatStyle(descriptor)}");
                     return false;
                 }
 
                 DWriteFontWeight weight = ToDWriteWeight(descriptor?.Weight ?? font.Weight);
                 DWriteFontStretch stretch = ToDWriteStretch(descriptor?.Width ?? font.Width);
                 DWriteFontStyle style = ToDWriteStyle(descriptor?.Slant ?? font.Slant);
+                FontRenderDebugLog.Add($"[font-debug] DW request U+{(int)c:X4}: family={familyName}, requested w={(int)weight}, stretch={(int)stretch}, style={style}, font={FormatFont(font)}, desc={FormatStyle(descriptor)}");
 
-                if (!TryGetExactFont(family, weight, stretch, style, out matchingFont))
+                int hr = SharedFactory.Value.GetSystemFontCollection(out collection, false);
+                if (hr < 0 || collection == null)
+                {
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetSystemFontCollection hr=0x{hr:X8}");
+                    return false;
+                }
+
+                hr = collection.FindFamilyName(familyName, out uint familyIndex, out bool exists);
+                if (hr < 0 || !exists)
+                {
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: FindFamilyName family={familyName}, exists={exists}, hr=0x{hr:X8}");
+                    return false;
+                }
+
+                hr = collection.GetFontFamily(familyIndex, out family);
+                if (hr < 0 || family == null)
+                {
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetFontFamily index={familyIndex}, hr=0x{hr:X8}");
+                    return false;
+                }
+
+                bool exactFont = TryGetExactFont(family, weight, stretch, style, out matchingFont, out uint matchedIndex);
+                if (!exactFont)
                 {
                     hr = family.GetFirstMatchingFont(weight, stretch, style, out matchingFont);
                     if (hr < 0 || matchingFont == null)
                     {
+                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetFirstMatchingFont hr=0x{hr:X8}");
                         return false;
                     }
+
+                    matchedIndex = uint.MaxValue;
                 }
+
+                FontRenderDebugLog.Add($"[font-debug] DW font U+{(int)c:X4}: exact={exactFont}, familyIndex={familyIndex}, fontIndex={(matchedIndex == uint.MaxValue ? "fallback" : matchedIndex.ToString())}, resolved w={(int)matchingFont.GetWeight()}, stretch={(int)matchingFont.GetStretch()}, style={matchingFont.GetStyle()}, simulations={matchingFont.GetSimulations()}");
 
                 hr = matchingFont.CreateFontFace(out fontFace);
                 if (hr < 0 || fontFace == null)
                 {
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: CreateFontFace hr=0x{hr:X8}");
                     return false;
                 }
 
@@ -80,6 +93,7 @@ namespace DC_Font_Generator
                 hr = fontFace.GetGlyphIndices(codePoints, 1, glyphIndices);
                 if (hr < 0 || glyphIndices[0] == 0)
                 {
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetGlyphIndices hr=0x{hr:X8}, glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}");
                     return false;
                 }
 
@@ -96,15 +110,25 @@ namespace DC_Font_Generator
                         sink);
                     if (hr < 0)
                     {
+                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetGlyphRunOutline hr=0x{hr:X8}, glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}");
                         return false;
                     }
 
                     path = sink.DetachPath();
-                    return path != null && !path.IsEmpty;
+                    if (path == null || path.IsEmpty)
+                    {
+                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: empty path, glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}");
+                        return false;
+                    }
+
+                    SKRect bounds = path.Bounds;
+                    FontRenderDebugLog.Add($"[font-debug] DW hit U+{(int)c:X4}: glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}, bounds={bounds.Width:0.##}x{bounds.Height:0.##}");
+                    return true;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                FontRenderDebugLog.AddException($"DW TryGetGlyphPath U+{(int)c:X4}", ex);
                 path?.Dispose();
                 path = null;
                 return false;
@@ -123,9 +147,11 @@ namespace DC_Font_Generator
             DWriteFontWeight weight,
             DWriteFontStretch stretch,
             DWriteFontStyle style,
-            out IDWriteFont matchingFont)
+            out IDWriteFont matchingFont,
+            out uint matchedIndex)
         {
             matchingFont = null;
+            matchedIndex = uint.MaxValue;
             if (family == null)
             {
                 return false;
@@ -138,14 +164,21 @@ namespace DC_Font_Generator
                 int hr = family.GetFont(i, out candidate);
                 if (hr < 0 || candidate == null)
                 {
+                    FontRenderDebugLog.Add($"[font-debug] DW exact scan skip: index={i}, hr=0x{hr:X8}");
                     continue;
                 }
 
-                if (candidate.GetWeight() == weight
-                    && candidate.GetStretch() == stretch
-                    && candidate.GetStyle() == style)
+                DWriteFontWeight candidateWeight = candidate.GetWeight();
+                DWriteFontStretch candidateStretch = candidate.GetStretch();
+                DWriteFontStyle candidateStyle = candidate.GetStyle();
+                FontRenderDebugLog.Add($"[font-debug] DW exact scan: index={i}, w={(int)candidateWeight}, stretch={(int)candidateStretch}, style={candidateStyle}, simulations={candidate.GetSimulations()}");
+
+                if (candidateWeight == weight
+                    && candidateStretch == stretch
+                    && candidateStyle == style)
                 {
                     matchingFont = candidate;
+                    matchedIndex = i;
                     return true;
                 }
 
@@ -192,6 +225,26 @@ namespace DC_Font_Generator
                 SKFontStyleSlant.Oblique => DWriteFontStyle.Oblique,
                 _ => DWriteFontStyle.Normal
             };
+        }
+
+        private static string FormatFont(FontDescriptor font)
+        {
+            if (font == null)
+            {
+                return "<null>";
+            }
+
+            return $"{font.FamilyName}, style={font.StyleName ?? ""}, idx={font.StyleSetIndex}, w={font.Weight}, wd={font.Width}, slant={font.Slant}";
+        }
+
+        private static string FormatStyle(FontStyleDescriptor descriptor)
+        {
+            if (descriptor == null)
+            {
+                return "<null>";
+            }
+
+            return $"{descriptor.SourceFamilyName ?? ""}/{descriptor.Name}, idx={descriptor.StyleSetIndex}, w={descriptor.Weight}, wd={descriptor.Width}, slant={descriptor.Slant}";
         }
 
         private static void Release(object comObject)
