@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
 using DC_Font_Generator;
@@ -16,12 +17,34 @@ namespace DC_Font_Generator.WinUI;
 internal static class AtlasHoverMetricLineService
 {
     private const double LineInset = 1d;
+    private static readonly HashSet<MainWindow> AttachedWindows = new HashSet<MainWindow>();
 
     public static void Attach(MainWindow window)
     {
-        if (window?.Content is not DependencyObject root)
+        if (window?.Content is not FrameworkElement root)
         {
             return;
+        }
+
+        if (TryAttach(window, root))
+        {
+            return;
+        }
+
+        root.Loaded += Root_Loaded;
+
+        void Root_Loaded(object sender, RoutedEventArgs e)
+        {
+            root.Loaded -= Root_Loaded;
+            TryAttach(window, root);
+        }
+    }
+
+    private static bool TryAttach(MainWindow window, FrameworkElement root)
+    {
+        if (AttachedWindows.Contains(window))
+        {
+            return true;
         }
 
         Grid atlasContentGrid = FindElement<Grid>(root, "AtlasContentGrid");
@@ -30,7 +53,7 @@ internal static class AtlasHoverMetricLineService
         MainWindowViewModel viewModel = GetViewModel(window);
         if (atlasContentGrid == null || atlasImage == null || atlasOverlay == null || viewModel == null)
         {
-            return;
+            return false;
         }
 
         Line topEdgeLine = new Line
@@ -40,6 +63,9 @@ internal static class AtlasHoverMetricLineService
             IsHitTestVisible = false,
             Visibility = Visibility.Collapsed
         };
+        Canvas.SetLeft(topEdgeLine, 0d);
+        Canvas.SetTop(topEdgeLine, 0d);
+        Canvas.SetZIndex(topEdgeLine, 1000);
         atlasOverlay.Children.Add(topEdgeLine);
 
         atlasContentGrid.AddHandler(
@@ -66,6 +92,9 @@ internal static class AtlasHoverMetricLineService
                 }
             };
         }
+
+        AttachedWindows.Add(window);
+        return true;
     }
 
     private static void UpdateTopEdgeLine(
@@ -75,7 +104,7 @@ internal static class AtlasHoverMetricLineService
         Line topEdgeLine,
         MainWindowViewModel viewModel)
     {
-        if (!TryGetAtlasPixelPosition(e.GetCurrentPoint(atlasImage).Position, atlasImage, viewModel, out int x, out int y))
+        if (!TryGetAtlasPixelPosition(e.GetCurrentPoint(atlasContentGrid).Position, atlasImage, viewModel, out int x, out int y))
         {
             HideTopEdgeLine(topEdgeLine);
             return;
@@ -159,7 +188,17 @@ internal static class AtlasHoverMetricLineService
             ?.GetValue(window) as MainWindowViewModel;
     }
 
-    private static T FindElement<T>(DependencyObject root, string name) where T : FrameworkElement
+    private static T FindElement<T>(FrameworkElement root, string name) where T : FrameworkElement
+    {
+        if (root.FindName(name) is T namedElement)
+        {
+            return namedElement;
+        }
+
+        return FindVisualElement<T>(root, name);
+    }
+
+    private static T FindVisualElement<T>(DependencyObject root, string name) where T : FrameworkElement
     {
         if (root is T element && element.Name == name)
         {
@@ -169,7 +208,7 @@ internal static class AtlasHoverMetricLineService
         int count = VisualTreeHelper.GetChildrenCount(root);
         for (int i = 0; i < count; i++)
         {
-            T match = FindElement<T>(VisualTreeHelper.GetChild(root, i), name);
+            T match = FindVisualElement<T>(VisualTreeHelper.GetChild(root, i), name);
             if (match != null)
             {
                 return match;
