@@ -57,6 +57,7 @@ namespace DC_Font_Generator
             public bool IsDC;
             public bool UseFont2;
             public bool IsEmpty;
+            public FontStyleDescriptor StyleDescriptor;
             public Fnt_char Fnt;
             public float Height;
         }
@@ -78,7 +79,10 @@ namespace DC_Font_Generator
             public DrawFont Renderer;
             public FontDescriptor Font1;
             public FontDescriptor Font2;
+            public FontStyleDescriptor Font1StyleDescriptor;
+            public FontStyleDescriptor Font2StyleDescriptor;
             public FontDescriptor ActiveFont;
+            public FontStyleDescriptor ActiveStyleDescriptor;
         }
 
 
@@ -218,6 +222,8 @@ namespace DC_Font_Generator
             builder.Append(',').Append(font.Weight.ToString(CultureInfo.InvariantCulture));
             builder.Append(',').Append(font.Width.ToString(CultureInfo.InvariantCulture));
             builder.Append(',').Append(((int)font.Slant).ToString(CultureInfo.InvariantCulture));
+            builder.Append(",idx=").Append(font.StyleSetIndex.ToString(CultureInfo.InvariantCulture));
+            builder.Append(",style=").Append(font.StyleName ?? "");
         }
 
         private static int GetEncodingTemplateHash(FontEncoding enc)
@@ -310,7 +316,8 @@ namespace DC_Font_Generator
                     Hex = hex,
                     Character = c,
                     IsDC = dc,
-                    UseFont2 = dc
+                    UseFont2 = dc,
+                    StyleDescriptor = GetStyleDescriptorForFont(dc)
                 });
                 pendingCodes.Add(hex);
                 projectedCount++;
@@ -635,6 +642,36 @@ namespace DC_Font_Generator
             progress?.Report(new FontProgress(stage, value, maximum));
         }
 
+        private FontStyleDescriptor GetStyleDescriptorForFont(bool doubleByte)
+        {
+            FontStyleDescriptor descriptor = doubleByte ? font2StyleDescriptor : font1StyleDescriptor;
+            if (descriptor != null)
+            {
+                return descriptor;
+            }
+
+            FontDescriptor font = doubleByte ? font2 : font1;
+            if (font != null && font.HasExactStyleSetFace)
+            {
+                return new FontStyleDescriptor(
+                    font.StyleName,
+                    font.Weight,
+                    font.Width,
+                    font.Slant,
+                    font.StyleSetIndex,
+                    font.FamilyName);
+            }
+
+            return null;
+        }
+
+        private static bool SameStyleDescriptor(FontStyleDescriptor left, FontStyleDescriptor right)
+        {
+            if (ReferenceEquals(left, right)) return true;
+            if (left == null || right == null) return false;
+            return left.Matches(right);
+        }
+
         private void RenderFontBuildItems(List<FontBuildItem> buildItems, int progressBase, IProgress<FontProgress> progress)
         {
             int renderTotal = 0;
@@ -666,11 +703,16 @@ namespace DC_Font_Generator
                         FontBuildItem item = buildItems[i];
                         if (!item.IsEmpty)
                         {
-                        FontDescriptor selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
-                            if (renderState.ActiveFont != selectedFont)
+                            FontDescriptor selectedFont = item.UseFont2 ? renderState.Font2 : renderState.Font1;
+                            FontStyleDescriptor selectedStyle = item.StyleDescriptor
+                                ?? (item.UseFont2 ? renderState.Font2StyleDescriptor : renderState.Font1StyleDescriptor);
+                            if (renderState.ActiveFont != selectedFont
+                                || !SameStyleDescriptor(renderState.ActiveStyleDescriptor, selectedStyle))
                             {
+                                renderState.Renderer.StyleDescriptor = selectedStyle;
                                 renderState.Renderer.FontData = selectedFont;
                                 renderState.ActiveFont = selectedFont;
+                                renderState.ActiveStyleDescriptor = selectedStyle;
                             }
 
                             float height;
@@ -756,6 +798,7 @@ namespace DC_Font_Generator
                 using (DrawFont renderer = CreateDrawFontRenderer(benchmarkSettings))
                 {
                     FontDescriptor activeFont = null;
+                    FontStyleDescriptor activeStyle = null;
                     for (int i = 0; i < buildItems.Count && sampleCount < 64; i++)
                     {
                         FontBuildItem item = buildItems[i];
@@ -765,10 +808,13 @@ namespace DC_Font_Generator
                         }
 
                         FontDescriptor selectedFont = item.UseFont2 ? this.font2 : this.font1;
-                        if (activeFont != selectedFont)
+                        FontStyleDescriptor selectedStyle = item.StyleDescriptor ?? GetStyleDescriptorForFont(item.UseFont2);
+                        if (activeFont != selectedFont || !SameStyleDescriptor(activeStyle, selectedStyle))
                         {
+                            renderer.StyleDescriptor = selectedStyle;
                             renderer.FontData = selectedFont;
                             activeFont = selectedFont;
+                            activeStyle = selectedStyle;
                         }
 
                         renderer.RenderGlyph(item.Character);
@@ -794,7 +840,9 @@ namespace DC_Font_Generator
             {
                 Renderer = CreateDrawFontRenderer(settings),
                 Font1 = this.font1,
-                Font2 = this.font2
+                Font2 = this.font2,
+                Font1StyleDescriptor = GetStyleDescriptorForFont(false),
+                Font2StyleDescriptor = GetStyleDescriptorForFont(true)
             };
         }
 
@@ -1388,7 +1436,7 @@ namespace DC_Font_Generator
 		}
 		public Bitmap LoadBmp(string path)
         {
-            return TextureFileService.LoadBmp(path);
+            return TextureService.LoadBmp(path);
         }
 
         #endregion
