@@ -37,6 +37,7 @@ public sealed partial class MainWindow : Window
     private IntPtr windowHandle;
     private IntPtr oldWndProc;
     private WndProcDelegate windowProcDelegate;
+    private Button focusSinkButton;
 
     public MainWindow()
     {
@@ -110,7 +111,54 @@ public sealed partial class MainWindow : Window
         IniSlotsList.ItemsSource = viewModel.IniSlots;
         SampleTextBox.Text = viewModel.SampleText;
         ProgressBar.Value = 0;
+        InitializeFocusHandling();
         ShowPage(nameof(FontPagePanel));
+    }
+
+    private void InitializeFocusHandling()
+    {
+        focusSinkButton = new Button
+        {
+            Width = 0,
+            Height = 0,
+            Opacity = 0,
+            IsTabStop = false,
+            IsHitTestVisible = false
+        };
+        RootGrid.Children.Add(focusSinkButton);
+        RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(RootGrid_PointerPressed), true);
+    }
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && IsInsideInteractiveControl(source))
+        {
+            return;
+        }
+
+        focusSinkButton?.Focus(FocusState.Programmatic);
+    }
+
+    private static bool IsInsideInteractiveControl(DependencyObject source)
+    {
+        DependencyObject current = source;
+        while (current != null)
+        {
+            if (current is TextBox
+                || current is NumberBox
+                || current is ComboBox
+                || current is ButtonBase
+                || current is Slider
+                || current is ScrollBar
+                || current is ListViewBase)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
     private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
