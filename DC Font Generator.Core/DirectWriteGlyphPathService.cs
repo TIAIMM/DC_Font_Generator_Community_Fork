@@ -7,7 +7,7 @@ namespace DC_Font_Generator
     internal static class DirectWriteGlyphPathService
     {
         private static readonly Guid IDWriteFactoryGuid = new Guid("b859ee5a-d838-4b5b-a2e8-1adc7d93db48");
-        private static readonly Lazy<IDWriteFactory> SharedFactory = new Lazy<IDWriteFactory>(CreateFactory);
+        private static readonly Lazy<IntPtr> SharedFactory = new Lazy<IntPtr>(CreateFactory);
 
         public static bool TryGetGlyphPath(
             FontDescriptor font,
@@ -24,10 +24,10 @@ namespace DC_Font_Generator
                 return false;
             }
 
-            IDWriteFontCollection collection = null;
-            IDWriteFontFamily family = null;
-            IDWriteFont matchingFont = null;
-            IDWriteFontFace fontFace = null;
+            IntPtr collection = IntPtr.Zero;
+            IntPtr family = IntPtr.Zero;
+            IntPtr matchingFont = IntPtr.Zero;
+            IntPtr fontFace = IntPtr.Zero;
 
             try
             {
@@ -45,22 +45,22 @@ namespace DC_Font_Generator
                 DWriteFontStyle style = ToDWriteStyle(descriptor?.Slant ?? font.Slant);
                 FontRenderDebugLog.Add($"[font-debug] DW request U+{(int)c:X4}: family={familyName}, requested w={(int)weight}, stretch={(int)stretch}, style={style}, font={FormatFont(font)}, desc={FormatStyle(descriptor)}");
 
-                int hr = SharedFactory.Value.GetSystemFontCollection(out collection, false);
-                if (hr < 0 || collection == null)
+                int hr = Call<GetSystemFontCollectionDelegate>(SharedFactory.Value, 3)(SharedFactory.Value, out collection, false);
+                if (hr < 0 || collection == IntPtr.Zero)
                 {
                     FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetSystemFontCollection hr=0x{hr:X8}");
                     return false;
                 }
 
-                hr = collection.FindFamilyName(familyName, out uint familyIndex, out bool exists);
+                hr = Call<FindFamilyNameDelegate>(collection, 5)(collection, familyName, out uint familyIndex, out bool exists);
                 if (hr < 0 || !exists)
                 {
                     FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: FindFamilyName family={familyName}, exists={exists}, hr=0x{hr:X8}");
                     return false;
                 }
 
-                hr = collection.GetFontFamily(familyIndex, out family);
-                if (hr < 0 || family == null)
+                hr = Call<GetFontFamilyDelegate>(collection, 4)(collection, familyIndex, out family);
+                if (hr < 0 || family == IntPtr.Zero)
                 {
                     FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetFontFamily index={familyIndex}, hr=0x{hr:X8}");
                     return false;
@@ -69,8 +69,8 @@ namespace DC_Font_Generator
                 bool exactFont = TryGetExactFont(family, weight, stretch, style, out matchingFont, out uint matchedIndex);
                 if (!exactFont)
                 {
-                    hr = family.GetFirstMatchingFont(weight, stretch, style, out matchingFont);
-                    if (hr < 0 || matchingFont == null)
+                    hr = Call<GetFirstMatchingFontDelegate>(family, 7)(family, weight, stretch, style, out matchingFont);
+                    if (hr < 0 || matchingFont == IntPtr.Zero)
                     {
                         FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetFirstMatchingFont hr=0x{hr:X8}");
                         return false;
@@ -79,10 +79,14 @@ namespace DC_Font_Generator
                     matchedIndex = uint.MaxValue;
                 }
 
-                FontRenderDebugLog.Add($"[font-debug] DW font U+{(int)c:X4}: exact={exactFont}, familyIndex={familyIndex}, fontIndex={(matchedIndex == uint.MaxValue ? "fallback" : matchedIndex.ToString())}, resolved w={(int)matchingFont.GetWeight()}, stretch={(int)matchingFont.GetStretch()}, style={matchingFont.GetStyle()}, simulations={matchingFont.GetSimulations()}");
+                DWriteFontWeight resolvedWeight = Call<GetFontWeightDelegate>(matchingFont, 4)(matchingFont);
+                DWriteFontStretch resolvedStretch = Call<GetFontStretchDelegate>(matchingFont, 5)(matchingFont);
+                DWriteFontStyle resolvedStyle = Call<GetFontStyleDelegate>(matchingFont, 6)(matchingFont);
+                DWriteFontSimulations simulations = Call<GetFontSimulationsDelegate>(matchingFont, 10)(matchingFont);
+                FontRenderDebugLog.Add($"[font-debug] DW font U+{(int)c:X4}: exact={exactFont}, familyIndex={familyIndex}, fontIndex={(matchedIndex == uint.MaxValue ? "fallback" : matchedIndex.ToString())}, resolved w={(int)resolvedWeight}, stretch={(int)resolvedStretch}, style={resolvedStyle}, simulations={simulations}");
 
-                hr = matchingFont.CreateFontFace(out fontFace);
-                if (hr < 0 || fontFace == null)
+                hr = Call<CreateFontFaceDelegate>(matchingFont, 13)(matchingFont, out fontFace);
+                if (hr < 0 || fontFace == IntPtr.Zero)
                 {
                     FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: CreateFontFace hr=0x{hr:X8}");
                     return false;
@@ -90,16 +94,19 @@ namespace DC_Font_Generator
 
                 uint[] codePoints = { c };
                 ushort[] glyphIndices = new ushort[1];
-                hr = fontFace.GetGlyphIndices(codePoints, 1, glyphIndices);
+                hr = Call<GetGlyphIndicesDelegate>(fontFace, 11)(fontFace, codePoints, 1, glyphIndices);
+                DWriteFontFaceType faceType = Call<GetFontFaceTypeDelegate>(fontFace, 3)(fontFace);
+                uint faceIndex = Call<GetFontFaceIndexDelegate>(fontFace, 5)(fontFace);
                 if (hr < 0 || glyphIndices[0] == 0)
                 {
-                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetGlyphIndices hr=0x{hr:X8}, glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}");
+                    FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetGlyphIndices hr=0x{hr:X8}, glyph={glyphIndices[0]}, faceType={faceType}, faceIndex={faceIndex}");
                     return false;
                 }
 
                 using (DirectWriteSkiaGeometrySink sink = new DirectWriteSkiaGeometrySink(originX, baseline))
                 {
-                    hr = fontFace.GetGlyphRunOutline(
+                    hr = Call<GetGlyphRunOutlineDelegate>(fontFace, 14)(
+                        fontFace,
                         font.SizePixels,
                         glyphIndices,
                         IntPtr.Zero,
@@ -110,19 +117,19 @@ namespace DC_Font_Generator
                         sink);
                     if (hr < 0)
                     {
-                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetGlyphRunOutline hr=0x{hr:X8}, glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}");
+                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: GetGlyphRunOutline hr=0x{hr:X8}, glyph={glyphIndices[0]}, faceType={faceType}, faceIndex={faceIndex}");
                         return false;
                     }
 
                     path = sink.DetachPath();
                     if (path == null || path.IsEmpty)
                     {
-                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: empty path, glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}");
+                        FontRenderDebugLog.Add($"[font-debug] DW miss U+{(int)c:X4}: empty path, glyph={glyphIndices[0]}, faceType={faceType}, faceIndex={faceIndex}");
                         return false;
                     }
 
                     SKRect bounds = path.Bounds;
-                    FontRenderDebugLog.Add($"[font-debug] DW hit U+{(int)c:X4}: glyph={glyphIndices[0]}, faceType={fontFace.GetType()}, faceIndex={fontFace.GetIndex()}, bounds={bounds.Width:0.##}x{bounds.Height:0.##}");
+                    FontRenderDebugLog.Add($"[font-debug] DW hit U+{(int)c:X4}: glyph={glyphIndices[0]}, faceType={faceType}, faceIndex={faceIndex}, bounds={bounds.Width:0.##}x{bounds.Height:0.##}");
                     return true;
                 }
             }
@@ -135,43 +142,44 @@ namespace DC_Font_Generator
             }
             finally
             {
-                Release(fontFace);
-                Release(matchingFont);
-                Release(family);
-                Release(collection);
+                ReleaseComPointer(fontFace);
+                ReleaseComPointer(matchingFont);
+                ReleaseComPointer(family);
+                ReleaseComPointer(collection);
             }
         }
 
         private static bool TryGetExactFont(
-            IDWriteFontFamily family,
+            IntPtr family,
             DWriteFontWeight weight,
             DWriteFontStretch stretch,
             DWriteFontStyle style,
-            out IDWriteFont matchingFont,
+            out IntPtr matchingFont,
             out uint matchedIndex)
         {
-            matchingFont = null;
+            matchingFont = IntPtr.Zero;
             matchedIndex = uint.MaxValue;
-            if (family == null)
+            if (family == IntPtr.Zero)
             {
                 return false;
             }
 
-            uint count = family.GetFontCount();
+            uint count = Call<GetFontCountDelegate>(family, 4)(family);
             for (uint i = 0; i < count; i++)
             {
-                IDWriteFont candidate = null;
-                int hr = family.GetFont(i, out candidate);
-                if (hr < 0 || candidate == null)
+                IntPtr candidate = IntPtr.Zero;
+                int hr = Call<GetFontDelegate>(family, 5)(family, i, out candidate);
+                if (hr < 0 || candidate == IntPtr.Zero)
                 {
                     FontRenderDebugLog.Add($"[font-debug] DW exact scan skip: index={i}, hr=0x{hr:X8}");
                     continue;
                 }
 
-                DWriteFontWeight candidateWeight = candidate.GetWeight();
-                DWriteFontStretch candidateStretch = candidate.GetStretch();
-                DWriteFontStyle candidateStyle = candidate.GetStyle();
-                FontRenderDebugLog.Add($"[font-debug] DW exact scan: index={i}, w={(int)candidateWeight}, stretch={(int)candidateStretch}, style={candidateStyle}, simulations={candidate.GetSimulations()}");
+                DWriteFontWeight candidateWeight = Call<GetFontWeightDelegate>(candidate, 4)(candidate);
+                DWriteFontStretch candidateStretch = Call<GetFontStretchDelegate>(candidate, 5)(candidate);
+                DWriteFontStyle candidateStyle = Call<GetFontStyleDelegate>(candidate, 6)(candidate);
+                DWriteFontSimulations simulations = Call<GetFontSimulationsDelegate>(candidate, 10)(candidate);
+                FontRenderDebugLog.Add($"[font-debug] DW exact scan: index={i}, w={(int)candidateWeight}, stretch={(int)candidateStretch}, style={candidateStyle}, simulations={simulations}");
 
                 if (candidateWeight == weight
                     && candidateStretch == stretch
@@ -182,22 +190,51 @@ namespace DC_Font_Generator
                     return true;
                 }
 
-                Release(candidate);
+                ReleaseComPointer(candidate);
             }
 
             return false;
         }
 
-        private static IDWriteFactory CreateFactory()
+        private static IntPtr CreateFactory()
         {
             Guid iid = IDWriteFactoryGuid;
-            int hr = DWriteCreateFactory(DWriteFactoryType.Shared, ref iid, out IDWriteFactory factory);
-            if (hr < 0 || factory == null)
+            int hr = DWriteCreateFactory(DWriteFactoryType.Shared, ref iid, out IntPtr factory);
+            if (hr < 0 || factory == IntPtr.Zero)
             {
                 Marshal.ThrowExceptionForHR(hr);
             }
 
+            FontRenderDebugLog.Add($"[font-debug] DW factory created: ptr=0x{factory.ToInt64():X}");
             return factory;
+        }
+
+        private static T Call<T>(IntPtr comObject, int slot) where T : Delegate
+        {
+            if (comObject == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("COM object pointer is null.");
+            }
+
+            IntPtr vtable = Marshal.ReadIntPtr(comObject);
+            IntPtr function = Marshal.ReadIntPtr(vtable, slot * IntPtr.Size);
+            return Marshal.GetDelegateForFunctionPointer<T>(function);
+        }
+
+        private static void ReleaseComPointer(IntPtr comObject)
+        {
+            if (comObject == IntPtr.Zero)
+            {
+                return;
+            }
+
+            try
+            {
+                Call<ReleaseDelegate>(comObject, 2)(comObject);
+            }
+            catch
+            {
+            }
         }
 
         private static DWriteFontWeight ToDWriteWeight(int weight)
@@ -247,19 +284,87 @@ namespace DC_Font_Generator
             return $"{descriptor.SourceFamilyName ?? ""}/{descriptor.Name}, idx={descriptor.StyleSetIndex}, w={descriptor.Weight}, wd={descriptor.Width}, slant={descriptor.Slant}";
         }
 
-        private static void Release(object comObject)
-        {
-            if (comObject != null && Marshal.IsComObject(comObject))
-            {
-                Marshal.ReleaseComObject(comObject);
-            }
-        }
-
-        [DllImport("dwrite.dll", ExactSpelling = true)]
+        [DllImport("dwrite.dll", ExactSpelling = true, PreserveSig = true)]
         private static extern int DWriteCreateFactory(
             DWriteFactoryType factoryType,
             ref Guid iid,
-            [MarshalAs(UnmanagedType.Interface)] out IDWriteFactory factory);
+            out IntPtr factory);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate uint ReleaseDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int GetSystemFontCollectionDelegate(
+            IntPtr self,
+            out IntPtr fontCollection,
+            [MarshalAs(UnmanagedType.Bool)] bool checkForUpdates);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate uint GetFontFamilyCountDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int GetFontFamilyDelegate(IntPtr self, uint index, out IntPtr fontFamily);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int FindFamilyNameDelegate(
+            IntPtr self,
+            [MarshalAs(UnmanagedType.LPWStr)] string familyName,
+            out uint index,
+            [MarshalAs(UnmanagedType.Bool)] out bool exists);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate uint GetFontCountDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int GetFontDelegate(IntPtr self, uint index, out IntPtr font);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int GetFirstMatchingFontDelegate(
+            IntPtr self,
+            DWriteFontWeight weight,
+            DWriteFontStretch stretch,
+            DWriteFontStyle style,
+            out IntPtr matchingFont);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate DWriteFontWeight GetFontWeightDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate DWriteFontStretch GetFontStretchDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate DWriteFontStyle GetFontStyleDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate DWriteFontSimulations GetFontSimulationsDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int CreateFontFaceDelegate(IntPtr self, out IntPtr fontFace);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate DWriteFontFaceType GetFontFaceTypeDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate uint GetFontFaceIndexDelegate(IntPtr self);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int GetGlyphIndicesDelegate(
+            IntPtr self,
+            [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] uint[] codePoints,
+            uint codePointCount,
+            [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] ushort[] glyphIndices);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+        private delegate int GetGlyphRunOutlineDelegate(
+            IntPtr self,
+            float emSize,
+            [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 5)] ushort[] glyphIndices,
+            IntPtr glyphAdvances,
+            IntPtr glyphOffsets,
+            uint glyphCount,
+            [MarshalAs(UnmanagedType.Bool)] bool isSideways,
+            [MarshalAs(UnmanagedType.Bool)] bool isRightToLeft,
+            [MarshalAs(UnmanagedType.Interface)] ID2D1SimplifiedGeometrySink geometrySink);
 
         private enum DWriteFactoryType
         {
@@ -324,11 +429,6 @@ namespace DC_Font_Generator
             Oblique = 2
         }
 
-        private enum DWriteInformationalStringId
-        {
-            None = 0
-        }
-
         private enum D2D1FillMode
         {
             Alternate = 0,
@@ -356,33 +456,6 @@ namespace DC_Font_Generator
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct DWriteFontMetrics
-        {
-            public ushort DesignUnitsPerEm;
-            public ushort Ascent;
-            public ushort Descent;
-            public short LineGap;
-            public ushort CapHeight;
-            public ushort XHeight;
-            public short UnderlinePosition;
-            public ushort UnderlineThickness;
-            public short StrikethroughPosition;
-            public ushort StrikethroughThickness;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct DWriteGlyphMetrics
-        {
-            public int LeftSideBearing;
-            public uint AdvanceWidth;
-            public int RightSideBearing;
-            public int TopSideBearing;
-            public uint AdvanceHeight;
-            public int BottomSideBearing;
-            public int VerticalOriginY;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
         private struct D2DPoint2F
         {
             public float X;
@@ -395,151 +468,6 @@ namespace DC_Font_Generator
             public D2DPoint2F Point1;
             public D2DPoint2F Point2;
             public D2DPoint2F Point3;
-        }
-
-        [ComImport]
-        [Guid("b859ee5a-d838-4b5b-a2e8-1adc7d93db48")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IDWriteFactory
-        {
-            [PreserveSig]
-            int GetSystemFontCollection(
-                [MarshalAs(UnmanagedType.Interface)] out IDWriteFontCollection fontCollection,
-                [MarshalAs(UnmanagedType.Bool)] bool checkForUpdates);
-        }
-
-        [ComImport]
-        [Guid("a84cee02-3eea-4eee-a827-87c1a02a0fcc")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IDWriteFontCollection
-        {
-            uint GetFontFamilyCount();
-
-            [PreserveSig]
-            int GetFontFamily(uint index, [MarshalAs(UnmanagedType.Interface)] out IDWriteFontFamily fontFamily);
-
-            [PreserveSig]
-            int FindFamilyName(
-                [MarshalAs(UnmanagedType.LPWStr)] string familyName,
-                out uint index,
-                [MarshalAs(UnmanagedType.Bool)] out bool exists);
-
-            [PreserveSig]
-            int GetFontFromFontFace(
-                [MarshalAs(UnmanagedType.Interface)] IDWriteFontFace fontFace,
-                [MarshalAs(UnmanagedType.Interface)] out IDWriteFont font);
-        }
-
-        [ComImport]
-        [Guid("da20d8ef-812a-4c43-9802-62ec4abd7add")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IDWriteFontFamily
-        {
-            [PreserveSig]
-            int GetFontCollection([MarshalAs(UnmanagedType.Interface)] out IDWriteFontCollection fontCollection);
-
-            uint GetFontCount();
-
-            [PreserveSig]
-            int GetFont(uint index, [MarshalAs(UnmanagedType.Interface)] out IDWriteFont font);
-
-            [PreserveSig]
-            int GetFamilyNames(out IntPtr names);
-
-            [PreserveSig]
-            int GetFirstMatchingFont(
-                DWriteFontWeight weight,
-                DWriteFontStretch stretch,
-                DWriteFontStyle style,
-                [MarshalAs(UnmanagedType.Interface)] out IDWriteFont matchingFont);
-        }
-
-        [ComImport]
-        [Guid("acd16696-8c14-4f5d-877e-fe3fc1d32737")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IDWriteFont
-        {
-            [PreserveSig]
-            int GetFontFamily([MarshalAs(UnmanagedType.Interface)] out IDWriteFontFamily fontFamily);
-
-            DWriteFontWeight GetWeight();
-            DWriteFontStretch GetStretch();
-            DWriteFontStyle GetStyle();
-
-            [return: MarshalAs(UnmanagedType.Bool)]
-            bool IsSymbolFont();
-
-            [PreserveSig]
-            int GetFaceNames(out IntPtr names);
-
-            [PreserveSig]
-            int GetInformationalStrings(
-                DWriteInformationalStringId informationalStringID,
-                out IntPtr informationalStrings,
-                [MarshalAs(UnmanagedType.Bool)] out bool exists);
-
-            DWriteFontSimulations GetSimulations();
-            void GetMetrics(out DWriteFontMetrics fontMetrics);
-
-            [PreserveSig]
-            int HasCharacter(uint unicodeValue, [MarshalAs(UnmanagedType.Bool)] out bool exists);
-
-            [PreserveSig]
-            int CreateFontFace([MarshalAs(UnmanagedType.Interface)] out IDWriteFontFace fontFace);
-        }
-
-        [ComImport]
-        [Guid("5f49804d-7024-4d43-bfa9-d25984f53849")]
-        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        private interface IDWriteFontFace
-        {
-            DWriteFontFaceType GetType();
-
-            [PreserveSig]
-            int GetFiles(ref uint numberOfFiles, IntPtr fontFiles);
-
-            uint GetIndex();
-            DWriteFontSimulations GetSimulations();
-
-            [return: MarshalAs(UnmanagedType.Bool)]
-            bool IsSymbolFont();
-
-            void GetMetrics(out DWriteFontMetrics fontFaceMetrics);
-            ushort GetGlyphCount();
-
-            [PreserveSig]
-            int GetDesignGlyphMetrics(
-                [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] ushort[] glyphIndices,
-                uint glyphCount,
-                [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] DWriteGlyphMetrics[] glyphMetrics,
-                [MarshalAs(UnmanagedType.Bool)] bool isSideways);
-
-            [PreserveSig]
-            int GetGlyphIndices(
-                [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] uint[] codePoints,
-                uint codePointCount,
-                [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] ushort[] glyphIndices);
-
-            [PreserveSig]
-            int TryGetFontTable(
-                uint openTypeTableTag,
-                out IntPtr tableData,
-                out uint tableSize,
-                out IntPtr tableContext,
-                [MarshalAs(UnmanagedType.Bool)] out bool exists);
-
-            void ReleaseFontTable(IntPtr tableContext);
-
-            [PreserveSig]
-            int GetGlyphRunOutline(
-                float emSize,
-                [In, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 4)] ushort[] glyphIndices,
-                IntPtr glyphAdvances,
-                IntPtr glyphOffsets,
-                uint glyphCount,
-                [MarshalAs(UnmanagedType.Bool)] bool isSideways,
-                [MarshalAs(UnmanagedType.Bool)] bool isRightToLeft,
-                [MarshalAs(UnmanagedType.Interface)] ID2D1SimplifiedGeometrySink geometrySink);
         }
 
         [ComVisible(true)]
