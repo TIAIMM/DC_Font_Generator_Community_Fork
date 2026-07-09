@@ -117,7 +117,8 @@ namespace DC_Font_Generator
 
         private static IDWriteFactory CreateFactory()
         {
-            int hr = DWriteCreateFactory(DWriteFactoryType.Shared, ref IDWriteFactoryGuid, out IDWriteFactory factory);
+            Guid iid = IDWriteFactoryGuid;
+            int hr = DWriteCreateFactory(DWriteFactoryType.Shared, ref iid, out IDWriteFactory factory);
             if (hr < 0 || factory == null)
             {
                 Marshal.ThrowExceptionForHR(hr);
@@ -504,7 +505,7 @@ namespace DC_Font_Generator
                     return;
                 }
 
-                uint count = Math.Min(pointsCount, (uint)points.Length);
+                int count = (int)Math.Min(pointsCount, (uint)points.Length);
                 for (int i = 0; i < count; i++)
                 {
                     path.LineTo(originX + points[i].X, baseline + points[i].Y);
@@ -518,7 +519,7 @@ namespace DC_Font_Generator
                     return;
                 }
 
-                uint count = Math.Min(beziersCount, (uint)beziers.Length);
+                int count = (int)Math.Min(beziersCount, (uint)beziers.Length);
                 for (int i = 0; i < count; i++)
                 {
                     D2DBezierSegment bezier = beziers[i];
