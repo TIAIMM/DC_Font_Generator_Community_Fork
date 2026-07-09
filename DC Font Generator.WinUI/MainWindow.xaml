@@ -307,7 +307,11 @@
                                     <TextBox x:Name="ToCharTextBox" Grid.Column="1" Header="To Character" TextChanged="RangeCharTextBox_TextChanged"/>
                                 </Grid>
                                 <Button Content="选择范围" Click="SelectRange_Click"/>
-                                <TextBox x:Name="SampleTextBox" Header="预览文本" TextChanged="SampleTextBox_TextChanged"/>
+                                <TextBox x:Name="SampleTextBox"
+                                         Header="预览文本"
+                                         IsSpellCheckEnabled="False"
+                                         IsTextPredictionEnabled="False"
+                                         TextChanged="SampleTextBox_TextChanged"/>
                                 <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                         BorderThickness="1"
                                         Background="White"
