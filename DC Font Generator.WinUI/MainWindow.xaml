@@ -135,7 +135,7 @@
                                            Minimum="0"
                                            Maximum="64"
                                            SmallChange="1"
-                                           SpinButtonPlacementMode="Compact"
+                                           SpinButtonPlacementMode="Inline"
                                            ValueChanged="GlowNumberBox_ValueChanged"/>
                                 <Button x:Name="GlowColorButton"
                                         Grid.Column="2"
@@ -149,7 +149,7 @@
                                            Minimum="0"
                                            Maximum="64"
                                            SmallChange="1"
-                                           SpinButtonPlacementMode="Compact"
+                                           SpinButtonPlacementMode="Inline"
                                            ValueChanged="OutlineNumberBox_ValueChanged"/>
                                 <Button x:Name="OutlineColorButton"
                                         Grid.Row="1"
@@ -180,7 +180,7 @@
                                            Minimum="1"
                                            Maximum="256"
                                            SmallChange="1"
-                                           SpinButtonPlacementMode="Compact"
+                                           SpinButtonPlacementMode="Inline"
                                            ValueChanged="FixedWidthNumberBox_ValueChanged"/>
 
                                 <CheckBox x:Name="AutoBaseLineCheckBox"
@@ -194,7 +194,7 @@
                                            Minimum="1"
                                            Maximum="256"
                                            SmallChange="1"
-                                           SpinButtonPlacementMode="Compact"
+                                           SpinButtonPlacementMode="Inline"
                                            ValueChanged="BaseLineNumberBox_ValueChanged"/>
 
                                 <TextBlock Grid.Row="2" Text="FNT 名称" VerticalAlignment="Center"/>
@@ -270,7 +270,7 @@
                                            Minimum="0.01"
                                            Maximum="256"
                                            SmallChange="0.5"
-                                           SpinButtonPlacementMode="Compact"/>
+                                           SpinButtonPlacementMode="Inline"/>
                                 <Grid Grid.Row="1"
                                       Grid.ColumnSpan="2"
                                       ColumnDefinitions="*,*,*"
@@ -362,7 +362,7 @@
                                            Minimum="0"
                                            Maximum="64"
                                            SmallChange="1"
-                                           SpinButtonPlacementMode="Compact"
+                                           SpinButtonPlacementMode="Inline"
                                            ValueChanged="GapNumberBox_ValueChanged"/>
 
                                 <TextBlock Grid.Row="1" Text="排列" VerticalAlignment="Center"/>
