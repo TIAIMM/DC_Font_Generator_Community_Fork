@@ -16,6 +16,7 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         window = new MainWindow();
+        CommandButtonOrderService.Apply(window);
         FocusDismissService.Attach(window);
         window.Activate();
     }
