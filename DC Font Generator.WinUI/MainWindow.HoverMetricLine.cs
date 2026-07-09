@@ -3,6 +3,7 @@ using System.ComponentModel;
 using DC_Font_Generator;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -17,18 +18,27 @@ public sealed partial class MainWindow
 
     internal void AttachHoverMetricLine()
     {
-        if (Content is FrameworkElement root && root.IsLoaded)
+        if (Content is not FrameworkElement root)
+        {
+            return;
+        }
+
+        if (root.IsLoaded)
         {
             InitializeHoverMetricLine();
             return;
         }
 
-        Loaded += MainWindow_LoadedAttachHoverMetricLine;
+        root.Loaded += Root_LoadedAttachHoverMetricLine;
     }
 
-    private void MainWindow_LoadedAttachHoverMetricLine(object sender, RoutedEventArgs e)
+    private void Root_LoadedAttachHoverMetricLine(object sender, RoutedEventArgs e)
     {
-        Loaded -= MainWindow_LoadedAttachHoverMetricLine;
+        if (sender is FrameworkElement root)
+        {
+            root.Loaded -= Root_LoadedAttachHoverMetricLine;
+        }
+
         InitializeHoverMetricLine();
     }
 
@@ -41,7 +51,7 @@ public sealed partial class MainWindow
 
         hoverTopEdgeLine = new Line
         {
-            Stroke = new SolidColorBrush(Colors.Yellow),
+            Stroke = new SolidColorBrush(Microsoft.UI.Colors.Yellow),
             StrokeThickness = 1,
             IsHitTestVisible = false,
             Visibility = Visibility.Collapsed
