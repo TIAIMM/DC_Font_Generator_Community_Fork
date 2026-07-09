@@ -42,6 +42,7 @@ namespace DC_Font_Generator
             FontPerformanceStats stats = new FontPerformanceStats();
             result.PerformanceStats = stats;
             request.AtlasRequest.PerformanceStats = stats;
+            FontRenderDebugLog.Clear();
 
             if (request.GlyphSelection != null && request.Encoding != null)
             {
@@ -55,11 +56,13 @@ namespace DC_Font_Generator
             Stopwatch manufacturingWatch = Stopwatch.StartNew();
             foreach (Main section in request.FontSections)
             {
+                stats.AddDebug($"[font-debug] section {section.ID}: font1={FormatFont(section.font1)}, style1={FormatStyle(section.font1StyleDescriptor)}, font2={FormatFont(section.font2)}, style2={FormatStyle(section.font2StyleDescriptor)}");
                 section.ResetGeneratedStateIfRenderSettingsChanged(request.Encoding);
                 section.NewDrawing(request.Encoding, request.Progress);
             }
             manufacturingWatch.Stop();
             stats.Add("Manufacturing", manufacturingWatch.Elapsed);
+            stats.AddDebugRange(FontRenderDebugLog.Snapshot());
 
             FontAtlasResult atlasResult = FontGenerationServices.BuildAtlas(request.AtlasRequest, request.Progress);
             result.AtlasResult = atlasResult;
@@ -76,6 +79,26 @@ namespace DC_Font_Generator
 
             result.Status = FontRenderWorkflowStatus.Success;
             return result;
+        }
+
+        private static string FormatFont(FontDescriptor font)
+        {
+            if (font == null)
+            {
+                return "<null>";
+            }
+
+            return $"{font.FamilyName}, size={font.SizePixels:0.##}, w={font.Weight}, wd={font.Width}, slant={font.Slant}, idx={font.StyleSetIndex}, style={font.StyleName ?? ""}";
+        }
+
+        private static string FormatStyle(FontStyleDescriptor style)
+        {
+            if (style == null)
+            {
+                return "<null>";
+            }
+
+            return $"{style.SourceFamilyName ?? ""}/{style.Name}, w={style.Weight}, wd={style.Width}, slant={style.Slant}, idx={style.StyleSetIndex}";
         }
     }
 }
