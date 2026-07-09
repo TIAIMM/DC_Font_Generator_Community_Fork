@@ -186,6 +186,11 @@ namespace DC_Font_Generator
                         advance = path?.Bounds.Width ?? 0f;
                     }
 
+                    if (!canRender && IsSpacingCharacter(c))
+                    {
+                        return Math.Max(advance, GetFallbackSpaceAdvance(font));
+                    }
+
                     return canRender ? Math.Max(advance, 1f) : 0f;
                 }
                 finally
@@ -204,6 +209,16 @@ namespace DC_Font_Generator
 
             SKRect bounds = path.Bounds;
             return bounds.Width > 0 && bounds.Height > 0;
+        }
+
+        private static bool IsSpacingCharacter(char c)
+        {
+            return c == ' ' || c == '\u00A0' || char.IsWhiteSpace(c);
+        }
+
+        private static float GetFallbackSpaceAdvance(FontDescriptor font)
+        {
+            return Math.Max(1f, (font?.SizePixels ?? 12f) / 4f);
         }
 
         private static float MeasureTextWidth(FontDescriptor font, FontStyleDescriptor descriptor, string text)
@@ -244,6 +259,11 @@ namespace DC_Font_Generator
 
         private static bool CanRenderChar(FontDescriptor font, FontStyleDescriptor descriptor, SKTypeface typeface, float sizePixels, char c)
         {
+            if (IsSpacingCharacter(c))
+            {
+                return true;
+            }
+
             if (DirectWriteGlyphPathService.TryGetGlyphPath(font, descriptor, c, 0, 0, out SKPath directWritePath))
             {
                 using (directWritePath)
