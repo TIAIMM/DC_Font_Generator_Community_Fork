@@ -187,30 +187,49 @@ namespace DC_Font_Generator
 
     public sealed class FontDescriptor
     {
-        public FontDescriptor(string familyName, float sizePixels,
-            int weight = 400, int width = 5, SKFontStyleSlant slant = SKFontStyleSlant.Upright)
+        public FontDescriptor(
+            string familyName,
+            float sizePixels,
+            int weight = 400,
+            int width = 5,
+            SKFontStyleSlant slant = SKFontStyleSlant.Upright,
+            int styleSetIndex = -1,
+            string styleName = null)
         {
-            FamilyName = familyName; SizePixels = sizePixels;
-            Weight = weight; Width = width; Slant = slant;
+            FamilyName = familyName;
+            SizePixels = sizePixels;
+            Weight = weight;
+            Width = width;
+            Slant = slant;
+            StyleSetIndex = styleSetIndex;
+            StyleName = styleName;
         }
+
         public string FamilyName { get; }
         public float SizePixels { get; }
         public int Weight { get; }
         public int Width { get; }
         public SKFontStyleSlant Slant { get; }
+        public int StyleSetIndex { get; }
+        public string StyleName { get; }
+        public bool HasExactStyleSetFace => StyleSetIndex >= 0 && !string.IsNullOrWhiteSpace(FamilyName);
         public SKFontStyle ToSKFontStyle() => new SKFontStyle(Weight, Width, Slant);
+
         public SKTypeface CreateTypeface()
         {
             return SkiaTypefaceService.CreateTypeface(this);
         }
+
         public float GetLineSpacing()
         {
             return GetVerticalMetrics().LineSpacing;
         }
+
         public float GetAscent()
         {
             return GetVerticalMetrics().Ascent;
         }
+
         public FontVerticalMetrics GetVerticalMetrics()
         {
             using (SKTypeface tf = CreateTypeface())
@@ -220,6 +239,7 @@ namespace DC_Font_Generator
                 return new FontVerticalMetrics(-metrics.Ascent, metrics.Descent, metrics.Leading);
             }
         }
+
         public System.Drawing.Font ToGdiFont()
         {
             FontStyle gdiStyle = FontStyle.Regular;
@@ -227,6 +247,7 @@ namespace DC_Font_Generator
             if (Slant != SKFontStyleSlant.Upright) gdiStyle |= FontStyle.Italic;
             return new System.Drawing.Font(FamilyName, SizePixels, gdiStyle, GraphicsUnit.Pixel);
         }
+
         public static FontDescriptor FromGdiFont(System.Drawing.Font f, FontStyleDescriptor d = null)
         {
             if (d != null)
@@ -234,7 +255,7 @@ namespace DC_Font_Generator
                 string familyName = string.IsNullOrWhiteSpace(d.SourceFamilyName)
                     ? f.FontFamily.Name
                     : d.SourceFamilyName;
-                return new FontDescriptor(familyName, f.Size, d.Weight, d.Width, d.Slant);
+                return new FontDescriptor(familyName, f.Size, d.Weight, d.Width, d.Slant, d.StyleSetIndex, d.Name);
             }
 
             return new FontDescriptor(f.FontFamily.Name, f.Size,
@@ -265,7 +286,6 @@ namespace DC_Font_Generator
                 {
                     if (styleSet == null || styleSet.Count == 0)
                     {
-                        // Fallback: try GDI+ for basic styles
                         return FromLegacy(fontName);
                     }
 
@@ -284,7 +304,6 @@ namespace DC_Font_Generator
                         }
                     }
 
-                    // Sort: Upright first, then Italic, then Oblique; within each group, light to heavy
                     styles.Sort((a, b) =>
                     {
                         int slantOrder = GetSlantOrder(a.Slant).CompareTo(GetSlantOrder(b.Slant));
@@ -303,46 +322,6 @@ namespace DC_Font_Generator
             }
         }
 
-        public static List<FontPickerFontEntry> FromFontFamilyFlattened(string fontName)
-        {
-            try
-            {
-                using (SKFontStyleSet styleSet = SKFontManager.Default.GetFontStyles(fontName))
-                {
-                    if (styleSet == null || styleSet.Count == 0)
-                    {
-                        return new List<FontPickerFontEntry> { FromLegacy(fontName) };
-                    }
-
-                    List<FontPickerFontEntry> entries = new List<FontPickerFontEntry>(styleSet.Count);
-                    HashSet<string> seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    for (int i = 0; i < styleSet.Count; i++)
-                    {
-                        string styleName = styleSet.GetStyleName(i);
-                        SKFontStyle skStyle = styleSet[i];
-                        FontStyleDescriptor descriptor = CreateDescriptor(fontName, i, styleName, skStyle);
-                        string displayName = CreateFlattenedDisplayName(fontName, descriptor.Name, skStyle);
-                        if (!seenNames.Add(displayName))
-                        {
-                            displayName = $"{displayName} #{i + 1}";
-                            seenNames.Add(displayName);
-                        }
-
-                        entries.Add(new FontPickerFontEntry(
-                            displayName,
-                            fontName,
-                            new List<FontStyleDescriptor> { descriptor }));
-                    }
-
-                    return entries;
-                }
-            }
-            catch
-            {
-                return new List<FontPickerFontEntry> { FromLegacy(fontName) };
-            }
-        }
-
         private static FontStyleDescriptor CreateDescriptor(string familyName, int styleIndex, string styleName, SKFontStyle skStyle)
         {
             int weight = skStyle.Weight;
@@ -350,37 +329,6 @@ namespace DC_Font_Generator
             SKFontStyleSlant slant = skStyle.Slant;
             string displayName = FontStyleDescriptor.StyleNameFromSkia(styleName, weight, width, slant);
             return new FontStyleDescriptor(displayName, weight, width, slant, styleIndex, familyName);
-        }
-
-        private static string CreateFlattenedDisplayName(string familyName, string styleName, SKFontStyle skStyle)
-        {
-            if (IsRegularStyle(styleName, skStyle))
-            {
-                return familyName;
-            }
-
-            if (familyName.EndsWith(" " + styleName, StringComparison.OrdinalIgnoreCase)
-                || familyName.EndsWith("-" + styleName, StringComparison.OrdinalIgnoreCase))
-            {
-                return familyName;
-            }
-
-            return familyName + " " + styleName;
-        }
-
-        private static bool IsRegularStyle(string styleName, SKFontStyle skStyle)
-        {
-            bool regularValues = skStyle.Weight == 400
-                && skStyle.Width == (int)SKFontStyleWidth.Normal
-                && skStyle.Slant == SKFontStyleSlant.Upright;
-            if (!regularValues)
-            {
-                return false;
-            }
-
-            return string.IsNullOrWhiteSpace(styleName)
-                || string.Equals(styleName, "Regular", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(styleName, "Normal", StringComparison.OrdinalIgnoreCase);
         }
 
         private static FontPickerFontEntry FromLegacy(string fontName)
@@ -588,7 +536,9 @@ namespace DC_Font_Generator
             return new FontDescriptor(familyName, size,
                 descriptor?.Weight ?? 400,
                 descriptor?.Width ?? 5,
-                descriptor?.Slant ?? SKFontStyleSlant.Upright);
+                descriptor?.Slant ?? SKFontStyleSlant.Upright,
+                descriptor?.StyleSetIndex ?? -1,
+                descriptor?.Name);
         }
 
         internal static SKTypeface CreateTypefaceFromDescriptor(string familyName, FontStyleDescriptor descriptor)
@@ -602,7 +552,9 @@ namespace DC_Font_Generator
                 ? descriptor.SourceFamilyName
                 : familyName;
 
-            return SkiaTypefaceService.CreateTypeface(sourceFamilyName, descriptor.Weight, descriptor.Width, descriptor.Slant);
+            return SkiaTypefaceService.CreateTypeface(
+                new FontDescriptor(sourceFamilyName, 12f, descriptor.Weight, descriptor.Width, descriptor.Slant, descriptor.StyleSetIndex, descriptor.Name),
+                descriptor);
         }
 
         public static System.Drawing.Font CreateDisplayFont(FontDescriptor selectedFont, float maximumSize)
@@ -622,7 +574,9 @@ namespace DC_Font_Generator
                 maximumSize,
                 selectedFont.Weight,
                 selectedFont.Width,
-                selectedFont.Slant);
+                selectedFont.Slant,
+                selectedFont.StyleSetIndex,
+                selectedFont.StyleName);
             return scaled.ToGdiFont();
         }
 
@@ -634,17 +588,15 @@ namespace DC_Font_Generator
             for (int i = 0; i < fontManager.FontFamilyCount; i++)
             {
                 string familyName = fontManager.GetFamilyName(i);
-                if (string.IsNullOrEmpty(familyName))
+                if (string.IsNullOrEmpty(familyName) || !seenNames.Add(familyName))
                 {
                     continue;
                 }
 
-                foreach (FontPickerFontEntry entry in FontPickerFontEntry.FromFontFamilyFlattened(familyName))
+                FontPickerFontEntry entry = FontPickerFontEntry.FromFontFamily(familyName);
+                if (entry.HasAnyStyle)
                 {
-                    if (entry.HasAnyStyle && seenNames.Add(entry.Name))
-                    {
-                        entries.Add(entry);
-                    }
+                    entries.Add(entry);
                 }
             }
 
