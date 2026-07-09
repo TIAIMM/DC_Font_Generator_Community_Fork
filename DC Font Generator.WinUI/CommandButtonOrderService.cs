@@ -1,3 +1,5 @@
+using System.Text;
+using DC_Font_Generator;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -13,10 +15,13 @@ internal static class CommandButtonOrderService
             return;
         }
 
-        ConfigureButton(root, "RenderButton", 0, "渲染");
-        ConfigureButton(root, "SaveFontButton", 1, "保存字体");
-        ConfigureButton(root, "LoadProjectButton", 2, "加载项目");
-        ConfigureButton(root, "SaveProjectButton", 3, "保存项目");
+        LanguageData language = new LanguageData(Encoding.Default);
+
+        ConfigureButton(root, "RenderButton", 0, language.GetString("Render"));
+        ConfigureButton(root, "SaveFontButton", 1, language.GetString("Save Font"));
+        ConfigureButton(root, "LoadProjectButton", 2, language.GetString("Load Project"));
+        ConfigureButton(root, "SaveProjectButton", 3, language.GetString("Save Project"));
+        ConfigureEncodingComboBox(root, language);
     }
 
     private static void ConfigureButton(DependencyObject root, string name, int column, string content)
@@ -29,6 +34,32 @@ internal static class CommandButtonOrderService
 
         Grid.SetColumn(button, column);
         button.Content = content;
+    }
+
+    private static void ConfigureEncodingComboBox(DependencyObject root, LanguageData language)
+    {
+        ComboBox comboBox = FindElement<ComboBox>(root, "EncodingComboBox");
+        if (comboBox == null)
+        {
+            return;
+        }
+
+        int selectedIndex = comboBox.SelectedIndex;
+        comboBox.ItemsSource = new[]
+        {
+            language.GetString("Encoding ANSI"),
+            language.GetString("Encoding 932 Japanese"),
+            language.GetString("Encoding 936 Simplified Chinese"),
+            language.GetString("Encoding 949 Korean"),
+            language.GetString("Encoding 950 Traditional Chinese"),
+            language.GetString("Encoding 936 GBK"),
+            language.GetString("Encoding 1252 Windows")
+        };
+
+        if (selectedIndex >= 0)
+        {
+            comboBox.SelectedIndex = selectedIndex;
+        }
     }
 
     private static T FindElement<T>(DependencyObject root, string name) where T : FrameworkElement
