@@ -12,6 +12,8 @@ namespace DC_Font_Generator.WinUI;
 
 internal static class FocusDismissService
 {
+    private static readonly HashSet<uint> interactivePressedPointers = new HashSet<uint>();
+
     public static void Attach(Window window)
     {
         if (window?.Content is not FrameworkElement rootElement)
@@ -34,6 +36,10 @@ internal static class FocusDismissService
         rootElement.AddHandler(
             UIElement.PointerReleasedEvent,
             new PointerEventHandler((_, e) => HandlePointerReleased(e, rootElement, focusTarget)),
+            true);
+        rootElement.AddHandler(
+            UIElement.PointerCanceledEvent,
+            new PointerEventHandler(HandlePointerCanceled),
             true);
     }
 
@@ -73,8 +79,27 @@ internal static class FocusDismissService
         }
     }
 
-    private static void HandlePointerPressed(PointerRoutedEventArgs e, DependencyObject root, UIElement focusTarget)
+    private static void HandlePointerPressed(PointerRoutedEventArgs e, UIElement root, UIElement focusTarget)
     {
+        uint pointerId = GetPointerId(e, root);
+        if (e.OriginalSource is DependencyObject source && IsInsideInteractiveControl(source))
+        {
+            interactivePressedPointers.Add(pointerId);
+            return;
+        }
+
+        interactivePressedPointers.Remove(pointerId);
+        _ = DismissInputStateAsync(root, focusTarget);
+    }
+
+    private static void HandlePointerReleased(PointerRoutedEventArgs e, UIElement root, UIElement focusTarget)
+    {
+        uint pointerId = GetPointerId(e, root);
+        if (interactivePressedPointers.Remove(pointerId))
+        {
+            return;
+        }
+
         if (e.OriginalSource is DependencyObject source && IsInsideInteractiveControl(source))
         {
             return;
@@ -83,14 +108,17 @@ internal static class FocusDismissService
         _ = DismissInputStateAsync(root, focusTarget);
     }
 
-    private static void HandlePointerReleased(PointerRoutedEventArgs e, DependencyObject root, UIElement focusTarget)
+    private static void HandlePointerCanceled(object sender, PointerRoutedEventArgs e)
     {
-        if (e.OriginalSource is DependencyObject source && IsInsideInteractiveControl(source))
+        if (sender is UIElement root)
         {
-            return;
+            interactivePressedPointers.Remove(GetPointerId(e, root));
         }
+    }
 
-        _ = DismissInputStateAsync(root, focusTarget);
+    private static uint GetPointerId(PointerRoutedEventArgs e, UIElement root)
+    {
+        return e.GetCurrentPoint(root).PointerId;
     }
 
     private static async Task DismissInputStateAsync(DependencyObject root, UIElement focusTarget)
