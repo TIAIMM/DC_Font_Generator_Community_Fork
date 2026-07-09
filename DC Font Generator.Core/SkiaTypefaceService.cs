@@ -12,11 +12,30 @@ namespace DC_Font_Generator
                 return null;
             }
 
-            return CreateTypeface(
-                font.FamilyName,
-                descriptor?.Weight ?? font.Weight,
-                descriptor?.Width ?? font.Width,
-                descriptor?.Slant ?? font.Slant);
+            if (descriptor != null)
+            {
+                string sourceFamily = string.IsNullOrWhiteSpace(descriptor.SourceFamilyName)
+                    ? font.FamilyName
+                    : descriptor.SourceFamilyName;
+                SKTypeface exact = TryCreateFromStyleSetIndex(sourceFamily, descriptor.StyleSetIndex);
+                if (exact != null)
+                {
+                    return exact;
+                }
+
+                return CreateTypeface(sourceFamily, descriptor.Weight, descriptor.Width, descriptor.Slant);
+            }
+
+            if (font.HasExactStyleSetFace)
+            {
+                SKTypeface exact = TryCreateFromStyleSetIndex(font.FamilyName, font.StyleSetIndex);
+                if (exact != null)
+                {
+                    return exact;
+                }
+            }
+
+            return CreateTypeface(font.FamilyName, font.Weight, font.Width, font.Slant);
         }
 
         public static SKTypeface CreateTypeface(string familyName, int weight, int width, SKFontStyleSlant slant)
@@ -27,7 +46,7 @@ namespace DC_Font_Generator
             }
 
             SKFontStyle style = new SKFontStyle(weight, width, slant);
-            SKTypeface typeface = TryCreateFromStyleSet(familyName, style);
+            SKTypeface typeface = TryCreateExactFromStyleSet(familyName, style);
             if (typeface != null)
             {
                 return typeface;
@@ -35,19 +54,7 @@ namespace DC_Font_Generator
 
             try
             {
-                typeface = SKTypeface.FromFamilyName(familyName, style);
-                if (typeface != null)
-                {
-                    return typeface;
-                }
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                return SKTypeface.FromFamilyName(familyName, weight, width, slant);
+                return SKTypeface.FromFamilyName(familyName, style);
             }
             catch
             {
@@ -55,7 +62,32 @@ namespace DC_Font_Generator
             }
         }
 
-        private static SKTypeface TryCreateFromStyleSet(string familyName, SKFontStyle style)
+        private static SKTypeface TryCreateFromStyleSetIndex(string familyName, int styleSetIndex)
+        {
+            if (string.IsNullOrWhiteSpace(familyName) || styleSetIndex < 0)
+            {
+                return null;
+            }
+
+            try
+            {
+                using (SKFontStyleSet styleSet = SKFontManager.Default.GetFontStyles(familyName))
+                {
+                    if (styleSet == null || styleSetIndex >= styleSet.Count)
+                    {
+                        return null;
+                    }
+
+                    return styleSet.CreateTypeface(styleSetIndex);
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static SKTypeface TryCreateExactFromStyleSet(string familyName, SKFontStyle style)
         {
             try
             {
@@ -66,43 +98,23 @@ namespace DC_Font_Generator
                         return null;
                     }
 
-                    SKTypeface exact = styleSet.CreateTypeface(style);
-                    if (exact != null)
+                    for (int i = 0; i < styleSet.Count; i++)
                     {
-                        return exact;
+                        SKFontStyle candidate = styleSet[i];
+                        if (candidate.Weight == style.Weight
+                            && candidate.Width == style.Width
+                            && candidate.Slant == style.Slant)
+                        {
+                            return styleSet.CreateTypeface(i);
+                        }
                     }
-
-                    int fallbackIndex = FindClosestStyleIndex(styleSet, style);
-                    return fallbackIndex >= 0 ? styleSet.CreateTypeface(fallbackIndex) : null;
                 }
             }
             catch
             {
-                return null;
-            }
-        }
-
-        private static int FindClosestStyleIndex(SKFontStyleSet styleSet, SKFontStyle target)
-        {
-            int bestIndex = -1;
-            int bestScore = int.MaxValue;
-
-            for (int i = 0; i < styleSet.Count; i++)
-            {
-                SKFontStyle candidate = styleSet[i];
-                int score =
-                    Math.Abs(candidate.Weight - target.Weight)
-                    + (Math.Abs(candidate.Width - target.Width) * 100)
-                    + (candidate.Slant == target.Slant ? 0 : 1000);
-
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    bestIndex = i;
-                }
             }
 
-            return bestIndex;
+            return null;
         }
     }
 }
