@@ -14,17 +14,27 @@ internal static class ColorPickerDialog
             Color = initialColor,
             IsAlphaEnabled = true,
             IsAlphaSliderVisible = true,
-            IsAlphaTextInputVisible = false,
+            IsAlphaTextInputVisible = true,
             IsColorSliderVisible = true,
-            IsColorChannelTextInputVisible = false,
+            IsColorChannelTextInputVisible = true,
             IsHexInputVisible = true,
             MinWidth = 500
+        };
+
+        ScrollViewer contentScroller = new ScrollViewer
+        {
+            Content = picker,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Auto,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            MaxHeight = 640
         };
 
         ContentDialog dialog = new ContentDialog
         {
             Title = "选择颜色",
-            Content = picker,
+            Content = contentScroller,
             PrimaryButtonText = "确定",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
