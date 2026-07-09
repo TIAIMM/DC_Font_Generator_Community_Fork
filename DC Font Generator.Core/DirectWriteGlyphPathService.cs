@@ -60,10 +60,13 @@ namespace DC_Font_Generator
                 DWriteFontStretch stretch = ToDWriteStretch(descriptor?.Width ?? font.Width);
                 DWriteFontStyle style = ToDWriteStyle(descriptor?.Slant ?? font.Slant);
 
-                hr = family.GetFirstMatchingFont(weight, stretch, style, out matchingFont);
-                if (hr < 0 || matchingFont == null)
+                if (!TryGetExactFont(family, weight, stretch, style, out matchingFont))
                 {
-                    return false;
+                    hr = family.GetFirstMatchingFont(weight, stretch, style, out matchingFont);
+                    if (hr < 0 || matchingFont == null)
+                    {
+                        return false;
+                    }
                 }
 
                 hr = matchingFont.CreateFontFace(out fontFace);
@@ -113,6 +116,43 @@ namespace DC_Font_Generator
                 Release(family);
                 Release(collection);
             }
+        }
+
+        private static bool TryGetExactFont(
+            IDWriteFontFamily family,
+            DWriteFontWeight weight,
+            DWriteFontStretch stretch,
+            DWriteFontStyle style,
+            out IDWriteFont matchingFont)
+        {
+            matchingFont = null;
+            if (family == null)
+            {
+                return false;
+            }
+
+            uint count = family.GetFontCount();
+            for (uint i = 0; i < count; i++)
+            {
+                IDWriteFont candidate = null;
+                int hr = family.GetFont(i, out candidate);
+                if (hr < 0 || candidate == null)
+                {
+                    continue;
+                }
+
+                if (candidate.GetWeight() == weight
+                    && candidate.GetStretch() == stretch
+                    && candidate.GetStyle() == style)
+                {
+                    matchingFont = candidate;
+                    return true;
+                }
+
+                Release(candidate);
+            }
+
+            return false;
         }
 
         private static IDWriteFactory CreateFactory()
