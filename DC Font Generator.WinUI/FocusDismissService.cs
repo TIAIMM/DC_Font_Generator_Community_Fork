@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -22,14 +25,15 @@ internal static class FocusDismissService
             return;
         }
 
-        if (rootElement is Panel panel && panel.Background == null)
-        {
-            panel.Background = new SolidColorBrush(Colors.Transparent);
-        }
+        EnableBlankAreaHitTesting(rootElement);
 
         rootElement.AddHandler(
             UIElement.PointerPressedEvent,
-            new PointerEventHandler((_, e) => HandlePointerPressed(e, focusTarget)),
+            new PointerEventHandler((_, e) => HandlePointerPressed(e, rootElement, focusTarget)),
+            true);
+        rootElement.AddHandler(
+            UIElement.PointerReleasedEvent,
+            new PointerEventHandler((_, e) => HandlePointerReleased(e, rootElement, focusTarget)),
             true);
     }
 
@@ -42,6 +46,7 @@ internal static class FocusDismissService
             Opacity = 0,
             IsTabStop = true,
             IsHitTestVisible = false,
+            UseSystemFocusVisuals = false,
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(-8, -8, 0, 0)
@@ -56,14 +61,93 @@ internal static class FocusDismissService
         return null;
     }
 
-    private static void HandlePointerPressed(PointerRoutedEventArgs e, UIElement focusTarget)
+    private static void EnableBlankAreaHitTesting(DependencyObject root)
+    {
+        SolidColorBrush transparentBrush = new SolidColorBrush(Colors.Transparent);
+        foreach (Panel panel in EnumerateDescendants<Panel>(root))
+        {
+            if (panel.Background == null)
+            {
+                panel.Background = transparentBrush;
+            }
+        }
+    }
+
+    private static void HandlePointerPressed(PointerRoutedEventArgs e, DependencyObject root, UIElement focusTarget)
     {
         if (e.OriginalSource is DependencyObject source && IsInsideInteractiveControl(source))
         {
             return;
         }
 
-        _ = FocusManager.TryFocusAsync(focusTarget, FocusState.Programmatic);
+        _ = DismissInputStateAsync(root, focusTarget);
+    }
+
+    private static void HandlePointerReleased(PointerRoutedEventArgs e, DependencyObject root, UIElement focusTarget)
+    {
+        if (e.OriginalSource is DependencyObject source && IsInsideInteractiveControl(source))
+        {
+            return;
+        }
+
+        _ = DismissInputStateAsync(root, focusTarget);
+    }
+
+    private static async Task DismissInputStateAsync(DependencyObject root, UIElement focusTarget)
+    {
+        await FocusManager.TryFocusAsync(focusTarget, FocusState.Programmatic);
+        await CloseCompactNumberBoxFlyoutsAsync(root);
+    }
+
+    private static async Task CloseCompactNumberBoxFlyoutsAsync(DependencyObject root)
+    {
+        List<NumberBox> compactNumberBoxes = new List<NumberBox>();
+        foreach (NumberBox numberBox in EnumerateDescendants<NumberBox>(root))
+        {
+            if (numberBox.SpinButtonPlacementMode == NumberBoxSpinButtonPlacementMode.Compact)
+            {
+                numberBox.SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden;
+                compactNumberBoxes.Add(numberBox);
+            }
+        }
+
+        if (compactNumberBoxes.Count == 0)
+        {
+            return;
+        }
+
+        await Task.Yield();
+
+        foreach (NumberBox numberBox in compactNumberBoxes)
+        {
+            if (numberBox.XamlRoot != null)
+            {
+                numberBox.SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact;
+            }
+        }
+    }
+
+    private static IEnumerable<T> EnumerateDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        if (root == null)
+        {
+            yield break;
+        }
+
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (T descendant in EnumerateDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private static bool IsInsideInteractiveControl(DependencyObject source)
