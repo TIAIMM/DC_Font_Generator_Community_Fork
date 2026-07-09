@@ -18,26 +18,29 @@ internal static class ColorPickerDialog
             IsColorSliderVisible = true,
             IsColorChannelTextInputVisible = true,
             IsHexInputVisible = true,
-            MinWidth = 500
+            MinWidth = 560,
+            MaxWidth = 680,
+            MinHeight = 720
         };
 
-        ScrollViewer contentScroller = new ScrollViewer
+        Grid contentHost = new Grid
         {
-            Content = picker,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            VerticalScrollMode = ScrollMode.Auto,
-            HorizontalScrollMode = ScrollMode.Disabled,
-            MaxHeight = 640
+            MinWidth = 600,
+            MinHeight = 720,
+            Padding = new Thickness(0, 0, 0, 0)
         };
+        contentHost.Children.Add(picker);
 
         ContentDialog dialog = new ContentDialog
         {
             Title = "选择颜色",
-            Content = contentScroller,
+            Content = contentHost,
             PrimaryButtonText = "确定",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Primary,
+            MinWidth = 680,
+            MaxWidth = 760,
+            MinHeight = 820,
             XamlRoot = xamlRoot
         };
 
