@@ -117,17 +117,15 @@ namespace DC_Font_Generator
                 SKTypeface typeface = ResolveTypefaceForCharacter(font, fontDescriptor, c, out bool ownsTypeface);
                 try
                 {
-                    float advance = TryDrawChar(canvas, request, font, c, currentX, baseline, typeface);
+                    float advance = TryDrawChar(canvas, request, font, fontDescriptor, c, currentX, baseline, typeface);
                     if (advance <= 0 && ownsTypeface && typeface != null)
                     {
-                        // The user's font couldn't render this character (e.g. TTC false positive).
-                        // Retry with a system-wide search for a font that actually contains the glyph.
                         typeface.Dispose();
                         ownsTypeface = false;
                         SKTypeface fallback = SKFontManager.Default.MatchCharacter(c);
                         if (fallback != null)
                         {
-                            advance = TryDrawChar(canvas, request, font, c, currentX, baseline, fallback);
+                            advance = TryDrawChar(canvas, request, font, null, c, currentX, baseline, fallback);
                             fallback.Dispose();
                         }
                     }
@@ -144,30 +142,68 @@ namespace DC_Font_Generator
             }
         }
 
-        private static float TryDrawChar(SKCanvas canvas, FontPickerPreviewRequest request, FontDescriptor font, char c, float currentX, float baseline, SKTypeface typeface)
+        private static float TryDrawChar(
+            SKCanvas canvas,
+            FontPickerPreviewRequest request,
+            FontDescriptor font,
+            FontStyleDescriptor descriptor,
+            char c,
+            float currentX,
+            float baseline,
+            SKTypeface typeface)
         {
             using (SKFont skFont = new SKFont(typeface, font.SizePixels))
-            using (SKPath path = GetTextPath(skFont, c.ToString(), currentX, baseline))
             {
-                bool canRender = path != null && path.Bounds.Width > 0 && path.Bounds.Height > 0;
-                if (canRender)
+                SKPath path = null;
+                bool directWritePath = DirectWriteGlyphPathService.TryGetGlyphPath(font, descriptor, c, currentX, baseline, out path);
+                try
                 {
-                    DrawGlow(canvas, request, path);
-                    DrawOutline(canvas, request, path);
-                    using (SKPaint fill = CreateFillPaint(request.FontColor))
+                    if (!IsUsableGlyphPath(path))
                     {
-                        canvas.DrawPath(path, fill);
+                        path?.Dispose();
+                        path = GetTextPath(skFont, c.ToString(), currentX, baseline);
+                        directWritePath = false;
                     }
-                }
 
-                float advance = skFont.MeasureText(c.ToString());
-                if (advance <= 0)
+                    bool canRender = IsUsableGlyphPath(path);
+                    if (canRender)
+                    {
+                        DrawGlow(canvas, request, path);
+                        DrawOutline(canvas, request, path);
+                        using (SKPaint fill = CreateFillPaint(request.FontColor))
+                        {
+                            canvas.DrawPath(path, fill);
+                        }
+                    }
+
+                    float advance = skFont.MeasureText(c.ToString());
+                    if (directWritePath && path != null)
+                    {
+                        advance = Math.Max(advance, path.Bounds.Width);
+                    }
+                    if (advance <= 0)
+                    {
+                        advance = path?.Bounds.Width ?? 0f;
+                    }
+
+                    return canRender ? Math.Max(advance, 1f) : 0f;
+                }
+                finally
                 {
-                    advance = path?.Bounds.Width ?? 0f;
+                    path?.Dispose();
                 }
-
-                return canRender ? Math.Max(advance, 1f) : 0f;
             }
+        }
+
+        private static bool IsUsableGlyphPath(SKPath path)
+        {
+            if (path == null || path.IsEmpty)
+            {
+                return false;
+            }
+
+            SKRect bounds = path.Bounds;
+            return bounds.Width > 0 && bounds.Height > 0;
         }
 
         private static float MeasureTextWidth(FontDescriptor font, FontStyleDescriptor descriptor, string text)
@@ -178,9 +214,7 @@ namespace DC_Font_Generator
                 SKTypeface typeface = ResolveTypefaceForCharacter(font, descriptor, c, out bool ownsTypeface);
                 try
                 {
-                    // Use the same path check as TryDrawChar to decide whether to retry,
-                    // so that measurement and rendering stay consistent.
-                    if (!CanRenderChar(typeface, font.SizePixels, c)
+                    if (!CanRenderChar(font, descriptor, typeface, font.SizePixels, c)
                         && ownsTypeface && typeface != null)
                     {
                         typeface.Dispose();
@@ -208,14 +242,22 @@ namespace DC_Font_Generator
             return width;
         }
 
-        private static bool CanRenderChar(SKTypeface typeface, float sizePixels, char c)
+        private static bool CanRenderChar(FontDescriptor font, FontStyleDescriptor descriptor, SKTypeface typeface, float sizePixels, char c)
         {
+            if (DirectWriteGlyphPathService.TryGetGlyphPath(font, descriptor, c, 0, 0, out SKPath directWritePath))
+            {
+                using (directWritePath)
+                {
+                    return IsUsableGlyphPath(directWritePath);
+                }
+            }
+
             using (SKFont skFont = new SKFont(typeface, sizePixels))
             {
                 byte[] textBytes = Encoding.Unicode.GetBytes(c.ToString());
                 using (SKPath path = skFont.GetTextPath(textBytes, SKTextEncoding.Utf16, new SKPoint(0, 0)))
                 {
-                    return path != null && path.Bounds.Width > 0 && path.Bounds.Height > 0;
+                    return IsUsableGlyphPath(path);
                 }
             }
         }
@@ -306,8 +348,6 @@ namespace DC_Font_Generator
             SKFontStyleSlant slant;
             GetStyleValues(font, descriptor, out weight, out width, out slant);
 
-            // Try the user's font first — skip ContainsGlyph which can give false results for TTC fonts.
-            // If the font can't actually render the character, the caller will retry with MatchCharacter.
             SKTypeface typeface = SkiaTypefaceService.CreateTypeface(font.FamilyName, weight, width, slant);
             if (typeface != null)
             {
