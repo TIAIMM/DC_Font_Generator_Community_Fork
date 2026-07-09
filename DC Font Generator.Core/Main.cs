@@ -41,7 +41,7 @@ namespace DC_Font_Generator
         private DrawFont SysDraw = new DrawFont();
         public float FontMaxWidth = 17;
         public float FontMaxHeight = 0;
-        public bool UseManualBaseLine = false;
+        public bool UseManualBaseLine = true;
         public float ManualBaseLine = 31f;
         private string lastGenerationSignature = "";
 
