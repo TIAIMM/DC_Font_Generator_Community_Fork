@@ -17,7 +17,7 @@ public partial class App : Application
     {
         window = new MainWindow();
         CommandButtonOrderService.Apply(window);
-        AtlasHoverMetricLineService.Attach((MainWindow)window);
+        ((MainWindow)window).AttachHoverMetricLine();
         FocusDismissService.Attach(window);
         window.Activate();
     }
