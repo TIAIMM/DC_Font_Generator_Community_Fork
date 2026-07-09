@@ -7,6 +7,8 @@ namespace DC_Font_Generator
 {
     class DrawFont : IDisposable
     {
+        private const int NoEffectVerticalPadding = 1;
+
         public FontDescriptor Font; //目前字型
         public FontStyleDescriptor StyleDescriptor;
         public float ascentPixel = 0; //目前字型上升值
@@ -302,19 +304,32 @@ namespace DC_Font_Generator
                     canvas.DrawPath(glyphPath, fillPaint);
 
                     byte[] pixels = GetGlyphRenderContext().ReadPixels();
-                    Rectangle bounds = SkiaBitmapInterop.FindContentBounds(pixels, surfaceSize, surfaceSize, BackColor);
-                    if (bounds.Width <= 0 || bounds.Height <= 0)
+                    Rectangle contentBounds = SkiaBitmapInterop.FindContentBounds(pixels, surfaceSize, surfaceSize, BackColor);
+                    if (contentBounds.Width <= 0 || contentBounds.Height <= 0)
                     {
                         return CreateSpaceResult(result);
                     }
 
-                    result.LeftBearing = CalculateLeftBearing(bounds, originX);
-                    result.RightOverhang = CalculateRightOverhang(bounds, result.BakedLeftPad + result.BakedAdvance);
-                    result.EffectTopPad = originBounds.Top - bounds.Top;
-                    result.EffectBottomPad = bounds.Bottom - originBounds.Bottom;
-                    bounds = BakeHorizontalBounds(bounds, GetRightSidePadding(), surfaceSize);
-                    result.GlyphImage = SkiaBitmapInterop.CreateImageFromBgra(pixels, surfaceSize, bounds);
-                    result.fTopEdge = FloorMetric(CDZ_BottomAlign - bounds.Y);
+                    result.LeftBearing = CalculateLeftBearing(contentBounds, originX);
+                    result.RightOverhang = CalculateRightOverhang(contentBounds, result.BakedLeftPad + result.BakedAdvance);
+
+                    Rectangle bakedBounds = BakeHorizontalBounds(contentBounds, GetRightSidePadding(), surfaceSize);
+                    int verticalPadding = GetNoEffectVerticalPadding();
+                    int topPadding = verticalPadding;
+                    int bottomPadding = verticalPadding;
+                    float virtualTop = bakedBounds.Top - topPadding;
+                    float virtualBottom = bakedBounds.Bottom + bottomPadding;
+
+                    result.EffectTopPad = originBounds.Top - virtualTop;
+                    result.EffectBottomPad = virtualBottom - originBounds.Bottom;
+                    result.GlyphImage = CreateVerticallyPaddedGlyphImage(
+                        pixels,
+                        surfaceSize,
+                        bakedBounds,
+                        topPadding,
+                        bottomPadding,
+                        BackColor);
+                    result.fTopEdge = FloorMetric(CDZ_BottomAlign - virtualTop);
                     return result;
                 }
                 finally
@@ -341,6 +356,11 @@ namespace DC_Font_Generator
             return Math.Max(1, effectPadding);
         }
 
+        private int GetNoEffectVerticalPadding()
+        {
+            return glow <= 0 && OutlineWidth <= 0 ? NoEffectVerticalPadding : 0;
+        }
+
         private static Rectangle BakeHorizontalBounds(Rectangle contentBounds, int rightPadding, int surfaceSize)
         {
             int left = 0;
@@ -351,6 +371,28 @@ namespace DC_Font_Generator
             if (right <= left) right = Math.Min(surfaceSize, left + 1);
 
             return Rectangle.FromLTRB(left, contentBounds.Top, right, contentBounds.Bottom);
+        }
+
+        private static Bgra32Image CreateVerticallyPaddedGlyphImage(
+            byte[] pixels,
+            int sourceWidth,
+            Rectangle sourceBounds,
+            int topPadding,
+            int bottomPadding,
+            Color background)
+        {
+            Bgra32Image glyph = SkiaBitmapInterop.CreateImageFromBgra(pixels, sourceWidth, sourceBounds);
+            topPadding = Math.Max(0, topPadding);
+            bottomPadding = Math.Max(0, bottomPadding);
+            if (topPadding == 0 && bottomPadding == 0)
+            {
+                return glyph;
+            }
+
+            Bgra32Image padded = new Bgra32Image(glyph.Width, glyph.Height + topPadding + bottomPadding);
+            padded.Clear(background);
+            glyph.CopyTo(padded, 0, topPadding);
+            return padded;
         }
 
         private static float CalculateLeftBearing(Rectangle contentBounds, float originX)
