@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using SkiaSharp;
 
 namespace DC_Font_Generator
 {
@@ -59,7 +60,11 @@ namespace DC_Font_Generator
             return result;
         }
 
-        public static bool ApplyPostAmendments(IList<Main> fontSections, IList<PostAmendment> postAmendments, IList<string> logs, Func<string, string> localize)
+        public static bool ApplyPostAmendments(
+            IList<Main> fontSections,
+            IList<PostAmendment> postAmendments,
+            IList<string> logs,
+            Func<string, string> localize)
         {
             bool ok = true;
             foreach (PostAmendment amendment in postAmendments)
@@ -165,13 +170,22 @@ namespace DC_Font_Generator
                 }
                 else
                 {
-                    result.Logs.Add(request.Localize("Project font error : Missing Fallout3 Font file.") + "(" + section.ImportFontName + ".fnt)");
+                    result.Logs.Add(request.Localize("Project font error : Missing Fallout3 Font file.")
+                        + "(" + section.ImportFontName + ".fnt)");
                     ok = false;
                 }
             }
             else if (section.HasSCFont)
             {
-                ok &= TryApplyProjectFont(main, section.SCFontName, section.SCFontSize, section.SCFontStyle, true, result, request.Localize);
+                ok &= TryApplyProjectFont(
+                    main,
+                    section.SCFontName,
+                    section.SCFontSize,
+                    section.SCFontStyle,
+                    section.SCFontDescriptor,
+                    true,
+                    result,
+                    request.Localize);
             }
 
             if (section.HasDCFontLink)
@@ -180,7 +194,15 @@ namespace DC_Font_Generator
             }
             else if (section.HasDCFont)
             {
-                ok &= TryApplyProjectFont(main, section.DCFontName, section.DCFontSize, section.DCFontStyle, false, result, request.Localize);
+                ok &= TryApplyProjectFont(
+                    main,
+                    section.DCFontName,
+                    section.DCFontSize,
+                    section.DCFontStyle,
+                    section.DCFontDescriptor,
+                    false,
+                    result,
+                    request.Localize);
             }
 
             if (section.HasFntName) main.name = section.FntName;
@@ -219,27 +241,46 @@ namespace DC_Font_Generator
             Main main,
             string fontName,
             float fontSize,
-            FontStyle fontStyle,
+            FontStyle legacyFontStyle,
+            string serializedDescriptor,
             bool singleByteFont,
             ProjectApplyResult result,
             Func<string, string> localize)
         {
-            using (Font font = new Font(fontName, fontSize, fontStyle))
+            FontStyleDescriptor requested = FontStyleDescriptor.Deserialize(serializedDescriptor)
+                ?? FontStyleDescriptor.FromLegacyFontStyle(legacyFontStyle);
+            string sourceFamily = !string.IsNullOrWhiteSpace(requested?.SourceFamilyName)
+                ? requested.SourceFamilyName
+                : fontName;
+            FontStyleDescriptor resolved = FontPickerCatalogService.ResolveDescriptor(sourceFamily, requested);
+            if (resolved == null)
             {
-                if (!font.FontFamily.IsStyleAvailable(fontStyle))
+                result.Logs.Add(localize("Project font error : Missing Font.") + "(" + fontName + ")");
+                return false;
+            }
+
+            FontDescriptor selectedFont = FontPickerCatalogService.CreateSelectedFont(
+                sourceFamily,
+                resolved,
+                Math.Max(1f, fontSize));
+            using (SKTypeface typeface = SkiaTypefaceService.CreateTypeface(selectedFont, resolved))
+            {
+                if (typeface == null || typeface.GlyphCount <= 0)
                 {
                     result.Logs.Add(localize("Project font error : Missing Font.") + "(" + fontName + ")");
                     return false;
                 }
+            }
 
-                if (singleByteFont)
-                {
-                    main.font1 = FontDescriptor.FromGdiFont(font);
-                }
-                else
-                {
-                    main.font2 = FontDescriptor.FromGdiFont(font);
-                }
+            if (singleByteFont)
+            {
+                main.font1StyleDescriptor = resolved;
+                main.font1 = selectedFont;
+            }
+            else
+            {
+                main.font2StyleDescriptor = resolved;
+                main.font2 = selectedFont;
             }
 
             return true;

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -7,6 +8,7 @@ using DC_Font_Generator;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using SkiaSharp;
 
 namespace DC_Font_Generator.WinUI;
 
@@ -20,8 +22,20 @@ internal static class FontPickerDialog
 {
     private sealed class FontChoice
     {
-        public FontPickerFontEntry Entry { get; set; }
-        public string Name => Entry?.Name ?? "";
+        private readonly object entryLock = new object();
+        private FontPickerFontEntry entry;
+
+        public string Name { get; set; }
+
+        public FontPickerFontEntry GetEntry()
+        {
+            lock (entryLock)
+            {
+                entry ??= FontPickerFontEntry.FromFontFamily(Name);
+                return entry;
+            }
+        }
+
         public override string ToString() => Name;
     }
 
@@ -31,18 +45,40 @@ internal static class FontPickerDialog
         FontStyleDescriptor currentStyle)
     {
         FontDescriptor currentFont = pickerState.CurrentFont;
-        List<FontPickerFontEntry> entries = await FontPickerCatalogService.EnsureFontLoadTask();
-        List<FontChoice> allChoices = entries.Select(e => new FontChoice { Entry = e }).ToList();
+
+        // Enumerating family names is inexpensive. Do not expand every family's style
+        // set before showing the dialog: Super TTC installations can contain hundreds
+        // of logical family/style combinations.
+        List<string> familyNames = await Task.Run(LoadInstalledFamilyNames);
+        if (!string.IsNullOrWhiteSpace(currentFont?.FamilyName)
+            && !familyNames.Contains(currentFont.FamilyName, StringComparer.OrdinalIgnoreCase))
+        {
+            familyNames.Add(currentFont.FamilyName);
+            familyNames.Sort(StringComparer.CurrentCultureIgnoreCase);
+        }
+
+        List<FontChoice> allChoices = familyNames
+            .Select(name => new FontChoice { Name = name })
+            .ToList();
         Color previewBackColor = Color.FromArgb(255, 32, 32, 32);
 
-        TextBox searchBox = new TextBox { PlaceholderText = "搜索字体", Margin = new Thickness(0, 0, 0, 6) };
-        ListView fontList = new ListView { Height = 460, SelectionMode = ListViewSelectionMode.Single };
+        TextBox searchBox = new TextBox
+        {
+            PlaceholderText = "搜索字体",
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+        ListView fontList = new ListView
+        {
+            Height = 460,
+            SelectionMode = ListViewSelectionMode.Single
+        };
         ComboBox styleBox = new ComboBox
         {
             Header = "样式",
             Width = 300,
             Margin = new Thickness(0, 6, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Left
+            HorizontalAlignment = HorizontalAlignment.Left,
+            IsEnabled = false
         };
         Microsoft.UI.Xaml.Controls.Image previewImage = new Microsoft.UI.Xaml.Controls.Image
         {
@@ -76,7 +112,13 @@ internal static class FontPickerDialog
             Margin = new Thickness(0, 6, 0, 0)
         };
 
-        static string FormatSize(float size) => Math.Round(size).ToString(CultureInfo.InvariantCulture);
+        int styleLoadVersion = 0;
+        int previewVersion = 0;
+        bool updatingStyles = false;
+        bool dialogClosed = false;
+
+        static string FormatSize(float size) =>
+            Math.Round(size).ToString(CultureInfo.InvariantCulture);
 
         float GetSelectedSize()
         {
@@ -91,47 +133,99 @@ internal static class FontPickerDialog
 
         void ApplyFilter()
         {
+            string previousName = (fontList.SelectedItem as FontChoice)?.Name;
             string text = searchBox.Text?.Trim() ?? "";
             IEnumerable<FontChoice> filtered = string.IsNullOrEmpty(text)
                 ? allChoices
-                : allChoices.Where(c => c.Name.StartsWith(text, System.StringComparison.CurrentCultureIgnoreCase))
+                : allChoices.Where(c => c.Name.StartsWith(text, StringComparison.CurrentCultureIgnoreCase))
                     .Concat(allChoices.Where(c =>
-                        !c.Name.StartsWith(text, System.StringComparison.CurrentCultureIgnoreCase)
-                        && c.Name.Contains(text, System.StringComparison.CurrentCultureIgnoreCase)));
+                        !c.Name.StartsWith(text, StringComparison.CurrentCultureIgnoreCase)
+                        && c.Name.Contains(text, StringComparison.CurrentCultureIgnoreCase)));
 
-            fontList.ItemsSource = filtered.ToList();
-            FontChoice selected = ((IEnumerable<FontChoice>)fontList.ItemsSource)
-                .FirstOrDefault(c => string.Equals(c.Name, currentFont?.FamilyName, System.StringComparison.OrdinalIgnoreCase))
-                ?? ((IEnumerable<FontChoice>)fontList.ItemsSource).FirstOrDefault();
-            fontList.SelectedItem = selected;
+            List<FontChoice> filteredList = filtered.ToList();
+            fontList.ItemsSource = filteredList;
+            FontChoice selected = filteredList
+                .FirstOrDefault(c => string.Equals(c.Name, previousName, StringComparison.OrdinalIgnoreCase))
+                ?? filteredList.FirstOrDefault(c =>
+                    string.Equals(c.Name, currentFont?.FamilyName, StringComparison.OrdinalIgnoreCase))
+                ?? filteredList.FirstOrDefault();
+
+            if (!ReferenceEquals(fontList.SelectedItem, selected))
+            {
+                fontList.SelectedItem = selected;
+            }
+            else
+            {
+                _ = RefreshStylesAsync();
+            }
         }
 
-        void RefreshStyles()
+        async Task RefreshStylesAsync()
         {
-            styleBox.ItemsSource = null;
+            int version = ++styleLoadVersion;
+            ++previewVersion;
             FontChoice choice = fontList.SelectedItem as FontChoice;
-            if (choice == null)
+
+            updatingStyles = true;
+            styleBox.IsEnabled = false;
+            styleBox.ItemsSource = null;
+            previewImage.Source = null;
+            updatingStyles = false;
+
+            if (choice == null || dialogClosed)
             {
                 return;
             }
 
-            FontPickerStyleResult styles = FontPickerCatalogService.GetStyles(choice.Entry, currentStyle);
-            styleBox.ItemsSource = styles.Styles;
-            styleBox.SelectedIndex = styles.SelectedIndex >= 0 ? styles.SelectedIndex : 0;
+            FontPickerFontEntry entry;
+            try
+            {
+                entry = await Task.Run(choice.GetEntry);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (dialogClosed
+                || version != styleLoadVersion
+                || !ReferenceEquals(choice, fontList.SelectedItem))
+            {
+                return;
+            }
+
+            FontPickerStyleResult styles = FontPickerCatalogService.GetStyles(entry, currentStyle);
+            updatingStyles = true;
+            try
+            {
+                styleBox.ItemsSource = styles.Styles;
+                styleBox.SelectedIndex = styles.SelectedIndex >= 0 ? styles.SelectedIndex : 0;
+                styleBox.IsEnabled = styles.Styles.Count > 0;
+            }
+            finally
+            {
+                updatingStyles = false;
+            }
+
+            SchedulePreview();
         }
 
-        void RefreshPreview()
+        async void SchedulePreview()
         {
+            int version = ++previewVersion;
             FontChoice choice = fontList.SelectedItem as FontChoice;
             FontPickerStyleItem selectedStyle = styleBox.SelectedItem as FontPickerStyleItem;
             previewImage.Source = null;
-            if (choice == null)
+            if (choice == null || dialogClosed)
             {
                 return;
             }
 
             float size = GetSelectedSize();
-            FontDescriptor previewFont = FontPickerCatalogService.CreateSelectedFont(choice.Name, selectedStyle?.Descriptor, size);
+            FontDescriptor previewFont = FontPickerCatalogService.CreateSelectedFont(
+                choice.Name,
+                selectedStyle?.Descriptor,
+                size);
             FontDescriptor singleBytePreviewFont = pickerState.EditingDoubleByteFont
                 ? pickerState.SingleByteFont ?? previewFont
                 : previewFont;
@@ -139,7 +233,7 @@ internal static class FontPickerDialog
                 ? previewFont
                 : pickerState.DoubleByteFont ?? previewFont;
 
-            using Bitmap preview = FontPickerPreviewRenderer.Render(new Size(540, 360), new FontPickerPreviewRequest
+            FontPickerPreviewRequest previewRequest = new FontPickerPreviewRequest
             {
                 PreviewFont = previewFont,
                 PreviewFontStyleDescriptor = selectedStyle?.Descriptor,
@@ -154,8 +248,30 @@ internal static class FontPickerDialog
                 OutlineColor = pickerState.OutlineColor,
                 FontColor = pickerState.FontColor,
                 BackColor = previewBackColor
-            });
-            previewImage.Source = WinUiImageAdapter.ToWriteableBitmap(Bgra32Image.FromBitmap(preview));
+            };
+
+            Bitmap preview = null;
+            try
+            {
+                preview = await Task.Run(() =>
+                    SkiaFontPickerPreviewRenderer.Render(new Size(540, 360), previewRequest));
+
+                if (dialogClosed || version != previewVersion)
+                {
+                    return;
+                }
+
+                previewImage.Source = WinUiImageAdapter.ToWriteableBitmap(
+                    Bgra32Image.FromBitmap(preview));
+            }
+            catch
+            {
+                // Keep the dialog responsive even when a malformed installed font fails.
+            }
+            finally
+            {
+                preview?.Dispose();
+            }
         }
 
         static int NormalizePreviewCodePage(int codePage)
@@ -165,22 +281,18 @@ internal static class FontPickerDialog
                 : 936;
         }
 
-        searchBox.TextChanged += (_, _) =>
+        searchBox.TextChanged += (_, _) => ApplyFilter();
+        fontList.SelectionChanged += (_, _) => _ = RefreshStylesAsync();
+        styleBox.SelectionChanged += (_, _) =>
         {
-            ApplyFilter();
-            RefreshStyles();
-            RefreshPreview();
+            if (!updatingStyles)
+            {
+                SchedulePreview();
+            }
         };
-        fontList.SelectionChanged += (_, _) =>
-        {
-            RefreshStyles();
-            RefreshPreview();
-        };
-        styleBox.SelectionChanged += (_, _) => RefreshPreview();
-        sizeBox.TextChanged += (_, _) => RefreshPreview();
+        sizeBox.TextChanged += (_, _) => SchedulePreview();
+
         ApplyFilter();
-        RefreshStyles();
-        RefreshPreview();
 
         Grid content = new Grid
         {
@@ -238,20 +350,43 @@ internal static class FontPickerDialog
         dialog.Resources["ContentDialogMaxWidth"] = 1040d;
 
         ContentDialogResult result = await dialog.ShowAsync();
-        if (result != ContentDialogResult.Primary || fontList.SelectedItem is not FontChoice selectedChoice)
+        dialogClosed = true;
+        ++styleLoadVersion;
+        ++previewVersion;
+
+        if (result != ContentDialogResult.Primary
+            || fontList.SelectedItem is not FontChoice selectedChoice)
         {
             return null;
         }
 
         FontPickerStyleItem selectedStyle = styleBox.SelectedItem as FontPickerStyleItem;
-        float size = GetSelectedSize();
+        float selectedSize = GetSelectedSize();
         return new FontPickerDialogResult
         {
             Style = selectedStyle?.Descriptor,
             Font = FontPickerCatalogService.CreateSelectedFont(
                 selectedChoice.Name,
                 selectedStyle?.Descriptor,
-                size)
+                selectedSize)
         };
+    }
+
+    private static List<string> LoadInstalledFamilyNames()
+    {
+        List<string> names = new List<string>();
+        HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        SKFontManager manager = SKFontManager.Default;
+        for (int i = 0; i < manager.FontFamilyCount; i++)
+        {
+            string familyName = manager.GetFamilyName(i);
+            if (!string.IsNullOrWhiteSpace(familyName) && seen.Add(familyName))
+            {
+                names.Add(familyName);
+            }
+        }
+
+        names.Sort(StringComparer.CurrentCultureIgnoreCase);
+        return names;
     }
 }
