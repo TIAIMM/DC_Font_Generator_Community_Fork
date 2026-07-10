@@ -39,11 +39,9 @@ namespace DC_Font_Generator
         public string SCFontName { get; set; }
         public float SCFontSize { get; set; }
         public FontStyle SCFontStyle { get; set; } = FontStyle.Regular;
-        public string SCFontDescriptor { get; set; }
         public string DCFontName { get; set; }
         public float DCFontSize { get; set; }
         public FontStyle DCFontStyle { get; set; } = FontStyle.Regular;
-        public string DCFontDescriptor { get; set; }
         public bool HasSCFont { get; set; }
         public bool HasDCFont { get; set; }
         public bool HasDCFontLink { get; set; }
@@ -199,8 +197,7 @@ namespace DC_Font_Generator
             {
                 writer.WriteElementString("SCFontName", main.font1.FamilyName);
                 writer.WriteElementString("SCFontSize", main.font1.SizePixels.ToString());
-                writer.WriteElementString("SCFontStyle", ToLegacyFontStyle(main.font1).ToString());
-                WriteFontDescriptor(writer, "SCFontDescriptor", main.font1, main.font1StyleDescriptor);
+                writer.WriteElementString("SCFontStyle", main.font1.ToGdiFont().Style.ToString());
             }
             else
             {
@@ -217,8 +214,7 @@ namespace DC_Font_Generator
                 {
                     writer.WriteElementString("DCFontName", main.font2.FamilyName);
                     writer.WriteElementString("DCFontSize", main.font2.SizePixels.ToString());
-                    writer.WriteElementString("DCFontStyle", ToLegacyFontStyle(main.font2).ToString());
-                    WriteFontDescriptor(writer, "DCFontDescriptor", main.font2, main.font2StyleDescriptor);
+                    writer.WriteElementString("DCFontStyle", main.font2.ToGdiFont().Style.ToString());
                 }
             }
 
@@ -266,28 +262,6 @@ namespace DC_Font_Generator
             writer.WriteEndElement();
         }
 
-        private static FontStyle ToLegacyFontStyle(FontDescriptor font)
-        {
-            FontStyle style = FontStyle.Regular;
-            if (font != null && font.Weight >= 600) style |= FontStyle.Bold;
-            if (font != null && font.Slant != SkiaSharp.SKFontStyleSlant.Upright) style |= FontStyle.Italic;
-            return style;
-        }
-
-        private static void WriteFontDescriptor(
-            XmlWriter writer,
-            string elementName,
-            FontDescriptor font,
-            FontStyleDescriptor styleDescriptor)
-        {
-            FontStyleDescriptor exactDescriptor = styleDescriptor ?? FontStyleDescriptor.FromFontDescriptor(font);
-            string serialized = exactDescriptor?.Serialize();
-            if (!string.IsNullOrWhiteSpace(serialized))
-            {
-                writer.WriteElementString(elementName, serialized);
-            }
-        }
-
         private static void ReadFontElement(
             XmlReader reader,
             string localName,
@@ -314,10 +288,6 @@ namespace DC_Font_Generator
                     currentFont.SCFontStyle = ConvertFontStyle(ReadString(reader));
                     currentFont.HasSCFont = true;
                     break;
-                case "SCFontDescriptor":
-                    currentFont.SCFontDescriptor = ReadString(reader);
-                    currentFont.HasSCFont = true;
-                    break;
                 case "DCFontName":
                     currentFont.DCFontName = ReadString(reader);
                     break;
@@ -326,10 +296,6 @@ namespace DC_Font_Generator
                     break;
                 case "DCFontStyle":
                     currentFont.DCFontStyle = ConvertFontStyle(ReadString(reader));
-                    currentFont.HasDCFont = true;
-                    break;
-                case "DCFontDescriptor":
-                    currentFont.DCFontDescriptor = ReadString(reader);
                     currentFont.HasDCFont = true;
                     break;
                 case "DCFontLink":
@@ -380,10 +346,7 @@ namespace DC_Font_Generator
                     currentFont.HasFntName = true;
                     break;
                 case "LineHeight":
-                    if (currentAmendment != null)
-                    {
-                        currentAmendment.fBaseLineFixed = ReadFloat(reader);
-                    }
+                    currentAmendment.fBaseLineFixed = ReadFloat(reader);
                     break;
                 case "LeftSpacing":
                     hex = reader.NamespaceURI;
@@ -458,22 +421,25 @@ namespace DC_Font_Generator
             return decimal.Parse(ReadString(reader));
         }
 
-        private static FontStyle ConvertFontStyle(string value)
+        private static FontStyle ConvertFontStyle(string fs)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            FontStyle style = FontStyle.Regular;
+            switch (fs)
             {
-                return FontStyle.Regular;
+                case "Bold":
+                    style = FontStyle.Bold;
+                    break;
+                case "Italic":
+                    style = FontStyle.Italic;
+                    break;
+                case "Strikeout":
+                    style = FontStyle.Strikeout;
+                    break;
+                case "Underline":
+                    style = FontStyle.Underline;
+                    break;
             }
 
-            FontStyle style = FontStyle.Regular;
-            if (value.IndexOf("Bold", StringComparison.OrdinalIgnoreCase) >= 0)
-                style |= FontStyle.Bold;
-            if (value.IndexOf("Italic", StringComparison.OrdinalIgnoreCase) >= 0)
-                style |= FontStyle.Italic;
-            if (value.IndexOf("Strikeout", StringComparison.OrdinalIgnoreCase) >= 0)
-                style |= FontStyle.Strikeout;
-            if (value.IndexOf("Underline", StringComparison.OrdinalIgnoreCase) >= 0)
-                style |= FontStyle.Underline;
             return style;
         }
     }
