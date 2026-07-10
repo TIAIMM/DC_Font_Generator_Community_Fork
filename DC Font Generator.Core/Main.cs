@@ -373,7 +373,6 @@ namespace DC_Font_Generator
             QuantizeGeneratedGlyphHorizontalMetrics();
             QuantizeGeneratedGlyphVerticalMetrics();
             QuantizeGeneratedBaseLine();
-            NormalizeGeneratedSpaceGlyphVerticalMetrics();
             return true;
         }
         /// <summary>
@@ -520,9 +519,10 @@ namespace DC_Font_Generator
                 if (IsSpace)
                 {
                     fnt.fLeadingEdge = 0;
-                    fnt.fHeight = 1f;
-                    fnt.fWidth = 1f;
-                    fnt.fSpacing = Math.Max(0f, RoundMetric(renderer.SpaceWidth) - fnt.fWidth);
+                    fnt.fTopEdge = 0;
+                    fnt.fHeight = 0;
+                    fnt.fWidth = 0;
+                    fnt.fSpacing = Math.Max(0f, RoundMetric(renderer.SpaceWidth));
                     fnt.Empty = true;
                     fnt.IsSpace = true;
                 }
@@ -1140,62 +1140,6 @@ namespace DC_Font_Generator
             }
 
             this.iFntFile.Header.fBaseLine = CeilingMetric(this.iFntFile.Header.fBaseLine);
-        }
-
-        private void NormalizeGeneratedSpaceGlyphVerticalMetrics()
-        {
-            if (ImportFont1name != "" || ImportFont2name != "")
-            {
-                return;
-            }
-
-            if (!TryGetGeneratedLineDrop(out float lineDrop))
-            {
-                return;
-            }
-
-            float baseLine = CeilingMetric(this.iFntFile.Header.fBaseLine);
-            float drop = Math.Max(0f, CeilingMetric(lineDrop));
-            float height = Math.Max(1f, baseLine + drop);
-
-            foreach (Fnt_char fnt in this.iFntFile.CharList)
-            {
-                if (fnt == null || !fnt.Enable || fnt.c != ' ' || !fnt.IsSpace)
-                {
-                    continue;
-                }
-
-                fnt.fTopEdge = baseLine;
-                fnt.fHeight = height;
-            }
-        }
-
-        private bool TryGetGeneratedLineDrop(out float lineDrop)
-        {
-            lineDrop = 0f;
-            bool found = false;
-
-            foreach (Fnt_char fnt in this.iFntFile.CharList)
-            {
-                if (!IsGeneratedLineDropCandidate(fnt))
-                {
-                    continue;
-                }
-
-                float drop = fnt.fHeight - fnt.fTopEdge;
-                if (float.IsNaN(drop) || float.IsInfinity(drop) || drop <= 0f)
-                {
-                    continue;
-                }
-
-                if (!found || drop > lineDrop)
-                {
-                    lineDrop = drop;
-                    found = true;
-                }
-            }
-
-            return found;
         }
 
         private static float RoundMetric(float value)

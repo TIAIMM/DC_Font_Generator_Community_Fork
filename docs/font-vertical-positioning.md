@@ -98,25 +98,27 @@ space.fHeight
 ```
 
 Therefore the space glyph is not just an invisible advance. Its vertical metric
-can participate in text placement. A generated space glyph with `fHeight = 1`
-is suspicious because it does not represent the font's real line box.
+can participate in text placement. The inspected vanilla fonts serialize normal
+spaces with zero width and zero vertical metrics, while keeping their horizontal
+advance in `fSpacing`.
 
 ## Current Generator Implications
 
-The generator currently computes normal glyph metrics and then applies generated
-top-edge calibration to non-empty glyphs. However, the generated space glyph is
-special-cased with:
+The generator computes normal glyph metrics and then applies generated top-edge
+calibration to non-empty glyphs. Generated spaces follow the inspected vanilla
+font convention:
 
 ```text
-fHeight = 1
-fWidth = 1
+fWidth = 0
+fHeight = 0
 fTopEdge = 0
+fLeadingEdge = 0
+fSpacing = measured space advance
 ```
 
-Since the game can consume `pFontLetters[32].fHeight`, this special case can
-cause a global vertical bias in UI paths that use the space glyph as a line-box
-reference. This explains why adjusting `Base Line` or normal glyph `Top Edge`
-may not visibly fix some text blocks.
+This keeps the space invisible while preserving `fWidth + fSpacing`, and avoids
+feeding a synthetic baseline-plus-drop height into game paths that read
+`pFontLetters[32].fHeight` directly.
 
 The current automatic top-edge calibration is also a generator-side heuristic:
 
@@ -143,8 +145,8 @@ Use these rules when changing vertical generation logic:
    This value is the glyph drop used by the game.
 
 4. Treat space character 32 as a real metric participant.
-   Its `fHeight` should match the generated font's line box closely enough for
-   `PrepText` paths that use `space.fHeight`.
+   Match the vanilla serialized convention (`fHeight = 0`, `fTopEdge = 0`) so
+   `PrepText` paths do not receive an artificial line-box height.
 
 5. Do not write automatic calibration into `fTopEdgeFixed` or
    `fBaseLineFixed`.
@@ -155,30 +157,20 @@ Use these rules when changing vertical generation logic:
    The game casts relevant values to integers, so generated float values should
    be chosen with that integer result in mind.
 
-## Space Glyph Normalization
+## Space Glyph Serialization
 
-Generated fonts normalize the space glyph after normal glyph metrics are known.
+Generated spaces do not receive a bitmap or vertical line-box metrics. Their
+advance is stored entirely in `fSpacing`, matching the inspected vanilla fonts:
 
-The current approach is:
+```text
+space.fWidth = 0
+space.fHeight = 0
+space.fTopEdge = 0
+space.fLeadingEdge = 0
+space.fSpacing = targetSpaceAdvance
+```
 
-1. Generate all glyphs and compute `fBaseLine`.
-2. Compute representative line drop from valid non-space glyphs:
-
-   ```text
-   lineDrop = max(fHeight - fTopEdge)
-   ```
-
-3. Set the space glyph's vertical metrics to represent the same line box:
-
-   ```text
-   space.fTopEdge = fBaseLine
-   space.fHeight = fBaseLine + lineDrop
-   ```
-
-4. Keep space width/spacing logic separate from vertical metrics.
-
-This keeps the space glyph invisible horizontally while giving it vertical data
-that matches how the game uses character 32.
+This rule is independent of normal glyph drop calculations and effect bounds.
 
 ## Open Verification Points
 
