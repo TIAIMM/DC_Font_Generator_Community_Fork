@@ -61,6 +61,8 @@ namespace DC_Font_Generator
         public bool[] Fallout3INI { get; } = new bool[8];
         public bool FixedFont { get; set; }
         public float FontMaxWidth { get; set; }
+        public bool HasUseProportionalDoubleByteSpacing { get; set; }
+        public bool UseProportionalDoubleByteSpacing { get; set; }
         public bool HasUseManualBaseLine { get; set; }
         public bool UseManualBaseLine { get; set; }
         public bool HasManualBaseLine { get; set; }
@@ -237,6 +239,9 @@ namespace DC_Font_Generator
             {
                 writer.WriteElementString("FontMaxWidth", main.FontMaxWidth.ToString());
             }
+            writer.WriteElementString(
+                "UseProportionalDoubleByteSpacing",
+                main.UseProportionalDoubleByteSpacing.ToString());
 
             writer.WriteStartElement("Adjust");
             foreach (Fnt_char fnt in main.FntFile.CharList)
@@ -319,6 +324,10 @@ namespace DC_Font_Generator
                 case "FontMaxWidth":
                     currentFont.FixedFont = true;
                     currentFont.FontMaxWidth = ReadFloat(reader);
+                    break;
+                case "UseProportionalDoubleByteSpacing":
+                    currentFont.UseProportionalDoubleByteSpacing = ReadString(reader).ToLower() == "true";
+                    currentFont.HasUseProportionalDoubleByteSpacing = true;
                     break;
                 case "FontColor":
                     currentFont.FontColorArgb = ReadInt(reader);

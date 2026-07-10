@@ -202,6 +202,10 @@ namespace DC_Font_Generator
                 main.fixedFont = true;
                 main.FontMaxWidth = section.FontMaxWidth;
             }
+            if (section.HasUseProportionalDoubleByteSpacing)
+            {
+                main.UseProportionalDoubleByteSpacing = section.UseProportionalDoubleByteSpacing;
+            }
 
             for (int i = 0; i < 8; i++)
             {

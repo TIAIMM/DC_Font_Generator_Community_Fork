@@ -35,6 +35,7 @@ namespace DC_Font_Generator
 
         public bool SkipASCII = false; //忽略ASCII的輸出
         public bool fixedFont = false; //等寬字旗標
+        public bool UseProportionalDoubleByteSpacing = false;
 
         private FontDescriptor _nowFontDescriptor;
 
@@ -189,6 +190,7 @@ namespace DC_Font_Generator
             builder.Append("|link=").Append(DCfontLink.ToString(CultureInfo.InvariantCulture));
             builder.Append("|fixed=").Append(fixedFont ? "1" : "0");
             builder.Append("|fixedWidth=").Append(FontMaxWidth.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append("|proportionalDoubleByteSpacing=").Append(UseProportionalDoubleByteSpacing ? "1" : "0");
             builder.Append("|glow=").Append(Glow.ToString(CultureInfo.InvariantCulture));
             builder.Append("|glowColor=").Append(GlowColor.ToArgb().ToString(CultureInfo.InvariantCulture));
             builder.Append("|outline=").Append(Outline.ToString(CultureInfo.InvariantCulture));
@@ -391,6 +393,11 @@ namespace DC_Font_Generator
                 foreach (Fnt_char fnt in this.iFntFile.CharList)
                 {
                     if (!fnt.Enable) continue;
+                    if (UseProportionalDoubleByteSpacing && fnt.IsDC)
+                    {
+                        fnt.FixedWidth = 0;
+                        continue;
+                    }
                     //if (SkipASCII && !fnt.IsDC) continue;
                     //if (fnt.FixedWidth == FontMaxWidth) continue; //已經處理過
 
@@ -475,7 +482,9 @@ namespace DC_Font_Generator
 
                 fnt.fLeadingEdge = 0;
                 fnt.fSpacing = 0;
-                if (!this.fixedFont && !IsSpace)
+                bool useProportionalSpacing = !this.fixedFont
+                    || (dc && this.UseProportionalDoubleByteSpacing);
+                if (useProportionalSpacing && !IsSpace)
                 {
                     float rawAdvance = glyph.LayoutAdvance > 0f
                         ? glyph.LayoutAdvance
@@ -1114,7 +1123,7 @@ namespace DC_Font_Generator
 
         private void QuantizeGeneratedGlyphHorizontalMetrics()
         {
-            if (ImportFont1name != "" || ImportFont2name != "" || fixedFont)
+            if (ImportFont1name != "" || ImportFont2name != "")
             {
                 return;
             }
@@ -1122,6 +1131,11 @@ namespace DC_Font_Generator
             foreach (Fnt_char fnt in this.iFntFile.CharList)
             {
                 if (!fnt.Enable)
+                {
+                    continue;
+                }
+
+                if (fixedFont && !(UseProportionalDoubleByteSpacing && fnt.IsDC))
                 {
                     continue;
                 }

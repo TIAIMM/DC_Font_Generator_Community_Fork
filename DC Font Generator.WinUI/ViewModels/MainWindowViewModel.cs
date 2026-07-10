@@ -688,6 +688,13 @@ internal sealed class MainWindowViewModel : ObservableObject
         InvalidateGeneratedOutput();
     }
 
+    public void SetProportionalDoubleByteSpacing(bool enabled)
+    {
+        FontSectionStateService.ApplyProportionalDoubleByteSpacing(FontSections, SelectedFontIndex, enabled);
+        RefreshSectionState();
+        InvalidateGeneratedOutput();
+    }
+
     public void SetManualBaseLine(bool auto, float value)
     {
         FontSectionStateService.ApplyManualBaseLine(FontSections, SelectedFontIndex, !auto, value, true);

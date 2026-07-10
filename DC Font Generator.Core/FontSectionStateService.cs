@@ -16,6 +16,7 @@ namespace DC_Font_Generator
         public string FontLabel { get; set; }
         public float FontMaxWidth { get; set; }
         public bool FixedFont { get; set; }
+        public bool UseProportionalDoubleByteSpacing { get; set; }
         public int Glow { get; set; }
         public int Outline { get; set; }
         public Color GlowColor { get; set; }
@@ -71,6 +72,7 @@ namespace DC_Font_Generator
                 FontLabel = "Fnt " + (selectedIndex + 1) + "/" + sections.Count,
                 FontMaxWidth = selected.FontMaxWidth,
                 FixedFont = selected.fixedFont,
+                UseProportionalDoubleByteSpacing = selected.UseProportionalDoubleByteSpacing,
                 Glow = selected.Glow,
                 Outline = selected.Outline,
                 GlowColor = selected.GlowColor,
@@ -236,6 +238,21 @@ namespace DC_Font_Generator
         {
             section.FixedFont(enabled, maxWidth);
             section.Clear();
+        }
+
+        public static void ApplyProportionalDoubleByteSpacing(
+            IList<Main> sections,
+            int selectedIndex,
+            bool enabled)
+        {
+            ApplyProportionalDoubleByteSpacing(GetSection(sections, selectedIndex), enabled);
+        }
+
+        public static void ApplyProportionalDoubleByteSpacing(Main section, bool enabled)
+        {
+            section.UseProportionalDoubleByteSpacing = enabled;
+            section.Clear();
+            section.InvalidateGeneratedState();
         }
 
         public static void ApplyManualBaseLine(IList<Main> sections, int selectedIndex, bool enabled, float value, bool clear)

@@ -13,6 +13,7 @@ public sealed class WinUiFontSectionViewState
     public string DoubleByteFontText { get; set; }
     public bool FixedFont { get; set; }
     public float FontMaxWidth { get; set; }
+    public bool UseProportionalDoubleByteSpacing { get; set; }
     public int Glow { get; set; }
     public int Outline { get; set; }
     public WinUIColor GlowColor { get; set; }
@@ -41,6 +42,7 @@ public static class WinUiFontSectionAdapter
             DoubleByteFontText = state.DoubleByteFontText,
             FixedFont = state.FixedFont,
             FontMaxWidth = state.FontMaxWidth,
+            UseProportionalDoubleByteSpacing = state.UseProportionalDoubleByteSpacing,
             Glow = state.Glow,
             Outline = state.Outline,
             GlowColor = WinUiColorAdapter.ToWinUiColor(state.GlowColor),
@@ -73,6 +75,14 @@ public static class WinUiFontSectionAdapter
     public static void ApplyFixedFontWidth(IList<Main> sections, int selectedIndex, bool enabled, float fixedWidth)
     {
         FontSectionStateService.ApplyFixedFontWidth(sections, selectedIndex, enabled, fixedWidth);
+    }
+
+    public static void ApplyProportionalDoubleByteSpacing(
+        IList<Main> sections,
+        int selectedIndex,
+        bool enabled)
+    {
+        FontSectionStateService.ApplyProportionalDoubleByteSpacing(sections, selectedIndex, enabled);
     }
 
     public static void ApplyManualBaseLine(IList<Main> sections, int selectedIndex, bool enabled, float value)

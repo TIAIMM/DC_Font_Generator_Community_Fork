@@ -167,7 +167,7 @@
                             </Grid>
 
                             <TextBlock Text="布局与名称" FontWeight="SemiBold"/>
-                            <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                                   ColumnDefinitions="Auto,140,*"
                                   ColumnSpacing="8"
                                   RowSpacing="8">
@@ -183,13 +183,20 @@
                                            SpinButtonPlacementMode="Compact"
                                            ValueChanged="FixedWidthNumberBox_ValueChanged"/>
 
-                                <CheckBox x:Name="AutoBaseLineCheckBox"
+                                <CheckBox x:Name="ProportionalDoubleByteSpacingCheckBox"
                                           Grid.Row="1"
+                                          Grid.ColumnSpan="3"
+                                          Content="等宽时双字节使用可变间距"
+                                          Checked="ProportionalDoubleByteSpacingCheckBox_Changed"
+                                          Unchecked="ProportionalDoubleByteSpacingCheckBox_Changed"/>
+
+                                <CheckBox x:Name="AutoBaseLineCheckBox"
+                                          Grid.Row="2"
                                           Content="自动基线"
                                           Checked="AutoBaseLineCheckBox_Changed"
                                           Unchecked="AutoBaseLineCheckBox_Changed"/>
                                 <NumberBox x:Name="BaseLineNumberBox"
-                                           Grid.Row="1"
+                                           Grid.Row="2"
                                            Grid.Column="1"
                                            Minimum="1"
                                            Maximum="256"
@@ -197,16 +204,16 @@
                                            SpinButtonPlacementMode="Compact"
                                            ValueChanged="BaseLineNumberBox_ValueChanged"/>
 
-                                <TextBlock Grid.Row="2" Text="FNT 名称" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="3" Text="FNT 名称" VerticalAlignment="Center"/>
                                 <TextBox x:Name="FntNameTextBox"
-                                         Grid.Row="2"
+                                         Grid.Row="3"
                                          Grid.Column="1"
                                          Grid.ColumnSpan="2"
                                          TextChanged="FntNameTextBox_TextChanged"/>
 
-                                <TextBlock Grid.Row="3" Text="Tex 名称" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="4" Text="Tex 名称" VerticalAlignment="Center"/>
                                 <TextBox x:Name="TexNameTextBox"
-                                         Grid.Row="3"
+                                         Grid.Row="4"
                                          Grid.Column="1"
                                          Grid.ColumnSpan="2"
                                          TextChanged="TexNameTextBox_TextChanged"/>

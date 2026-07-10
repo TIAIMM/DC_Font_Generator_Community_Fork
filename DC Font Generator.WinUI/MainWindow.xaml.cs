@@ -260,6 +260,8 @@ public sealed partial class MainWindow : Window
             FixedFontCheckBox.IsChecked = state.FixedFont;
             FixedWidthNumberBox.Value = state.FontMaxWidth;
             FixedWidthNumberBox.IsEnabled = state.FixedFont;
+            ProportionalDoubleByteSpacingCheckBox.IsChecked = state.UseProportionalDoubleByteSpacing;
+            ProportionalDoubleByteSpacingCheckBox.IsEnabled = state.FixedFont;
             AutoBaseLineCheckBox.IsChecked = !state.UseManualBaseLine;
             BaseLineNumberBox.Value = state.ManualBaseLine;
             BaseLineNumberBox.IsEnabled = state.UseManualBaseLine;
@@ -462,6 +464,13 @@ public sealed partial class MainWindow : Window
             state = viewModel.GetSectionState();
         }
 
+        bool proportionalDoubleByteSpacing = ProportionalDoubleByteSpacingCheckBox.IsChecked == true;
+        if (proportionalDoubleByteSpacing != state.UseProportionalDoubleByteSpacing)
+        {
+            viewModel.SetProportionalDoubleByteSpacing(proportionalDoubleByteSpacing);
+            state = viewModel.GetSectionState();
+        }
+
         bool autoBaseLine = AutoBaseLineCheckBox.IsChecked == true;
         bool useManualBaseLine = !autoBaseLine;
         float manualBaseLine = !double.IsNaN(BaseLineNumberBox.Value)
@@ -613,6 +622,13 @@ public sealed partial class MainWindow : Window
     {
         if (syncing || double.IsNaN(args.NewValue)) return;
         viewModel.SetFixedFontWidth(FixedFontCheckBox.IsChecked == true, (float)args.NewValue);
+    }
+
+    private void ProportionalDoubleByteSpacingCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (syncing) return;
+        viewModel.SetProportionalDoubleByteSpacing(ProportionalDoubleByteSpacingCheckBox.IsChecked == true);
+        UpdateSectionControls();
     }
 
     private void AutoBaseLineCheckBox_Changed(object sender, RoutedEventArgs e)
